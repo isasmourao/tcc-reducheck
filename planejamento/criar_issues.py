@@ -18,6 +18,8 @@ import requests
 import yaml
 
 API = "https://api.github.com"
+AQUI = os.path.dirname(os.path.abspath(__file__))
+MAPA = os.path.join(AQUI, "numeros_issues.yaml")
 
 
 def corpo_issue(t: dict, numeros: dict[str, int], marcos: dict[str, dict]) -> str:
@@ -140,11 +142,11 @@ def cadastrar(dados: dict, repo: str, token: str) -> None:
         print(f"issue criada: #{criada['number']} {titulo}")
         time.sleep(1)  # respeita o limite de criação de conteúdo do GitHub
 
-    with open("numeros_issues.yaml", "w", encoding="utf-8") as f:
+    with open(MAPA, "w", encoding="utf-8") as f:
         yaml.safe_dump(numeros, f, allow_unicode=True)
 
 
-def atualizar(dados: dict, repo: str, token: str, mapa: str = "numeros_issues.yaml") -> None:
+def atualizar(dados: dict, repo: str, token: str, mapa: str = MAPA) -> None:
     """Reescreve título, corpo e labels das issues já criadas, usando o mapa ID → número."""
     gh = GitHub(repo, token)
     with open(mapa, encoding="utf-8") as f:
@@ -166,7 +168,7 @@ def main() -> None:
     p.add_argument("repo")
     p.add_argument("--previa")
     p.add_argument("--atualizar", action="store_true", help="reescreve as issues existentes")
-    p.add_argument("--arquivo", default=os.path.join(os.path.dirname(__file__), "tarefas.yaml"))
+    p.add_argument("--arquivo", default=os.path.join(AQUI, "tarefas.yaml"))
     a = p.parse_args()
     with open(a.arquivo, encoding="utf-8") as f:
         dados = yaml.safe_load(f)

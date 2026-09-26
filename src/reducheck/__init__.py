@@ -7,7 +7,6 @@ map the variables, measure the metrics, decide the verdict and write the report.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,14 +43,6 @@ class Resultado:
         return self.veredito.criterios
 
 
-def _sem_repetir(nomes: Iterable[str]) -> list[str]:
-    """Return ``nomes`` without repetitions, in order.
-
-    Two declared variables may read the same variable of a model; it is simulated once.
-    """
-    return list(dict.fromkeys(nomes))
-
-
 def verificar(caminho_config: Path | str) -> Resultado:
     """Run the whole verification described by the YAML at ``caminho_config``."""
     configuracao = _config.carregar(caminho_config)
@@ -59,18 +50,20 @@ def verificar(caminho_config: Path | str) -> Resultado:
     trajetorias_originais = simulation.simular(
         configuracao.modelos.original,
         configuracao.simulacao,
-        _sem_repetir(variavel.original for variavel in configuracao.variaveis),
+        mapping.nomes_simulados(configuracao.variaveis, "original"),
     )
     trajetorias_simplificadas = simulation.simular(
         configuracao.modelos.simplificado,
         configuracao.simulacao,
-        _sem_repetir(variavel.simplificado for variavel in configuracao.variaveis),
+        mapping.nomes_simulados(configuracao.variaveis, "simplificado"),
     )
 
     series = mapping.mapear(
         configuracao.variaveis, trajetorias_originais, trajetorias_simplificadas
     )
-    veredito = verdict.avaliar(configuracao.criterios, series)
+    veredito = verdict.avaliar(
+        configuracao.criterios, series, core=configuracao.nomes_core()
+    )
     caminho_json = report.salvar_json(veredito, configuracao.relatorio.pasta)
 
     return Resultado(

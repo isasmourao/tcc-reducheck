@@ -75,6 +75,83 @@ def test_mapping_pairs_the_declared_variables() -> None:
     np.testing.assert_allclose(series["saida"].tempo, [0.0, 1.0])
 
 
+def test_mapping_sums_the_variables_of_a_list() -> None:
+    original = trajetorias(("Mo", "M1", "M2"), [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+    simplificado = trajetorias(("M",), [[9.0, 12.0]])
+    variaveis = [config_mod.Variavel(nome="M", original=["Mo", "M1", "M2"], simplificado="M")]
+
+    series = mapping.mapear(variaveis, original, simplificado)
+
+    np.testing.assert_allclose(series["M"].original, [9.0, 12.0])
+    np.testing.assert_allclose(series["M"].simplificado, [9.0, 12.0])
+
+
+def test_mapping_applies_the_weights_of_a_dictionary() -> None:
+    original = trajetorias(("C1", "C2"), [[2.0, 4.0], [10.0, 20.0]])
+    simplificado = trajetorias(("C",), [[7.0, 14.0]])
+    variaveis = [config_mod.Variavel(nome="C", original={"C1": 1.0, "C2": 0.5}, simplificado="C")]
+
+    series = mapping.mapear(variaveis, original, simplificado)
+
+    np.testing.assert_allclose(series["C"].original, [7.0, 14.0])
+
+
+def test_a_sum_may_also_be_on_the_simplified_side() -> None:
+    original = trajetorias(("A",), [[6.0, 8.0]])
+    simplificado = trajetorias(("a1", "a2"), [[2.0, 3.0], [4.0, 5.0]])
+    variaveis = [config_mod.Variavel(nome="A", original="A", simplificado=["a1", "a2"])]
+
+    series = mapping.mapear(variaveis, original, simplificado)
+
+    np.testing.assert_allclose(series["A"].simplificado, [6.0, 8.0])
+
+
+def test_mapping_records_what_each_side_was_built_from() -> None:
+    original = trajetorias(("Mo", "M1"), [[1.0, 2.0], [3.0, 4.0]])
+    simplificado = trajetorias(("M",), [[4.0, 6.0]])
+    variaveis = [config_mod.Variavel(nome="M", original=["Mo", "M1"], simplificado="M")]
+
+    serie = mapping.mapear(variaveis, original, simplificado)["M"]
+
+    assert serie.pesos_original == {"Mo": 1.0, "M1": 1.0}
+    assert serie.pesos_simplificado == {"M": 1.0}
+
+
+def test_a_dropped_variable_produces_no_series() -> None:
+    original = trajetorias(("A", "B"), [[1.0, 2.0], [3.0, 4.0]])
+    simplificado = trajetorias(("A",), [[1.0, 2.0]])
+    variaveis = [
+        config_mod.Variavel(nome="A", original="A", simplificado="A"),
+        config_mod.Variavel(nome="B", original="B", simplificado=None, core=False),
+    ]
+
+    series = mapping.mapear(variaveis, original, simplificado)
+
+    assert list(series) == ["A"]
+
+
+def test_mapping_asks_the_simulation_for_every_name_once() -> None:
+    variaveis = [
+        config_mod.Variavel(nome="M", original=["Mo", "M1"], simplificado="M"),
+        config_mod.Variavel(nome="soma", original={"M1": 0.5, "D": 1.0}, simplificado="D"),
+        config_mod.Variavel(nome="B", original="B", simplificado=None, core=False),
+    ]
+
+    assert mapping.nomes_simulados(variaveis, "original") == ["Mo", "M1", "D", "B"]
+    # The dropped variable asks for nothing on the simplified side.
+    assert mapping.nomes_simulados(variaveis, "simplificado") == ["M", "D"]
+
+
+def test_mapping_names_the_model_when_a_summed_variable_is_missing() -> None:
+    original = trajetorias(("Mo",), [[1.0, 2.0]])
+    simplificado = trajetorias(("M",), [[1.0, 2.0]])
+    variaveis = [config_mod.Variavel(nome="M", original=["Mo", "M1"], simplificado="M")]
+
+    with pytest.raises(mapping.ErroDeMapeamento, match="M1"):
+        mapping.mapear(variaveis, original, simplificado)
+
+
+
 # --- metrics -----------------------------------------------------------------
 
 
@@ -162,6 +239,19 @@ def test_verdict_rejects_a_value_just_above_the_limit() -> None:
     criterios = [config_mod.Criterio(metrica="nrmse", limite=valor * 0.999, variaveis=["A"])]
 
     assert verdict.avaliar(criterios, series).criterios[0].passou is False
+
+
+def test_the_core_selector_evaluates_every_core_variable() -> None:
+    criterios = [config_mod.Criterio(metrica="nrmse", limite=0.05, variaveis="core")]
+
+    resultado = verdict.avaliar(
+        criterios, series_com({"A": 0.0, "C": 0.02, "D": 0.4}), core=["A", "C"]
+    )
+
+    # D is not core, so it is not evaluated and does not drag the verdict down.
+    assert [c.variavel for c in resultado.criterios] == ["A", "C"]
+    assert resultado.aprovado is True
+
 
 
 # --- report ------------------------------------------------------------------

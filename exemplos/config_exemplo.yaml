@@ -40,29 +40,45 @@ variaveis:
   - nome: C
     original: C
     simplificado: C
-  # Soma de variáveis do original (agregação/lumping) — (ainda não suportado):
+  # Uma variável eliminada por QSSA vira uma regra de atribuição no modelo simplificado, e
+  # pode ser comparada com a original normalmente. Aqui B é espécie no original e regra no
+  # simplificado; está com 'core: false' porque a QSSA não promete acertar B no instante
+  # inicial (ver tests/fixtures/README.md):
+  - nome: B
+    original: B
+    simplificado: B
+    core: false
+  # Soma de variáveis do original (agregação/lumping), como na simplificação 2 da Verly,
+  # que junta Mo, M1 e M2 num único M:
   # - nome: M
   #   original: [Mo, M1, M2]
   #   simplificado: M
-  # Soma ponderada — (ainda não suportado):
+  # Soma ponderada, quando os termos não entram em partes iguais:
   # - nome: C_total
   #   original: {C1: 1.0, C2: 0.5}
   #   simplificado: C
-  # Variável que a simplificação eliminou, sem contrapartida — (ainda não suportado).
-  # Precisa de 'core: false', porque uma variável core sem mapeamento é erro:
+  # Variável que a simplificação eliminou sem deixar contrapartida nenhuma. Precisa de
+  # 'core: false', porque uma variável core sem mapeamento é erro, e nenhum critério pode
+  # citá-la — não há o que comparar:
   # - nome: Cm
   #   original: Cm
   #   simplificado: null
   #   core: false
+  # Expressões (razões, funções, contas) NÃO são suportadas, por decisão de escopo: a
+  # validação recusa 'original: C1 + C2' dizendo isso.
 
 # Os critérios de aceitação, declarados ANTES de comparar. Cada par (critério, variável)
 # conta como um item na porcentagem do veredito.
 criterios:
   - metrica: nrmse       # tem que estar no registro de métricas (hoje: nrmse)
     limite: 0.05         # maior erro aceito; o limite é inclusivo (passa com valor == limite)
-    variaveis: [A, C]    # nomes declarados acima
+    variaveis: [A, C]    # nomes declarados acima, ou a palavra 'core' (abaixo)
     obrigatorio: true    # opcional (padrão: true); 'false' (ainda não suportado)
-  # variaveis: core      # (ainda não suportado) seleciona de uma vez toda variável core
+  # 'variaveis: core' seleciona de uma vez toda variável marcada com 'core: true'. Aqui
+  # daria [A, C], porque B está com 'core: false':
+  # - metrica: nrmse
+  #   limite: 0.05
+  #   variaveis: core
   # - metrica: estabilidade_local   # (ainda não suportado) análise qualitativa, sem limite
   #   obrigatorio: true
 

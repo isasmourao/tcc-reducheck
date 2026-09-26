@@ -1,0 +1,30 @@
+# Configuração do par de brinquedo aggregation (veredito esperado: aprovado).
+# É o par que exige mapeamento por soma: X1 + X2 do original viram o X do simplificado.
+# Os caminhos são relativos a este arquivo.
+versao: 1
+
+modelos:
+  original: aggregation_original.xml
+  simplificado: aggregation_simplified.xml
+
+simulacao:
+  t_inicio: 0
+  t_fim: 50
+  pontos: 501
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+
+variaveis:
+  - nome: X
+    original: [X1, X2]
+    simplificado: X
+    core: true
+
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: core
+
+relatorio:
+  pasta: resultados/

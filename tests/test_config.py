@@ -298,23 +298,12 @@ def test_a_yaml_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("de", "para", "campo"),
     [
-        (
-            "original: A\n    simplificado: A",
-            "original: [A, B]\n    simplificado: A",
-            "variaveis[0].original",
-        ),
-        (
-            "original: A\n    simplificado: A",
-            "original: {A: 1.0}\n    simplificado: A",
-            "variaveis[0].original",
-        ),
         # A qualitative criterion carries no threshold and no list of variables.
         (
             "metrica: nrmse\n    limite: 0.05\n    variaveis: [A, C]",
             "metrica: estabilidade_local",
             "criterios[0].metrica",
         ),
-        ("variaveis: [A, C]", "variaveis: core", "criterios[0].variaveis"),
         (
             "    variaveis: [A, C]",
             "    variaveis: [A, C]\n    obrigatorio: false",
@@ -345,6 +334,108 @@ def test_an_unsupported_report_format_stops(tmp_path: Path) -> None:
     assert "ainda não" in mensagem
 
 
+# --- mapping by sum, weighted sum and core selection (issue #10) -------------
+
+
+def test_a_sum_and_a_weighted_sum_are_accepted(tmp_path: Path) -> None:
+    cfg = config_mod.carregar(
+        escrever(
+            tmp_path,
+            BASE.replace(
+                "    original: A\n    simplificado: A",
+                "    original: [A, B]\n    simplificado: A",
+            ).replace("    original: C\n", "    original: {A: 1.0, C: 0.5}\n"),
+        )
+    )
+
+    assert [v.original for v in cfg.variaveis] == [["A", "B"], {"A": 1.0, "C": 0.5}]
+
+
+def test_the_three_spellings_normalize_to_the_same_shape() -> None:
+    assert config_mod.normalizar_alvo("A") == {"A": 1.0}
+    assert config_mod.normalizar_alvo(["A", "B"]) == {"A": 1.0, "B": 1.0}
+    assert config_mod.normalizar_alvo({"A": 1.0, "B": 0.5}) == {"A": 1.0, "B": 0.5}
+
+
+def test_an_arbitrary_expression_says_it_is_not_supported(tmp_path: Path) -> None:
+    # It must not be reported as "the model has no variable called A + C": the reason is
+    # that the library deliberately does not read expressions.
+    mensagem = recusa(tmp_path, BASE.replace("original: C\n", "original: A + C\n"))
+
+    assert "variaveis[1].original" in mensagem
+    assert "Expressões" in mensagem
+
+
+def test_a_ratio_inside_a_sum_is_refused(tmp_path: Path) -> None:
+    mensagem = recusa(tmp_path, BASE.replace("original: C\n", "original: [A, C/B]\n"))
+
+    assert "variaveis[1].original" in mensagem
+    assert "Expressões" in mensagem
+
+
+def test_an_empty_sum_is_refused(tmp_path: Path) -> None:
+    mensagem = recusa(tmp_path, BASE.replace("original: C\n", "original: []\n"))
+
+    assert "variaveis[1].original" in mensagem
+    assert "vazia" in mensagem
+
+
+def test_a_variable_repeated_inside_a_sum_is_refused(tmp_path: Path) -> None:
+    mensagem = recusa(tmp_path, BASE.replace("original: C\n", "original: [C, C]\n"))
+
+    assert "variaveis[1].original" in mensagem
+    assert "mais de uma vez" in mensagem
+
+
+def test_a_non_finite_weight_is_refused(tmp_path: Path) -> None:
+    mensagem = recusa(tmp_path, BASE.replace("original: C\n", "original: {C: .nan}\n"))
+
+    assert "variaveis[1].original" in mensagem
+    assert "finito" in mensagem
+
+
+def test_a_dropped_variable_is_accepted_when_it_is_not_core(tmp_path: Path) -> None:
+    cfg = config_mod.carregar(
+        escrever(
+            tmp_path,
+            BASE.replace(
+                "criterios:",
+                "  - nome: B\n    original: B\n    simplificado: null\n"
+                "    core: false\ncriterios:",
+            ),
+        )
+    )
+
+    assert cfg.variaveis[-1].simplificado is None
+    assert cfg.nomes_core() == ["A", "C"]
+
+
+def test_the_core_selector_expands_to_the_core_variables(tmp_path: Path) -> None:
+    cfg = config_mod.carregar(
+        escrever(
+            tmp_path,
+            BASE.replace(
+                "    simplificado: C\n", "    simplificado: C\n    core: false\n"
+            ).replace("variaveis: [A, C]", "variaveis: core"),
+        )
+    )
+
+    assert cfg.nomes_core() == ["A"]
+    assert cfg.variaveis_de(cfg.criterios[0]) == ["A"]
+
+
+def test_the_core_selector_with_nothing_core_is_refused(tmp_path: Path) -> None:
+    mensagem = recusa(
+        tmp_path,
+        BASE.replace("    simplificado: A\n", "    simplificado: A\n    core: false\n")
+        .replace("    simplificado: C\n", "    simplificado: C\n    core: false\n")
+        .replace("variaveis: [A, C]", "variaveis: core"),
+    )
+
+    assert "criterios[0].variaveis" in mensagem
+    assert "core" in mensagem
+
+
 # --- the commented example is a valid configuration --------------------------
 
 
@@ -354,4 +445,7 @@ def test_the_example_configuration_is_valid() -> None:
     cfg = config_mod.carregar(exemplo)
 
     assert cfg.versao == 1
-    assert [v.nome for v in cfg.variaveis] == ["A", "C"]
+    # B is there to show the eliminated variable read from an assignment rule; it is not
+    # core, because the QSSA does not get it right at t = 0 (tests/fixtures/README.md).
+    assert [v.nome for v in cfg.variaveis] == ["A", "C", "B"]
+    assert cfg.nomes_core() == ["A", "C"]

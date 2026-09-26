@@ -1,4 +1,4 @@
-"""Unit tests of the individual pipeline steps."""
+"""Unit tests of the individual pipeline steps (the configuration is in test_config.py)."""
 
 from __future__ import annotations
 
@@ -12,88 +12,6 @@ from reducheck import config as config_mod
 from reducheck import mapping, metrics, report, simulation, verdict
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
-
-
-# --- config ------------------------------------------------------------------
-
-
-def test_config_reads_every_supported_field() -> None:
-    cfg = config_mod.carregar(FIXTURES_DIR / "config_qssa_ok.yaml")
-
-    assert cfg.versao == 1
-    assert cfg.modelos.original == FIXTURES_DIR / "qssa_ok_original.xml"
-    assert cfg.modelos.simplificado == FIXTURES_DIR / "qssa_ok_simplified.xml"
-    assert (cfg.simulacao.t_inicio, cfg.simulacao.t_fim, cfg.simulacao.pontos) == (0.0, 40.0, 401)
-    assert (cfg.simulacao.tol_relativa, cfg.simulacao.tol_absoluta) == (1e-8, 1e-10)
-    assert [(v.nome, v.original, v.simplificado) for v in cfg.variaveis] == [
-        ("A", "A", "A"),
-        ("C", "C", "C"),
-    ]
-    assert [(c.metrica, c.limite, c.variaveis) for c in cfg.criterios] == [
-        ("nrmse", 0.05, ["A", "C"])
-    ]
-    assert cfg.relatorio.pasta == FIXTURES_DIR / "resultados"
-
-
-BASE = """
-versao: 1
-modelos:
-  original: qssa_ok_original.xml
-  simplificado: qssa_ok_simplified.xml
-simulacao:
-  t_fim: 40
-  pontos: 401
-variaveis:
-  - nome: A
-    original: A
-    simplificado: A
-criterios:
-  - metrica: nrmse
-    limite: 0.05
-    variaveis: [A]
-"""
-
-
-def escrever(tmp_path: Path, texto: str) -> Path:
-    """Write one configuration into tmp_path, next to copies of the fixture models."""
-    for modelo in FIXTURES_DIR.glob("qssa_ok_*.xml"):
-        (tmp_path / modelo.name).write_bytes(modelo.read_bytes())
-    caminho = tmp_path / "config.yaml"
-    caminho.write_text(texto, encoding="utf-8")
-    return caminho
-
-
-def test_config_defaults_match_the_product_document(tmp_path: Path) -> None:
-    cfg = config_mod.carregar(escrever(tmp_path, BASE))
-
-    assert cfg.simulacao.t_inicio == 0.0
-    assert cfg.simulacao.solver == "cvode"
-    assert cfg.simulacao.tol_relativa == 1e-8
-    assert cfg.simulacao.tol_absoluta == 1e-10
-    assert cfg.relatorio.pasta == tmp_path / "resultados"
-
-
-@pytest.mark.parametrize(
-    ("de", "para"),
-    [
-        # Not supported by this version of the pipeline.
-        ("metrica: nrmse", "metrica: mape"),
-        # Criterion pointing at a variable that was never declared.
-        ("variaveis: [A]", "variaveis: [Z]"),
-        # Sum mapping: a later task.
-        ("original: A\n    simplificado: A", "original: [A, B]\n    simplificado: A"),
-        ("pontos: 401", "pontos: 1"),
-    ],
-)
-def test_config_rejects_what_is_not_supported_yet(tmp_path: Path, de: str, para: str) -> None:
-    with pytest.raises(config_mod.ErroDeConfiguracao):
-        config_mod.carregar(escrever(tmp_path, BASE.replace(de, para)))
-
-
-def test_config_reports_a_missing_model_file(tmp_path: Path) -> None:
-    texto = BASE.replace("qssa_ok_original.xml", "nao_existe.xml")
-    with pytest.raises(config_mod.ErroDeConfiguracao, match="nao_existe.xml"):
-        config_mod.carregar(escrever(tmp_path, texto))
 
 
 # --- simulation --------------------------------------------------------------

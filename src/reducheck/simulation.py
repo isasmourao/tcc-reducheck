@@ -17,7 +17,7 @@ import roadrunner
 
 from reducheck.config import SOLVERS_SUPORTADOS, Simulacao
 
-__all__ = ["ErroDeSimulacao", "Trajetorias", "simular"]
+__all__ = ["ErroDeSimulacao", "Trajetorias", "nomes_disponiveis", "simular"]
 
 
 class ErroDeSimulacao(Exception):
@@ -81,6 +81,26 @@ def simular(
     return Trajetorias(tempo=saida[:, 0], nomes=tuple(variaveis), estados=saida[:, 1:])
 
 
+def nomes_disponiveis(caminho_sbml: Path | str) -> frozenset[str]:
+    """Return every name the model at ``caminho_sbml`` can be asked for.
+
+    Used by :mod:`reducheck.config` to reject a mapping that cites a name the model does
+    not have *before* anything is simulated. Variables eliminated by QSSA appear here as
+    global parameters, because that is how libRoadRunner exposes an assignment rule.
+    """
+    return _nomes(_carregar(caminho_sbml))
+
+
+def _nomes(modelo: roadrunner.RoadRunner) -> frozenset[str]:
+    return frozenset(
+        {
+            *modelo.model.getFloatingSpeciesIds(),
+            *modelo.model.getBoundarySpeciesIds(),
+            *modelo.model.getGlobalParameterIds(),
+        }
+    )
+
+
 def _carregar(caminho_sbml: Path | str) -> roadrunner.RoadRunner:
     try:
         return roadrunner.RoadRunner(str(caminho_sbml))
@@ -94,11 +114,7 @@ def _exigir_variaveis_existentes(
     modelo: roadrunner.RoadRunner, variaveis: Sequence[str], caminho_sbml: Path | str
 ) -> None:
     """Fail before simulating when a requested name is not in the model."""
-    conhecidas = {
-        *modelo.model.getFloatingSpeciesIds(),
-        *modelo.model.getBoundarySpeciesIds(),
-        *modelo.model.getGlobalParameterIds(),
-    }
+    conhecidas = _nomes(modelo)
     ausentes = [nome for nome in variaveis if nome not in conhecidas]
     if ausentes:
         disponiveis = ", ".join(sorted(conhecidas))

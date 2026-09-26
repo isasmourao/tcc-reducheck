@@ -129,7 +129,15 @@ relatorio:
 - um arquivo não existe ou o SBML é inválido;
 - uma variável citada no mapeamento não existe no modelo;
 - uma variável core não tem mapeamento;
-- uma métrica ou limite é desconhecido ou inválido.
+- uma métrica ou limite é desconhecido ou inválido;
+- uma chave do YAML não existe no esquema (com sugestão do nome parecido);
+- o pedido é válido no formato mas a capacidade ainda não está implementada (a mensagem diz
+  qual capacidade e qual issue).
+
+Toda mensagem diz o caminho do campo (`variaveis[2].original`) e, para nomes inexistentes,
+sugere o mais parecido. Uma variável que a simplificação eliminou é declarada com
+`simplificado: null` e exige `core: false`, já que não há o que comparar (acrescentado na
+issue #9; ver `docs/questoes-em-aberto.md`, itens 9 a 13).
 
 Ela também **avisa, sem parar**, quando uma escolha é arriscada: por exemplo, MAPE numa variável que chega perto de zero.
 

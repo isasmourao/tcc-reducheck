@@ -1,0 +1,31 @@
+# Configuração do par de brinquedo qssa_ok (veredito esperado: aprovado).
+# Os caminhos são relativos a este arquivo.
+versao: 1
+
+modelos:
+  original: qssa_ok_original.xml
+  simplificado: qssa_ok_simplified.xml
+
+simulacao:
+  t_inicio: 0
+  t_fim: 40
+  pontos: 401
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+
+variaveis:
+  - nome: A
+    original: A
+    simplificado: A
+  - nome: C
+    original: C
+    simplificado: C
+
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: [A, C]
+
+relatorio:
+  pasta: resultados/

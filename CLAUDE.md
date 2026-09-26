@@ -36,6 +36,40 @@ entrada (config) → simulação (simulation) → mapeamento (mapping) → métr
 (qualitative) → veredito (verdict) → relatório (report); mais cli.
 Motor de simulação: libRoadRunner. Modelos escritos em Antimony e exportados para SBML.
 
+### Árvore de pastas
+
+```
+tcc-reducheck/
+├── .github/workflows/ci.yml   # ruff + pytest em Python 3.11 e 3.12, a cada push e PR
+├── CLAUDE.md
+├── README.md
+├── pyproject.toml             # metadados, dependências e config do pytest/ruff
+├── docs/                      # produto.md, questoes-em-aberto.md, tcc1.pdf
+├── planejamento/              # tarefas.yaml (fonte das issues) e criar_issues.py
+├── src/reducheck/
+│   ├── __init__.py            # __version__
+│   ├── config.py              # ler e validar o YAML
+│   ├── simulation.py          # simular os dois modelos nas mesmas condições
+│   ├── mapping.py             # casar variáveis (1:1, soma, soma ponderada)
+│   ├── metrics.py             # métricas plugáveis
+│   ├── qualitative.py         # equilíbrio e estabilidade local
+│   ├── verdict.py             # critérios e veredito
+│   ├── report.py              # JSON, HTML e gráficos
+│   └── cli.py                 # linha de comando
+└── tests/
+    ├── test_skeleton.py
+    └── fixtures/              # modelos SBML de teste
+```
+
+### Comandos
+
+```bash
+pip install -e .[dev]   # instalação para desenvolvimento (Python 3.11+)
+pytest                  # testes
+ruff check .            # lint
+ruff check . --fix      # lint com correção automática
+```
+
 ## Convenções
 
 - Python 3.11+, layout `src/reducheck/`, type hints em tudo, pytest, ruff.

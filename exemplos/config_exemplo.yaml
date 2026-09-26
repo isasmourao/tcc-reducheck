@@ -1,0 +1,72 @@
+# Exemplo de configuração do reducheck, comentado. Copie este arquivo e ajuste.
+#
+# Rodar como está (o par de brinquedo qssa_ok, veredito esperado: aprovado):
+#     reducheck verificar exemplos/config_exemplo.yaml
+#
+# Todos os caminhos são relativos a ESTE arquivo.
+# Os campos marcados com "(ainda não suportado)" já são aceitos pelo esquema, para o
+# formato do arquivo não mudar mais, mas a biblioteca para com uma mensagem explícita se
+# você usá-los nesta versão: preferimos recusar a rodar a dar um veredito que não
+# corresponde ao que foi pedido.
+
+# Versão do formato deste arquivo. Hoje só existe a 1.
+versao: 1
+
+# Os dois modelos a comparar, em SBML.
+modelos:
+  original: ../tests/fixtures/qssa_ok_original.xml
+  simplificado: ../tests/fixtures/qssa_ok_simplified.xml
+
+# Condições de simulação. Valem para os DOIS modelos, sempre iguais: é isso que torna as
+# trajetórias comparáveis ponto a ponto.
+simulacao:
+  t_inicio: 0            # opcional (padrão: 0)
+  t_fim: 40              # na unidade de tempo do modelo
+  pontos: 401            # pontos de saída, contando as duas pontas (mínimo 2)
+  solver: cvode          # opcional (padrão: cvode; é o único disponível)
+  tol_relativa: 1e-8     # opcional (padrão: 1e-8)
+  tol_absoluta: 1e-10    # opcional (padrão: 1e-10)
+  # parametros:          # (ainda não suportado) sobrescreve valores do SBML
+  #   k1: 0.5
+  # condicoes_iniciais:  # (ainda não suportado)
+  #   A: 2.0
+
+# Como casar as variáveis dos dois modelos. Uma entrada por variável comparada.
+variaveis:
+  - nome: A              # nome usado no relatório; pode ser diferente dos dois modelos
+    original: A          # nome no modelo original
+    simplificado: A      # nome no modelo simplificado
+    core: true           # opcional (padrão: true) — variável essencial ao propósito do modelo
+  - nome: C
+    original: C
+    simplificado: C
+  # Soma de variáveis do original (agregação/lumping) — (ainda não suportado):
+  # - nome: M
+  #   original: [Mo, M1, M2]
+  #   simplificado: M
+  # Soma ponderada — (ainda não suportado):
+  # - nome: C_total
+  #   original: {C1: 1.0, C2: 0.5}
+  #   simplificado: C
+  # Variável que a simplificação eliminou, sem contrapartida — (ainda não suportado).
+  # Precisa de 'core: false', porque uma variável core sem mapeamento é erro:
+  # - nome: Cm
+  #   original: Cm
+  #   simplificado: null
+  #   core: false
+
+# Os critérios de aceitação, declarados ANTES de comparar. Cada par (critério, variável)
+# conta como um item na porcentagem do veredito.
+criterios:
+  - metrica: nrmse       # tem que estar no registro de métricas (hoje: nrmse)
+    limite: 0.05         # maior erro aceito; o limite é inclusivo (passa com valor == limite)
+    variaveis: [A, C]    # nomes declarados acima
+    obrigatorio: true    # opcional (padrão: true); 'false' (ainda não suportado)
+  # variaveis: core      # (ainda não suportado) seleciona de uma vez toda variável core
+  # - metrica: estabilidade_local   # (ainda não suportado) análise qualitativa, sem limite
+  #   obrigatorio: true
+
+# Onde escrever o resultado.
+relatorio:
+  formatos: [json]       # opcional (padrão: [json]); 'html' (ainda não suportado)
+  pasta: resultados/     # opcional (padrão: resultados/)

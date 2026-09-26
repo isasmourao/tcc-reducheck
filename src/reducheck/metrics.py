@@ -2,8 +2,8 @@
 
 Every metric has the same shape -- ``(original, simplificado) -> float``, both arrays on the
 same time grid, smaller is better -- and registers itself under a name with :func:`registrar`.
-Adding a metric therefore means adding a function here and its name to
-``config.METRICAS_SUPORTADAS``; nothing in the pipeline changes.
+Adding a metric therefore means adding a function here: the configuration validates the
+names it reads against :func:`disponiveis`, so nothing in the pipeline changes.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Protocol
 
 import numpy as np
 
-__all__ = ["ErroDeMetrica", "Metrica", "nrmse", "obter", "registrar"]
+__all__ = ["ErroDeMetrica", "Metrica", "disponiveis", "nrmse", "obter", "registrar"]
 
 
 class ErroDeMetrica(Exception):
@@ -43,14 +43,23 @@ def registrar(nome: str) -> Callable[[Metrica], Metrica]:
     return decorador
 
 
+def disponiveis() -> frozenset[str]:
+    """Return the names of every registered metric.
+
+    This is what :mod:`reducheck.config` validates the configuration against, so adding a
+    metric here is enough to make it usable from the YAML.
+    """
+    return frozenset(_REGISTRO)
+
+
 def obter(nome: str) -> Metrica:
     """Return the metric registered under ``nome``."""
     try:
         return _REGISTRO[nome]
     except KeyError as erro:
-        disponiveis = ", ".join(sorted(_REGISTRO))
+        nomes = ", ".join(sorted(_REGISTRO))
         raise ErroDeMetrica(
-            f"A métrica '{nome}' não existe. Disponíveis: {disponiveis}."
+            f"A métrica '{nome}' não existe. Disponíveis: {nomes}."
         ) from erro
 
 

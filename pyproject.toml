@@ -30,9 +30,11 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "ruff>=0.5",
-    # Usado só por tests/fixtures/build_sbml.py, para regerar os SBML dos
-    # modelos de brinquedo a partir dos arquivos Antimony.
+    # Usado só por tests/fixtures/build_sbml.py e modelos/build_sbml.py, para
+    # regerar os SBML a partir dos arquivos Antimony.
     "antimony>=2.13",
+    # Usado só para validar os SBML gerados (tests/test_verly_original.py).
+    "python-libsbml>=5.20",
 ]
 
 [project.urls]
@@ -48,6 +50,9 @@ addopts = "-ra"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Cópia intocada do código original da Verly (ver referencia/README.md):
+# não pode ser alterada, nem para satisfazer o lint.
+extend-exclude = ["referencia/bone_estradiol.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "D"]

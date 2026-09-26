@@ -1,0 +1,15 @@
+// QSSA reduction of qssa_ok_original: B is fast, so dB/dt ~ 0 and
+// B is replaced by the quasi-steady-state value k1 * A / k2.
+model qssa_ok_simplified
+  species A, C;
+
+  A = 10;
+  C = 0;
+
+  k1 = 0.1;
+  k2 = 50;
+
+  J1: A -> C; k1 * A;
+
+  B := k1 * A / k2;
+end

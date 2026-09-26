@@ -1,0 +1,15 @@
+// Chain A -> B -> C with a fast intermediate (k2 / k1 = 500).
+// Reference model for the pair "qssa_ok".
+model qssa_ok_original
+  species A, B, C;
+
+  A = 10;
+  B = 0;
+  C = 0;
+
+  k1 = 0.1;   // slow step A -> B
+  k2 = 50;    // fast step B -> C
+
+  J1: A -> B; k1 * A;
+  J2: B -> C; k2 * B;
+end

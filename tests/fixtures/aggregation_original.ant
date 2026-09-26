@@ -1,0 +1,16 @@
+// Two pools with similar dynamics: constant input and first-order decay,
+// with slightly different rate constants.
+model aggregation_original
+  species X1, X2;
+
+  X1 = 8;
+  X2 = 4;
+
+  s1 = 1.0;    d1 = 0.20;
+  s2 = 0.5;    d2 = 0.22;
+
+  J1in:  -> X1; s1;
+  J1out: X1 -> ; d1 * X1;
+  J2in:  -> X2; s2;
+  J2out: X2 -> ; d2 * X2;
+end

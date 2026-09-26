@@ -38,6 +38,14 @@ _Cópia de 26/09/2026. O plano está em `docs/produto.md`; as tarefas, nas issue
 7. **Generalidade**: testar com um segundo modelo (Lemaire 2004 ou Komarova 2003, ambos no BioModels).
 8. **Simplificação 2 (Mo, M1 e M2 agregados em M)**: verificar cedo se cabe no mapeamento linear.
 
+## Encontrado durante o desenvolvimento
+
+Questões que não apareceram no planejamento e surgiram ao escrever o código. Cada item diz de onde veio.
+
+1. **A normalização do NRMSE não está definida** (26/09, issue #3 — modelos de brinquedo). O `docs/produto.md` usa `nrmse` com limite de 0,05, mas não diz por que a série de referência é dividida: pela **amplitude** (`max − min`) ou pela **média**. As duas são usuais e dão números bem diferentes (no par `aggregation`, 0,00523 contra 0,00320). Enquanto a decisão não sai, os fixtures anotam os dois valores e usam parâmetros que deixam ambos longe do limite, então o veredito esperado não depende da escolha. Precisa ser fechado antes da issue de métricas, e o valor escolhido tem que ir para o relatório junto com o número, senão o resultado não é interpretável. Relacionado à questão técnica 3.
+2. **A agregação exata é um caso degenerado** (26/09, issue #3). No par de agregação, se os dois compartimentos tiverem a mesma taxa de decaimento, a soma é exatamente igual ao agregado e o NRMSE dá zero — o teste passa sem exercitar nada. O fixture usa taxas próximas mas diferentes (0,20 e 0,22), com o agregado usando a média ponderada pelas entradas. Vale conferir se a simplificação 2 da Verly (Mo, M1, M2 → M) cai no caso exato ou no aproximado, porque isso muda o que o número significa. Relacionado à questão técnica 8.
+3. **O `antimony` entrou como dependência só de desenvolvimento** (26/09, issue #3). Os modelos de brinquedo são escritos em Antimony e traduzidos para SBML por um script; os dois formatos ficam versionados. Assim a biblioteca instalada depende apenas do libRoadRunner para ler SBML, e quem só roda os testes não precisa do tradutor.
+
 ## Diferença para Frøysa, Fallahi & Blaser (2018)
 Artigo: "Evaluating model reduction under parameter uncertainty", *BMC Syst Biol*. https://link.springer.com/article/10.1186/s12918-018-0602-x
 

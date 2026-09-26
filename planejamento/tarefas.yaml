@@ -1,0 +1,936 @@
+# Quebra de tarefas do MVP e do texto do TCC II
+# Fonte única: o script criar_issues.py lê este arquivo e cadastra labels, milestones e issues no GitHub.
+# Prazo final: 29/11/2026. Início: 28/09/2026 (9 semanas).
+# Documento de produto: https://claude.ai/code/artifact/e9e19cf6-e999-4f3a-8f79-e6c3939a426f
+
+marcos:
+  - id: M0
+    titulo: "Marco 0 — Fundação e escopo"
+    prazo: 2026-10-04
+    descricao: "Escopo aprovado, repositório pronto para o Claude trabalhar e o item mais arriscado (modelo da Verly em SBML) iniciado."
+  - id: M1
+    titulo: "Marco 1 — v0.1 ponta a ponta"
+    prazo: 2026-10-11
+    descricao: "A biblioteca roda do YAML ao veredito em modelos de brinquedo. O modelo da Verly em SBML está conferido."
+  - id: M2
+    titulo: "Marco 2 — v0.2 caso real"
+    prazo: 2026-10-25
+    descricao: "Primeira entrega para a orientadora: modelo da Verly, mapeamento por soma, métricas, veredito em três níveis, relatório e linha de comando."
+  - id: M3
+    titulo: "Marco 3 — v0.3 MVP completo"
+    prazo: 2026-11-08
+    descricao: "Análise qualitativa, razões detalhadas, simplificações 1 e 2, README. Código congelado depois deste marco."
+  - id: M4
+    titulo: "Marco 4 — Texto final"
+    prazo: 2026-11-29
+    descricao: "Resultados, conclusão, revisão da orientadora e entrega."
+
+labels:
+  - {nome: "código", cor: "1f6feb", descricao: "Implementação da biblioteca"}
+  - {nome: "escrita", cor: "8250df", descricao: "Texto do TCC II"}
+  - {nome: "decisão", cor: "d29922", descricao: "Depende de uma decisão ou ação da Isabella/orientadora"}
+  - {nome: "risco-alto", cor: "cf222e", descricao: "Pode bloquear outras tarefas; fazer cedo"}
+  - {nome: "opcional", cor: "8c959f", descricao: "Só se sobrar tempo"}
+
+# Convenção de todas as instruções para o Claude:
+# o repositório tem um CLAUDE.md (criado na T02) com o contexto do projeto; cada instrução assume que ele existe.
+
+tarefas:
+
+# ---------------------------------------------------------------- MARCO 0
+  - id: D01
+    titulo: "Aprovar o escopo do MVP com a orientadora"
+    tipo: [decisão]
+    marco: M0
+    semana: 1
+    depende: []
+    capacidades: []
+    contexto: |
+      O rumo do TCC mudou: de simplificar o modelo da Verly para construir uma biblioteca que verifica
+      simplificações. O documento de produto (`docs/produto.md`) define escopo, input, output e entregas, mas nada foi
+      aprovado ainda. Sem essa aprovação, qualquer ideia nova pode entrar no escopo e estourar o prazo.
+    entrega: |
+      Escopo congelado. A lista "entra / fica de fora" passa a ser o critério para recusar ideias novas.
+    aceite:
+      - "Orientadora aprovou (ou ajustou) a lista \"entra / fica de fora\" do documento de produto (`docs/produto.md`)"
+      - "Decidido: estabilidade global fora do escopo (o texto do TCC I promete essa análise)"
+      - "Decidido: SBML como único formato de entrada"
+      - "Decidido: veredito em três níveis ou só aprovado/reprovado"
+      - "Decidido: termo usado no texto (\"verificação de fidelidade\" ou \"validação\")"
+      - "Obtido um exemplo do relatório do JEV (se ainda for referência)"
+      - "Decisões registradas no documento de produto (`docs/produto.md`) e em `docs/questoes-em-aberto.md`"
+    instrucao: |
+      Prepare uma pauta de reunião de no máximo uma página para a Isabella levar à orientadora.
+      Use o documento de produto (`docs/produto.md`) e o arquivo `docs/questoes-em-aberto.md`.
+      Para cada decisão pendente, escreva: a pergunta, a recomendação com uma frase de justificativa
+      e o impacto no prazo se a resposta for diferente da recomendada. Não reabra decisões já tomadas
+      (biblioteca Python, caminho do meio). Depois da reunião, registre as respostas nos dois documentos.
+
+  - id: T02
+    titulo: "Criar o esqueleto da biblioteca com testes e CI"
+    tipo: [código]
+    marco: M0
+    semana: 1
+    depende: []
+    capacidades: [F1, F2]
+    contexto: |
+      Todo o código será escrito com o Claude, então o repositório precisa explicar o projeto sozinho.
+      O CLAUDE.md e a pasta `docs/` já existem (contexto, fluxo de trabalho com issues, convenções);
+      esta tarefa cria a estrutura de código e atualiza o CLAUDE.md para refletir a estrutura real.
+      A estrutura em módulos segue o pipeline do documento de produto (`docs/produto.md`): entrada → simulação → mapeamento
+      → métricas / qualitativo → veredito → relatório.
+    entrega: |
+      Um repositório instalável onde qualquer tarefa seguinte já tem lugar certo para o código e para os testes.
+    aceite:
+      - "`pip install -e .[dev]` funciona num ambiente limpo com Python 3.11+"
+      - "Pacote `reducheck` com os módulos vazios: config, simulation, mapping, metrics, qualitative, verdict, report, cli"
+      - "`pytest` roda (com pelo menos um teste trivial) e o GitHub Actions executa os testes a cada push e PR"
+      - "Dependências declaradas: libroadrunner (ou tellurium), numpy, scipy, pyyaml, pydantic, matplotlib, jinja2; ruff para lint"
+      - "CLAUDE.md existente atualizado com a árvore real de pastas e os comandos de teste e lint (sem apagar o que já está lá)"
+      - "README com uma linha de descrição e instrução de instalação"
+    instrucao: |
+      Crie o esqueleto de uma biblioteca Python chamada `reducheck` (nome provisório) neste repositório.
+
+      Objetivo do produto: receber um modelo de EDOs original e um simplificado, ambos em SBML, mais um
+      arquivo YAML de configuração, e emitir um veredito (aprovado / aprovado com ressalvas / reprovado)
+      com a porcentagem de critérios atendidos e as razões.
+
+      Faça:
+      1. pyproject.toml (setuptools ou hatch), layout `src/reducheck/`, extras `[dev]` com pytest e ruff.
+      2. Módulos vazios com docstring de uma linha explicando a responsabilidade de cada um:
+         config (ler e validar o YAML), simulation (simular os dois modelos), mapping (casar variáveis),
+         metrics (métricas plugáveis), qualitative (equilíbrio e estabilidade local),
+         verdict (critérios e veredito), report (JSON, HTML e gráficos), cli (linha de comando).
+      3. `tests/` com um teste trivial e `tests/fixtures/` vazio para modelos SBML de teste.
+      4. GitHub Actions rodando ruff e pytest em Python 3.11 e 3.12.
+      5. Atualize o CLAUDE.md existente: acrescente a árvore de pastas real e os comandos de instalação,
+         teste e lint. Não remova as seções que já existem (contexto, fluxo com issues, convenções,
+         fora do escopo).
+      Siga as convenções do CLAUDE.md.
+      Não implemente lógica ainda. Mostre a árvore final de arquivos e rode os testes.
+
+  - id: T03
+    titulo: "Criar modelos de brinquedo em SBML com veredito conhecido"
+    tipo: [código]
+    marco: M0
+    semana: 1
+    depende: [T02]
+    capacidades: [F3]
+    contexto: |
+      Para saber se a biblioteca acerta, é preciso testá-la em modelos pequenos onde a resposta certa é
+      conhecida de antemão. Esses modelos também viram o exemplo do README e cenários de teste para
+      cada capacidade (mapeamento 1:1, soma, QSSA, falha de simulação).
+    entrega: |
+      Um banco de casos de teste: para cada par original/simplificado sabemos se deve passar ou falhar e por quê.
+    aceite:
+      - "Pelo menos 3 pares original/simplificado em `tests/fixtures/`, escritos em Antimony e exportados para SBML"
+      - "Um par que DEVE passar (ex.: redução por QSSA com separação de escala de tempo forte)"
+      - "Um par que DEVE falhar (ex.: a mesma redução sem separação de escala)"
+      - "Um par com agregação (variável do simplificado = soma de duas do original)"
+      - "Um arquivo `tests/fixtures/README.md` explica cada par, o veredito esperado e o porquê"
+      - "Um teste verifica que todos os SBML carregam e simulam no libRoadRunner"
+    instrucao: |
+      Crie modelos de brinquedo em SBML para testar a biblioteca. Leia o CLAUDE.md antes.
+      Escreva cada modelo em Antimony (via tellurium ou antimony) e exporte para SBML; mantenha os
+      dois arquivos (.ant e .xml) em `tests/fixtures/`.
+      Casos mínimos (2 a 4 variáveis cada):
+      1. Cadeia A → B → C com B rápido; simplificado elimina B por QSSA (B vira assignment rule).
+         Deve PASSAR com NRMSE < 5% nas variáveis A e C.
+      2. O mesmo, mas com B lento; a mesma redução deve FALHAR.
+      3. Duas variáveis X1 e X2 com dinâmica parecida; simplificado usa X = X1 + X2. Deve PASSAR.
+      Calcule e anote no README dos fixtures o NRMSE real de cada par, para que os testes futuros usem
+      valores concretos. Escolha parâmetros que deixem as respostas longe do limite de 5% (sem casos
+      ambíguos). Adicione um teste que carrega e simula todos os modelos.
+
+  - id: T04
+    titulo: "Converter o modelo da Verly para SBML e conferir contra o código atual"
+    tipo: [código]
+    marco: M0
+    semana: 1
+    depende: [T02]
+    capacidades: [C1]
+    risco: true
+    contexto: |
+      É o item mais arriscado do TCC: todo o estudo de caso depende dele. O modelo tem 11 variáveis
+      (D, Mo, M1, M2, C1, C2, Cm, Cb, Mc, Mb, E2) e hoje existe como código Python com scipy
+      (LSODA, 720 dias, 1000 pontos). Se o SBML tiver um erro de digitação, todos os resultados ficam errados.
+      O código original está em https://github.com/isasmourao/TCC-bone_estradiol, arquivo
+      `original_Model/bone_estradiol.py` (função `bonerepair`). Atenção: no código a variável é `Mo`
+      (letra o), não `M0`, e M1 começa em 0 (o que importa para o MAPE).
+      PRÉ-REQUISITO: confirmar com a Isabella se essa é a versão do modelo usada no TCC I.
+    entrega: |
+      O modelo da Verly em formato padrão, com prova de que reproduz o código original.
+    aceite:
+      - "`original_Model/bone_estradiol.py` do repositório TCC-bone_estradiol copiado para `referencia/` (sem alterações), com a origem anotada"
+      - "Modelo escrito em Antimony em `modelos/verly_original.ant` e exportado para `modelos/verly_original.xml`"
+      - "Todos os parâmetros e condições iniciais com o mesmo nome e valor do código original"
+      - "Script `referencia/comparar_sbml.py` simula os dois (720 dias, 1000 pontos) e mostra o erro relativo máximo por variável"
+      - "Erro relativo máximo < 1e-4 em todas as 11 variáveis (ou diferença explicada e aceita pela Isabella)"
+      - "Gráfico sobreposto das 11 variáveis salvo em `referencia/comparacao_sbml.png`"
+    instrucao: |
+      Converta o modelo da Verly et al. (2024) para SBML. Leia o CLAUDE.md antes.
+      0. Copie `original_Model/bone_estradiol.py` de https://github.com/isasmourao/TCC-bone_estradiol
+         para `referencia/`, sem alterar, anotando o commit de origem. Pergunte à Isabella se é a versão
+         usada no TCC I; se houver outra, use a que ela indicar.
+      1. Leia o código original e liste as 11 variáveis de estado, todos os parâmetros com valores e
+         unidades, e as condições iniciais. Me mostre essa lista antes de escrever o modelo.
+      2. Escreva o modelo em Antimony (`modelos/verly_original.ant`), uma equação por variável, usando
+         EXATAMENTE os mesmos nomes do código original. Não simplifique nem "corrija" nenhum termo;
+         se algo parecer errado no original, anote numa lista de dúvidas para a Isabella e reproduza
+         como está.
+      3. Exporte para SBML (`modelos/verly_original.xml`) e valide com libsbml.
+      4. Escreva `referencia/comparar_sbml.py`: simula o original com scipy (LSODA, como no código) e o
+         SBML com libRoadRunner (CVODE, rtol 1e-10, atol 1e-12), de 0 a 720 dias com 1000 pontos, e
+         imprime o erro relativo máximo por variável.
+      5. Se alguma variável passar de 1e-4, investigue termo a termo antes de concluir; não aumente
+         tolerâncias para esconder diferenças.
+      Entregue a tabela de erros, o gráfico e a lista de dúvidas.
+
+  - id: W01
+    titulo: "Reescrever título, objetivos e resumo provisório com o novo foco"
+    tipo: [escrita]
+    marco: M0
+    semana: 1
+    depende: [D01]
+    capacidades: []
+    contexto: |
+      O texto do TCC I fala em "propor e validar simplificações". O foco agora é uma biblioteca que
+      verifica simplificações. Título e objetivos são a âncora de todo o resto do texto e da conversa
+      com a banca; se ficarem para o fim, o texto inteiro fica desalinhado.
+    entrega: |
+      Título, objetivo geral, objetivos específicos e um resumo provisório alinhados ao produto.
+    aceite:
+      - "Novo título (2 ou 3 opções levadas à orientadora, uma escolhida)"
+      - "Objetivo geral em uma frase, focado na biblioteca"
+      - "3 a 5 objetivos específicos, cada um ligado a uma entrega verificável do MVP"
+      - "Resumo provisório de até 150 palavras"
+      - "Termo \"verificação\" vs. \"validação\" usado de forma consistente, conforme decidido em D01"
+    instrucao: |
+      Ajude a Isabella a reescrever título, objetivos e resumo do TCC. Ela escreve; você propõe e revisa.
+      Contexto: o TCC I (`docs/tcc1.pdf`) propunha simplificar o modelo de Verly et al. (2024).
+      O novo foco está no documento de produto (`docs/produto.md`): uma biblioteca Python que verifica se um modelo
+      simplificado é fiel ao original, com métricas escolhidas pelo usuário, análise de equilíbrio e
+      estabilidade local, e relatório com veredito e razões. As simplificações do TCC I viram estudo de caso.
+      1. Proponha 3 títulos (um mais técnico, um mais aplicado, um equilibrado).
+      2. Proponha objetivo geral e 3 a 5 específicos; cada específico deve corresponder a algo que o
+         MVP entrega de fato (não prometa estabilidade global nem incerteza de parâmetros).
+      3. Proponha um resumo de até 150 palavras com: problema, proposta, estudo de caso, resultado
+         esperado. Marque com [RESULTADO] os trechos que dependem de resultados ainda não obtidos.
+      Escreva em português acadêmico, sem adjetivos vazios. Saída em LaTeX compatível com o template SBC do TCC I.
+
+# ---------------------------------------------------------------- MARCO 1
+  - id: T05
+    titulo: "Pipeline ponta a ponta mínimo: do YAML ao veredito em JSON"
+    tipo: [código]
+    marco: M1
+    semana: 2
+    depende: [T02, T03]
+    capacidades: [E1, E3, S1, M1, Q1, V1, R1, U1]
+    contexto: |
+      É a primeira versão que funciona de ponta a ponta. Cada módulo faz o mínimo, mas o fluxo completo
+      existe: a partir daqui, cada tarefa seguinte só enriquece uma etapa, sem mudar a arquitetura.
+      É também a primeira coisa demonstrável para a orientadora.
+    entrega: |
+      `reducheck.verificar("config.yaml")` devolve um resultado com aprovado/reprovado e um JSON,
+      acertando os modelos de brinquedo.
+    aceite:
+      - "Lê um YAML com: modelos (caminhos), simulação (t_inicio, t_fim, pontos), variáveis (1:1) e critérios (só nrmse)"
+      - "Carrega os dois SBML e simula ambos nas mesmas condições com libRoadRunner"
+      - "Mapeamento 1:1, com mesmo nome ou renomeado"
+      - "Métrica NRMSE (RMSE dividido pela amplitude da trajetória original) por variável"
+      - "Cada critério vira passou/falhou; o modelo é aprovado se todos passarem"
+      - "Resultado salvo em `resultado.json` com valor, limite e resultado de cada critério"
+      - "Testes: par de brinquedo 1 aprovado, par 2 reprovado, sem intervenção manual"
+      - "Formato do YAML igual ao do documento de produto (`docs/produto.md`) (seção Input), nos campos já suportados"
+    instrucao: |
+      Implemente o fluxo mínimo ponta a ponta da biblioteca. Leia o CLAUDE.md e a seção "Input" e
+      "Output" do documento de produto (`docs/produto.md`) antes.
+      Objetivo: `resultado = reducheck.verificar("config.yaml")` funciona para os pares 1 e 2 de
+      `tests/fixtures/`.
+      Faça o mínimo em cada módulo, com interfaces pensadas para crescer:
+      - config: dataclasses/pydantic para o YAML (só os campos desta tarefa; sem validação elaborada ainda).
+      - simulation: função que recebe um caminho SBML e as condições e devolve tempo + matriz de estados
+        (nomes das colunas incluídos). Os dois modelos DEVEM usar o mesmo vetor de tempo e o mesmo solver.
+      - mapping: para cada variável declarada, extrai a série do original e do simplificado (1:1).
+      - metrics: função `nrmse(orig, simp)`; defina uma interface comum (assinatura e retorno) que as
+        próximas métricas vão seguir.
+      - verdict: aplica limite a cada par (critério, variável) e devolve uma lista de resultados + aprovado.
+      - report: grava `resultado.json`.
+      Escreva os testes primeiro para os pares de brinquedo. Não implemente soma, outras métricas,
+      três níveis de veredito nem relatório HTML: são tarefas separadas.
+
+  - id: W02
+    titulo: "Escrever a Introdução"
+    tipo: [escrita]
+    marco: M1
+    semana: 2
+    depende: [W01]
+    capacidades: []
+    contexto: |
+      A introdução apresenta o problema (validar simplificações hoje é ad hoc e não reprodutível), a
+      proposta (biblioteca de verificação) e o estudo de caso (modelo de remodelação óssea na menopausa).
+      Parte do texto do TCC I pode ser reaproveitada como contexto biológico.
+    entrega: |
+      Seção de Introdução completa, pronta para revisão da orientadora.
+    aceite:
+      - "Contexto: modelos de EDOs em biologia crescem e precisam ser simplificados (reaproveitar TCC I)"
+      - "Problema: falta de um processo padronizado e reprodutível para verificar simplificações"
+      - "Proposta e contribuições listadas (3 a 4), coerentes com os objetivos de W01"
+      - "Parágrafo final com a organização do texto"
+      - "Toda afirmação factual com referência; nenhuma referência inventada"
+      - "Entre 1,5 e 2,5 páginas no template"
+    instrucao: |
+      Ajude a Isabella a escrever a Introdução do TCC. Ela escreve a versão final; você produz um
+      rascunho estruturado e revisa.
+      Fontes: introdução do TCC I (`docs/tcc1.pdf`), documento de produto (`docs/produto.md`), `docs/questoes-em-aberto.md`
+      e os objetivos definidos em W01.
+      Estrutura: (1) contexto biológico e modelagem por EDOs (reaproveite o TCC I, encurtando);
+      (2) por que simplificar (integração ao modelo biomecânico, calibração, análise);
+      (3) o problema: verificar se a simplificação é fiel é feito de forma ad hoc, com métricas e limites
+      que variam entre trabalhos; (4) a proposta e as contribuições; (5) organização do texto.
+      Use apenas referências que já estão no TCC I ou no levantamento do projeto; onde faltar fonte,
+      escreva [CITAR: o que precisa ser sustentado] em vez de inventar. Saída em LaTeX (template SBC).
+
+  - id: W03
+    titulo: "Escrever a Fundamentação Teórica"
+    tipo: [escrita]
+    marco: M2
+    semana: 3
+    depende: [W01]
+    capacidades: []
+    contexto: |
+      A banca precisa dos conceitos para entender a metodologia: redução de modelos, verificação
+      vs. validação, métricas de erro e suas armadilhas, estabilidade local e padrões como SBML.
+      A parte biológica do TCC I continua, mas encurtada, porque o foco agora é computacional.
+    entrega: |
+      Seção de Fundamentação Teórica completa.
+    aceite:
+      - "Remodelação óssea e menopausa: versão enxuta do TCC I (máx. 1 página)"
+      - "Redução de modelos de EDOs: eliminação de variáveis, lumping e QSSA (Snowden et al. 2017a,b)"
+      - "Verificação vs. validação de modelos computacionais, com definição do termo adotado"
+      - "Métricas de erro: RMSE, NRMSE, MAPE e erro máximo, com equações e limitações (ex.: MAPE perto de zero)"
+      - "Pontos de equilíbrio e estabilidade local (Jacobiana e autovalores)"
+      - "Padrões de representação de modelos: SBML (e menção a CellML e SED-ML)"
+      - "Equações numeradas e notação consistente em toda a seção"
+    instrucao: |
+      Ajude a Isabella a escrever a Fundamentação Teórica. Ela escreve a versão final; você produz
+      rascunho e revisa.
+      Subseções: (1) remodelação óssea e menopausa (condensar a 2.1–2.2 do TCC I); (2) redução de modelos
+      de EDOs; (3) verificação e validação (use ASME V&V 40 e Erdemir et al. 2020 do levantamento);
+      (4) métricas de erro com equações em LaTeX e uma frase sobre quando cada uma falha;
+      (5) equilíbrio e estabilidade local: definição, linearização, critério dos autovalores, e por que
+      a estabilidade global não é tratada; (6) SBML e o ecossistema COMBINE.
+      Use as referências do levantamento em `docs/questoes-em-aberto.md`. Antes de citar qualquer uma,
+      confira a fonte original (título, autores, ano). Onde não houver fonte confirmada, use [CITAR: ...].
+      Saída em LaTeX (template SBC).
+
+# ---------------------------------------------------------------- MARCO 2
+  - id: T06
+    titulo: "Validar a configuração com mensagens de erro claras"
+    tipo: [código]
+    marco: M2
+    semana: 3
+    depende: [T05]
+    capacidades: [E2, E4]
+    contexto: |
+      O público são pesquisadores que não vão ler o código. Se o YAML tiver um erro, a mensagem
+      precisa dizer o que está errado e onde, antes de gastar tempo simulando.
+    entrega: |
+      Configurações inválidas são recusadas na hora, com uma mensagem que resolve o problema.
+    aceite:
+      - "Esquema completo do YAML (seção Input do documento de produto (`docs/produto.md`)) validado com pydantic"
+      - "Erro claro para: arquivo inexistente, SBML inválido, variável que não existe no modelo, variável core sem mapeamento, métrica desconhecida, limite negativo"
+      - "Toda mensagem diz o campo (ex.: `variaveis[2].original`) e sugere a correção quando possível (ex.: nomes parecidos)"
+      - "Um teste por tipo de erro"
+    instrucao: |
+      Implemente a validação completa da configuração. Leia o CLAUDE.md e a seção "Input" do
+      documento de produto (`docs/produto.md`).
+      Use pydantic para o esquema completo (inclusive campos que só serão usados em tarefas futuras:
+      mapeamento por soma, obrigatorio, qualitativo, relatório), para o formato ficar estável desde já.
+      Depois da validação de esquema, faça a validação semântica contra os SBML: todas as variáveis
+      citadas existem; toda variável core tem mapeamento; nomes de métricas existem no registro.
+      Mensagens em português, apontando o caminho do campo. Para nomes inexistentes, sugira o mais
+      parecido (difflib). Escreva um teste para cada caso de erro. Crie `exemplos/config_exemplo.yaml`
+      comentado, que servirá de template para os usuários.
+
+  - id: T07
+    titulo: "Mapeamento por soma, soma ponderada e variáveis eliminadas por QSSA"
+    tipo: [código]
+    marco: M2
+    semana: 3
+    depende: [T05]
+    capacidades: [M2, M3, M4]
+    contexto: |
+      É o que diferencia a biblioteca de um script: comparar modelos com variáveis diferentes. A
+      simplificação 2 da Verly junta os macrófagos M0, M1 e M2 numa variável M, e isso só pode ser
+      verificado com mapeamento por soma.
+    entrega: |
+      É possível verificar simplificações por agregação (lumping) e por eliminação via QSSA.
+    aceite:
+      - "Sintaxe de lista `[A, B]` = soma; sintaxe de dicionário `{A: 1.0, B: 0.5}` = soma ponderada"
+      - "Variáveis definidas por assignment rule no SBML podem ser usadas no mapeamento"
+      - "Campo `core: true` e palavra-chave `variaveis: core` nos critérios funcionando"
+      - "Teste com o par de brinquedo 3 (agregação) aprovado"
+      - "Teste com o par 1 comparando a variável eliminada (assignment rule) com a original"
+    instrucao: |
+      Estenda o módulo de mapeamento. Leia o CLAUDE.md antes.
+      1. Suporte três formas no campo `original` (e também em `simplificado`): string (1:1), lista
+         (soma) e dicionário nome→peso (soma ponderada). Normalize tudo internamente para dicionário
+         nome→peso.
+      2. Garanta que a simulação exporte também as variáveis definidas por assignment rule (no
+         libRoadRunner, ajuste as `timeCourseSelections`).
+      3. Implemente `core: true` por variável e o seletor `variaveis: core` nos critérios.
+      4. Testes com os pares de brinquedo 1 e 3.
+      Fora do escopo: expressões arbitrárias (razões, funções). Se o YAML trouxer algo assim, a
+      validação deve recusar com mensagem dizendo que não é suportado.
+
+  - id: T08
+    titulo: "Métricas plugáveis: MAPE protegido, erro máximo e erro no estado estacionário"
+    tipo: [código]
+    marco: M2
+    semana: 3
+    depende: [T05]
+    capacidades: [Q2, Q3, Q4, Q5]
+    contexto: |
+      "O usuário escolhe a métrica" é uma promessa central do produto. O registro plugável também é o
+      que permite dizer, no texto, que a biblioteca é extensível. O MAPE atual do TCC I explode quando a
+      variável original se aproxima de zero, e isso precisa ser tratado.
+    entrega: |
+      Quatro métricas prontas e um jeito documentado de adicionar outras sem mexer no núcleo.
+    aceite:
+      - "Registro de métricas por decorador (ex.: `@register_metric(\"nrmse\")`), com NRMSE migrado para ele"
+      - "MAPE com proteção: pontos onde |original| < epsilon são excluídos e o número de pontos excluídos é reportado"
+      - "Erro máximo absoluto e relativo"
+      - "Erro no estado estacionário (compara os valores finais, ou a média da última fração configurável da série)"
+      - "Cada métrica devolve: valor, unidade/descrição e avisos"
+      - "Teste que registra uma métrica nova num arquivo de teste e a usa via YAML, sem alterar o pacote"
+      - "Testes numéricos com valores calculados à mão para cada métrica"
+    instrucao: |
+      Implemente o registro de métricas e as métricas do MVP. Leia o CLAUDE.md antes.
+      1. Crie um registro com decorador; cada métrica recebe (t, y_orig, y_simp, params) e devolve um
+         objeto com valor, descrição e lista de avisos.
+      2. Migre o NRMSE para o registro.
+      3. Implemente: `mape` (com epsilon configurável; exclui pontos perto de zero e avisa quantos),
+         `erro_max_abs`, `erro_max_rel`, `erro_estacionario`.
+      4. Opcional nesta tarefa, se for rápido: `erro_simetrico` de Frøysa et al. (2018); cite a fonte na docstring.
+      5. Teste de extensibilidade: registre uma métrica nova só no arquivo de teste e use-a pelo YAML.
+      Escreva as fórmulas nas docstrings: elas vão para o texto do TCC.
+
+  - id: T09
+    titulo: "Condições de simulação: sobrescrever parâmetros, medir ruído numérico e detectar falhas"
+    tipo: [código]
+    marco: M2
+    semana: 4
+    depende: [T05]
+    capacidades: [S2, S3, S4]
+    contexto: |
+      Parte da diferença entre dois modelos pode vir do solver, não da simplificação. Medir esse
+      "ruído de fundo" dá um piso honesto para os limites. Também é preciso detectar simulações que
+      divergem, em vez de gerar métricas sem sentido.
+    entrega: |
+      Comparações confiáveis: o relatório diz quanto do erro é numérico, e simulações quebradas não geram veredito falso.
+    aceite:
+      - "YAML permite sobrescrever condições iniciais e parâmetros, por modelo ou para os dois"
+      - "Ruído numérico: o original é simulado de novo com tolerâncias 100x mais frouxas e a diferença entra no relatório"
+      - "Aviso quando algum limite de critério é menor que 10x o ruído numérico"
+      - "Simulação que falha, gera NaN/Inf ou valores negativos em variável não negativa vira erro claro, não veredito"
+      - "Testes para cada caso"
+    instrucao: |
+      Estenda o módulo de simulação. Leia o CLAUDE.md antes.
+      1. Suporte `simulacao.sobrescrever` no YAML: {parametros: {...}, condicoes_iniciais: {...}},
+         aplicado aos dois modelos (ou por modelo, com as chaves `original` e `simplificado`).
+      2. Ruído numérico: simule o original de novo com rtol e atol 100x maiores e calcule o NRMSE entre
+         as duas execuções. Guarde no resultado como `ruido_numerico`.
+      3. Aviso quando um limite de critério for menor que 10x esse ruído.
+      4. Falhas: capture exceções do solver, NaN/Inf e valores negativos (opção `nao_negativas: true`,
+         padrão true) e gere um erro de simulação claro, com tempo e variável do problema.
+      Não mexa nas métricas nem no veredito.
+
+  - id: T10
+    titulo: "Veredito em três níveis com porcentagem e critérios obrigatórios"
+    tipo: [código]
+    marco: M2
+    semana: 4
+    depende: [T05, T08]
+    capacidades: [V2]
+    contexto: |
+      A regra do veredito é o coração do produto. Uma porcentagem sozinha pode esconder uma falha grave
+      (90% aprovado, mas a variável principal falhou). Por isso existem critérios obrigatórios.
+    entrega: |
+      O veredito final segue a regra do documento de produto (`docs/produto.md`) e nunca aprova com um critério obrigatório falhando.
+    aceite:
+      - "Cada par (critério, variável) conta como um item na porcentagem"
+      - "REPROVADO se qualquer item obrigatório falhar; APROVADO COM RESSALVAS se só desejáveis falharem; APROVADO se todos passarem"
+      - "Resultado traz contagens separadas: obrigatórios passados/total, desejáveis passados/total"
+      - "Se D01 decidir só dois níveis, uma opção de configuração desliga o nível intermediário"
+      - "Testes cobrindo os três vereditos e o caso \"porcentagem alta mas reprovado\""
+    instrucao: |
+      Implemente a regra do veredito descrita na seção "Output" do documento de produto (`docs/produto.md`). Leia o
+      CLAUDE.md antes.
+      Cada item é um par (critério, variável). Campo `obrigatorio` por critério (padrão: true).
+      Veredito: REPROVADO se algum obrigatório falhar; APROVADO COM RESSALVAS se todos os obrigatórios
+      passarem e algum desejável falhar; APROVADO se tudo passar. Porcentagem = itens aprovados / total.
+      Inclua a opção `relatorio.niveis: 2` que transforma "com ressalvas" em APROVADO (confira com a
+      Isabella qual padrão ela decidiu em D01).
+      Teste explicitamente: 9 de 10 itens passando, com o que falha sendo obrigatório → REPROVADO.
+
+  - id: T11
+    titulo: "Relatório legível em HTML com tabela, razões e gráficos"
+    tipo: [código]
+    marco: M2
+    semana: 4
+    depende: [T10]
+    capacidades: [R2, R3]
+    contexto: |
+      O relatório é o que a orientadora, a banca e os usuários vão ver. O JSON serve às máquinas; o
+      HTML precisa convencer uma pessoa em 30 segundos (veredito no topo, depois o detalhe).
+    entrega: |
+      Um relatório que se entende sem abrir o código, com os gráficos que vão para o texto do TCC.
+    aceite:
+      - "HTML autocontido (imagens embutidas) gerado com um template Jinja2"
+      - "Topo: veredito, porcentagem, contagem de obrigatórios e desejáveis"
+      - "Tabela: critério, variável, valor, limite, tipo, resultado"
+      - "Seções de razões e avisos (preenchidas com o que já existir; T15 detalha as razões)"
+      - "Gráfico por variável mapeada: original vs. simplificado sobrepostos, com o erro ao longo do tempo embaixo"
+      - "Gráficos também salvos como PNG em `graficos/`, com qualidade para o texto (300 dpi, rótulos legíveis)"
+      - "Opção de gerar Markdown em vez de HTML"
+    instrucao: |
+      Implemente o relatório legível. Leia o CLAUDE.md e a seção "Output" do documento de produto (`docs/produto.md`)
+      (há um exemplo do topo do relatório lá).
+      Use Jinja2 para o HTML e matplotlib para os gráficos. O HTML deve ser um arquivo único (imagens
+      em base64). Ordem: veredito → resumo numérico → tabela de critérios (falhas primeiro) → razões →
+      avisos → gráficos → dados da execução (config, versões, data).
+      Gráficos: para cada variável mapeada, um painel com original (linha contínua) e simplificado
+      (tracejada) e, embaixo, o erro absoluto ao longo do tempo. Eixos com nome da variável e unidade
+      de tempo do modelo. Salve também em PNG a 300 dpi.
+      Não implemente o cálculo das razões detalhadas (T15); só reserve o lugar e mostre o que existir.
+
+  - id: T12
+    titulo: "Linha de comando `reducheck verificar`"
+    tipo: [código]
+    marco: M2
+    semana: 4
+    depende: [T11]
+    capacidades: [U2]
+    contexto: |
+      Nem todo pesquisador do grupo usa Python no dia a dia. Um comando único torna a ferramenta
+      utilizável por qualquer um e facilita demonstrar na defesa.
+    entrega: |
+      `reducheck verificar config.yaml` gera o relatório e devolve um código de saída útil para automação.
+    aceite:
+      - "Comando instalado pelo pyproject (entry point)"
+      - "`reducheck verificar config.yaml [--saida pasta]` gera JSON e HTML"
+      - "Resumo do veredito impresso no terminal"
+      - "Código de saída: 0 aprovado, 1 com ressalvas, 2 reprovado, 3 erro de configuração ou simulação"
+      - "`reducheck --help` claro, em português"
+    instrucao: |
+      Implemente a linha de comando com argparse (ou typer, se já estiver nas dependências). Leia o
+      CLAUDE.md antes. Subcomando `verificar` com o caminho do YAML e `--saida` opcional. Imprima um
+      resumo de 3 a 5 linhas (veredito, porcentagem, falhas obrigatórias) e o caminho do relatório.
+      Códigos de saída: 0 aprovado, 1 com ressalvas, 2 reprovado, 3 erro. Teste com subprocess usando
+      os pares de brinquedo.
+
+  - id: T13
+    titulo: "Estudo de caso: simplificações 1 e 2 da Verly em SBML com configurações prontas"
+    tipo: [código]
+    marco: M2
+    semana: 4
+    depende: [T04, T07]
+    capacidades: [C2]
+    risco: true
+    contexto: |
+      É a prova de que a biblioteca resolve o problema real que motivou o TCC. A simplificação 1
+      (remove Cm e Mc, 9 variáveis) deveria passar; a simplificação 2 (junta Mo, M1 e M2 em M,
+      7 variáveis) é a falha esperada. Se o veredito da biblioteca bater com a análise do TCC I, o
+      estudo de caso está validado.
+    entrega: |
+      O primeiro relatório real: a biblioteca verificando as simplificações do TCC I.
+    aceite:
+      - "`modelos/verly_simp1.ant/.xml` e `modelos/verly_simp2.ant/.xml` derivados do original conferido (T04)"
+      - "Simplificação 1: sem Cm e Mc, sem o termo k3·Cm em C2 e sem o termo F1 em Cb, como no TCC I"
+      - "Simplificação 2: variável M no lugar de Mo, M1 e M2 (confirmar a equação de M com a Isabella/Ana Clara)"
+      - "`estudo_de_caso/simp1.yaml` e `simp2.yaml` com variáveis core e critérios definidos com a Isabella"
+      - "Os dois relatórios gerados em `estudo_de_caso/resultados/`"
+      - "Nota curta comparando os vereditos com os resultados do TCC I (batem? se não, por quê?)"
+    instrucao: |
+      Monte o estudo de caso com as simplificações do TCC I (seção 4.1 de `docs/tcc1.pdf`). Leia o
+      CLAUDE.md antes.
+      1. Parta de `modelos/verly_original.ant` (já conferido) e crie as duas simplificações em Antimony.
+         Simplificação 1: remova Cm e Mc, seus parâmetros, o termo k3·Cm da equação de C2 e o termo F1
+         da equação de Cb. Simplificação 2: além disso, substitua Mo, M1 e M2 por uma variável M. A
+         equação de M não está no PDF nem no repositório TCC-bone_estradiol: PERGUNTE à Isabella onde
+         está o código das simplificações do TCC I antes de inventar.
+      2. Antes de definir os critérios, pergunte à Isabella quais variáveis são core. Proponha:
+         nrmse ≤ 5% obrigatório nas core, mape ≤ 5% desejável, erro_estacionario ≤ 1% obrigatório.
+      3. Mapeamento na simplificação 2: M ↔ [Mo, M1, M2]. Como M1 começa em 0, não use MAPE em M1
+         nem em variáveis que partem de zero; o aviso da T15 deve disparar se alguém usar.
+      4. Gere os dois relatórios e escreva `estudo_de_caso/NOTAS.md` comparando com o TCC I.
+      Não ajuste limites para fazer a simplificação 1 passar; se ela falhar, isso é um resultado.
+
+  - id: W04
+    titulo: "Escrever os Trabalhos Relacionados"
+    tipo: [escrita]
+    marco: M2
+    semana: 4
+    depende: [W03]
+    capacidades: []
+    contexto: |
+      É onde a banca vai procurar a novidade do trabalho. O levantamento inicial mostra que o
+      ecossistema resolve partes do problema (simular, comparar simuladores, diff estrutural, gerar
+      reduções), mas não a verificação integrada. O trabalho mais próximo é Frøysa et al. (2018).
+    entrega: |
+      Seção que posiciona a biblioteca frente ao que existe, com a lacuna explícita.
+    aceite:
+      - "Ferramentas: SBML Test Suite, BiVeS, Tellurium/libRoadRunner, COPASI, AutoReduce (e sbmlsim/PEtab, depois de conferidos)"
+      - "Artigos: Snowden et al. 2017, Frøysa et al. 2018, Hasegawa & Duffull 2018 (os dois), Derbalah et al. 2022"
+      - "Tabela comparativa: trabalho × capacidades (entrada padrão, mapeamento, métricas configuráveis, análise qualitativa, veredito com razões)"
+      - "Parágrafo final com a lacuna e a contribuição deste trabalho"
+      - "Toda referência conferida na fonte original"
+    instrucao: |
+      Ajude a Isabella a escrever os Trabalhos Relacionados. Ela escreve a versão final; você pesquisa,
+      confere e rascunha.
+      Base: seção "Trabalhos relacionados" e a tabela sobre Frøysa et al. em `docs/questoes-em-aberto.md`.
+      1. Confira cada referência na fonte original (título, autores, ano, veículo) e marque as que não
+         conseguiu conferir.
+      2. Pesquise sbmlsim e PEtab e diga se mudam a lacuna.
+      3. Rascunhe um parágrafo por grupo (ferramentas de simulação; comparação e teste; redução;
+         avaliação de modelos reduzidos; credibilidade).
+      4. Monte a tabela comparativa com colunas: entrada padronizada, mapeamento entre variáveis,
+         métricas configuráveis, análise qualitativa, veredito com razões, ferramenta reutilizável.
+      5. Feche com a lacuna, sem exagerar: a contribuição é de integração e engenharia, não uma métrica nova.
+      Saída em LaTeX (template SBC) e entradas BibTeX para todas as referências.
+
+# ---------------------------------------------------------------- MARCO 3
+  - id: T14
+    titulo: "Análise qualitativa: equilíbrio e estabilidade local nos dois modelos"
+    tipo: [código]
+    marco: M3
+    semana: 5
+    depende: [T07, T10]
+    capacidades: [L1, L2, L3]
+    risco: true
+    contexto: |
+      O TCC I promete comparar pontos de equilíbrio e estabilidade. De forma genérica, é viável achar
+      UM equilíbrio (o que o sistema atinge a partir das condições iniciais dadas) e classificar sua
+      estabilidade local pelos autovalores da Jacobiana. Essa limitação precisa aparecer no relatório.
+    entrega: |
+      O veredito passa a considerar se o simplificado mantém o comportamento de longo prazo do original, e não só as trajetórias.
+    aceite:
+      - "Equilíbrio de cada modelo: libRoadRunner steadyState, com plano B de integrar até estabilizar e refinar com scipy.optimize.root"
+      - "Jacobiana no equilíbrio e autovalores (libRoadRunner ou diferenças finitas)"
+      - "Classificação: estável, instável ou marginal (parte real ~0, com tolerância)"
+      - "Critério `estabilidade_local`: passa se os dois modelos têm a mesma classificação"
+      - "Critério `equilibrio`: compara as variáveis mapeadas no equilíbrio, com limite relativo"
+      - "Relatório mostra os autovalores dominantes e o aviso de que só um equilíbrio foi analisado"
+      - "Testes com os modelos de brinquedo (equilíbrio conhecido analiticamente)"
+      - "Funciona no modelo da Verly (ou documenta por que não)"
+    instrucao: |
+      Implemente o módulo qualitativo. Leia o CLAUDE.md antes.
+      1. `find_equilibrium(model, conditions)`: tente o steadyState do libRoadRunner; se falhar ou não
+         convergir, integre até que a norma da derivada fique abaixo de uma tolerância e refine com
+         scipy.optimize.root. Devolva o ponto, o método usado e o resíduo.
+      2. `local_stability(model, point)`: Jacobiana completa no ponto (libRoadRunner
+         getFullJacobian, ou diferenças finitas), autovalores, classificação com tolerância
+         configurável para parte real ~0.
+      3. Critérios `estabilidade_local` (mesma classificação) e `equilibrio` (erro relativo das
+         variáveis mapeadas no equilíbrio ≤ limite).
+      4. Relatório: tabela com o equilíbrio das variáveis mapeadas nos dois modelos e os três
+         autovalores de maior parte real; aviso fixo: "análise de um único equilíbrio, alcançado a
+         partir das condições iniciais da configuração; outros equilíbrios não foram buscados".
+      Os modelos têm dimensões diferentes, então compare classificações e variáveis mapeadas, nunca
+      os vetores de autovalores diretamente. Não implemente busca de múltiplos equilíbrios nem estabilidade global.
+
+  - id: T15
+    titulo: "Razões detalhadas das falhas e avisos de métrica inadequada"
+    tipo: [código]
+    marco: M3
+    semana: 6
+    depende: [T11]
+    capacidades: [V3, Q6]
+    contexto: |
+      Um veredito sem explicação não serve para decidir o que ajustar na simplificação. A razão precisa
+      dizer por quanto o critério falhou e onde, no tempo, o erro se concentra (ex.: só no transiente inicial).
+    entrega: |
+      Cada falha vem com um diagnóstico útil, e o usuário é avisado quando escolheu uma métrica que engana.
+    aceite:
+      - "Para cada item que falhou: valor, limite, excesso relativo e a janela de tempo onde está a maior parte do erro"
+      - "Distinção automática entre erro no transiente e erro no estado estacionário"
+      - "Aviso quando MAPE é usado em variável que chega perto de zero"
+      - "Aviso quando o NRMSE é dominado por um pico isolado"
+      - "Razões aparecem no JSON e no relatório, em português claro"
+      - "Testes com casos construídos (erro só no início, erro só no fim)"
+    instrucao: |
+      Implemente o gerador de razões e os avisos de métrica. Leia o CLAUDE.md antes.
+      1. Para cada item reprovado, calcule a janela de tempo que concentra 80% do erro acumulado e
+         classifique como "transiente" (primeiros 20% do tempo), "estado estacionário" (últimos 20%)
+         ou "ao longo da simulação".
+      2. Gere uma frase por falha, no modelo: "mape em M falhou: 8,1% (limite 5%), erro concentrado
+         entre t = 0 e t = 40 (transiente); no estado estacionário o erro é 0,4%."
+      3. Avisos: MAPE com mais de 5% dos pontos perto de zero; NRMSE em que um único ponto responde
+         por mais de 50% do erro quadrático.
+      Mantenha o texto das razões em templates, não espalhado pelo código.
+
+  - id: T16
+    titulo: "Reprodutibilidade: exportar séries, configuração usada e versões"
+    tipo: [código]
+    marco: M3
+    semana: 6
+    depende: [T11]
+    capacidades: [R4]
+    contexto: |
+      Reprodutibilidade é um dos argumentos do trabalho. Qualquer relatório precisa poder ser refeito
+      e auditado por outra pessoa.
+    entrega: |
+      Cada execução deixa um pacote completo para refazer ou auditar a análise.
+    aceite:
+      - "`series.csv` com tempo e todas as variáveis mapeadas dos dois modelos"
+      - "`config_usada.yaml` com a configuração efetiva (valores padrão preenchidos)"
+      - "Versões do Python, reducheck, libRoadRunner, numpy e scipy, e hash SHA-256 dos dois SBML, no JSON"
+      - "Teste: duas execuções com a mesma configuração produzem JSONs idênticos, exceto pela data"
+    instrucao: |
+      Implemente os artefatos de reprodutibilidade. Leia o CLAUDE.md antes.
+      Grave na pasta de saída: series.csv, config_usada.yaml (configuração após aplicar os valores
+      padrão) e, no resultado.json, um bloco `execucao` com data, versões das bibliotecas e hashes
+      SHA-256 dos SBML. Escreva o teste de determinismo.
+
+  - id: T17
+    titulo: "README com exemplo mínimo e referência completa da configuração"
+    tipo: [código]
+    marco: M3
+    semana: 6
+    depende: [T12, T14]
+    capacidades: [D1]
+    contexto: |
+      O critério de pronto do MVP é: uma pessoa do grupo, só com o README, consegue verificar uma
+      simplificação sem pedir ajuda. O README também vira material para o apêndice do texto.
+    entrega: |
+      Documentação suficiente para alguém usar a biblioteca sozinho.
+    aceite:
+      - "Instalação, exemplo de 5 minutos com um par de brinquedo e explicação do relatório"
+      - "Referência de todos os campos do YAML, com tipo, padrão e exemplo"
+      - "Lista de métricas e critérios disponíveis, com fórmula e quando usar cada um"
+      - "Seção \"como adicionar uma métrica\" com exemplo que funciona"
+      - "Seção de limitações (o que está fora do escopo)"
+      - "Teste que roda o exemplo do README e confirma que funciona"
+      - "Uma pessoa do grupo testou seguindo só o README"
+    instrucao: |
+      Escreva o README em português. Leia o CLAUDE.md e o código atual antes; documente o que EXISTE,
+      não o que foi planejado. Estrutura: o que é, instalação, exemplo de 5 minutos, como ler o
+      relatório, referência da configuração (gere a tabela a partir do esquema pydantic, para não
+      desatualizar), métricas e critérios, como adicionar uma métrica, limitações, como citar.
+      Adicione um teste que executa o exemplo do README.
+
+  - id: T18
+    titulo: "Fechar o MVP e gerar os resultados finais para o texto"
+    tipo: [código]
+    marco: M3
+    semana: 6
+    depende: [T13, T14, T15, T16, T17]
+    capacidades: []
+    contexto: |
+      Última tarefa de código antes do congelamento. Confere os critérios de pronto do documento de
+      produto e gera figuras e tabelas do estudo de caso no formato do texto.
+    entrega: |
+      MVP fechado (v0.3) e todo o material de resultados pronto para a escrita.
+    aceite:
+      - "Todos os critérios de pronto do documento de produto (`docs/produto.md`) conferidos, um a um"
+      - "Relatórios finais das simplificações 1 e 2 regenerados com a versão final"
+      - "Figuras em `texto/figuras/` (PDF vetorial ou PNG 300 dpi) e tabelas em LaTeX em `texto/tabelas/`"
+      - "Tabela de tempo de execução: original vs. simplificação 1 vs. simplificação 2 (média de 10 execuções)"
+      - "Tag v0.3.0 no repositório"
+    instrucao: |
+      Feche o MVP. Leia o CLAUDE.md e os critérios de pronto do documento de produto (`docs/produto.md`).
+      1. Confira cada critério de pronto e relate o status com evidência (teste, arquivo, comando).
+         Não marque como feito o que não verificou.
+      2. Regere os relatórios do estudo de caso.
+      3. Gere as figuras para o texto (mesmo estilo em todas, fontes legíveis quando reduzidas a meia
+         página) e as tabelas em LaTeX: critérios × resultado para cada simplificação, equilíbrios e
+         autovalores, tempo de execução.
+      4. Meça o tempo de simulação de cada modelo (10 execuções, média e desvio). Esse número responde
+         à motivação original de eficiência computacional.
+      5. Crie a tag v0.3.0. Daqui em diante, só correções de bugs.
+
+  - id: W05
+    titulo: "Escrever a Metodologia: arquitetura e decisões de projeto da biblioteca"
+    tipo: [escrita]
+    marco: M3
+    semana: 5
+    depende: [T10, W03]
+    capacidades: []
+    contexto: |
+      É a seção que mostra o trabalho de Computação: como a biblioteca foi projetada e por quê. Depois
+      da v0.2, a arquitetura está estável o bastante para ser descrita.
+    entrega: |
+      Seção de Metodologia descrevendo o produto e justificando cada decisão.
+    aceite:
+      - "Visão geral e diagrama do pipeline (entrada → simulação → mapeamento → métricas/qualitativo → veredito → relatório)"
+      - "Formato de entrada: SBML + YAML, com um exemplo de configuração comentado"
+      - "Mapeamento entre variáveis (1:1, soma, ponderada, assignment rules)"
+      - "Métricas implementadas (fórmulas) e o mecanismo de extensão"
+      - "Análise qualitativa e sua limitação declarada"
+      - "Regra do veredito, com justificativa dos critérios obrigatórios"
+      - "Ferramentas usadas (libRoadRunner, pydantic, etc.) e estratégia de testes"
+      - "Cada decisão importante com uma frase de justificativa (e referência, quando houver)"
+    instrucao: |
+      Ajude a Isabella a escrever a Metodologia. Ela escreve a versão final; você rascunha a partir
+      do código real do repositório (não do plano) e revisa.
+      1. Leia o código e o CLAUDE.md e liste as decisões de projeto efetivamente implementadas.
+      2. Rascunhe as subseções: visão geral, entrada, simulação, mapeamento, métricas, análise
+         qualitativa, veredito, relatório, testes e reprodutibilidade.
+      3. Desenhe o diagrama do pipeline em TikZ (ou gere uma figura) no mesmo estilo das demais.
+      4. Para cada decisão, uma frase de justificativa (ex.: por que SBML e não CellML; por que
+         obrigatórios; por que NRMSE e não RMSE puro), citando o levantamento quando couber.
+      Não descreva nada que não esteja implementado. Saída em LaTeX (template SBC).
+
+  - id: W06
+    titulo: "Escrever o Estudo de Caso: modelo, conversão, simplificações e protocolo"
+    tipo: [escrita]
+    marco: M3
+    semana: 6
+    depende: [T13, W05]
+    capacidades: []
+    contexto: |
+      Descreve como a biblioteca foi aplicada ao modelo da Verly: o modelo, a conversão para SBML e sua
+      conferência, as simplificações e as configurações usadas. Reaproveita a seção 4 do TCC I.
+    entrega: |
+      Seção que permite a qualquer leitor reproduzir o estudo de caso.
+    aceite:
+      - "Modelo de Verly et al. (2024): variáveis, papel biológico resumido, cenário simulado (720 dias)"
+      - "Conversão para SBML e sua verificação (erro máximo contra o código original)"
+      - "Simplificações 1 e 2, com as equações alteradas"
+      - "Configurações usadas: variáveis core, critérios, limites e justificativas"
+      - "Ambiente de execução (versões, máquina) para as medidas de tempo"
+    instrucao: |
+      Ajude a Isabella a escrever o Estudo de Caso. Fontes: seção 4 do TCC I, `referencia/`,
+      `modelos/`, `estudo_de_caso/*.yaml` e `estudo_de_caso/NOTAS.md`.
+      Rascunhe: (1) o modelo e o cenário; (2) a conversão para SBML e a tabela de erro da conferência
+      (T04); (3) as simplificações, com equações em LaTeX mostrando o que mudou; (4) as configurações
+      de verificação em tabela (variável, core, critérios, limites) e a justificativa das escolhas;
+      (5) o ambiente. Não antecipe resultados. Saída em LaTeX (template SBC).
+
+# ---------------------------------------------------------------- MARCO 4
+  - id: W07
+    titulo: "Escrever Resultados e Discussão"
+    tipo: [escrita]
+    marco: M4
+    semana: 7
+    depende: [T18, W06]
+    capacidades: []
+    contexto: |
+      Com o MVP fechado, é hora de apresentar o que a biblioteca concluiu sobre as simplificações e
+      discutir o que isso diz sobre a própria ferramenta: ela distingue a simplificação viável da falha
+      esperada? As razões ajudam a entender a falha?
+    entrega: |
+      Seção de Resultados e Discussão com figuras, tabelas e interpretação.
+    aceite:
+      - "Resultado da conferência da conversão SBML"
+      - "Vereditos das simplificações 1 e 2, com as tabelas de critérios e as figuras principais"
+      - "Resultados da análise qualitativa (equilíbrios, estabilidade)"
+      - "Tempo de execução original vs. simplificados, e o que isso significa para a integração com o modelo biomecânico"
+      - "Discussão: a ferramenta separou o caso viável da falha esperada? As razões foram informativas?"
+      - "Comparação com a análise manual do TCC I"
+      - "Limitações do trabalho, com honestidade"
+    instrucao: |
+      Ajude a Isabella a escrever Resultados e Discussão. Fontes: figuras e tabelas geradas na T18,
+      relatórios em `estudo_de_caso/resultados/` e `estudo_de_caso/NOTAS.md`.
+      Rascunhe primeiro os resultados (o que aconteceu, com números) e depois a discussão (o que
+      significa). Cada figura e tabela deve ser referenciada e comentada no texto. Na discussão,
+      responda: (1) a biblioteca distinguiu a simplificação 1 da 2? (2) as razões explicam a falha da 2?
+      (3) o ganho de tempo justifica a simplificação 1? (4) quais limitações afetam as conclusões
+      (um único equilíbrio, um único cenário, só dois estudos de caso)?
+      Não exagere conclusões a partir de um único modelo. Saída em LaTeX (template SBC).
+
+  - id: W08
+    titulo: "Escrever Conclusão e Trabalhos Futuros"
+    tipo: [escrita]
+    marco: M4
+    semana: 7
+    depende: [W07]
+    capacidades: []
+    contexto: |
+      Fecha o texto retomando os objetivos. A lista do que ficou fora do escopo vira, naturalmente,
+      a seção de trabalhos futuros.
+    entrega: |
+      Seção de conclusão coerente com os objetivos de W01.
+    aceite:
+      - "Cada objetivo específico retomado, dizendo se e como foi atingido"
+      - "Contribuições resumidas em 3 a 4 itens"
+      - "Trabalhos futuros: CellML, mapeamentos arbitrários, múltiplos equilíbrios, estabilidade global, incerteza de parâmetros, segundo modelo (Lemaire 2004), integração com o modelo biomecânico"
+      - "Até 1 página"
+    instrucao: |
+      Ajude a Isabella a escrever a Conclusão. Retome cada objetivo específico de W01 e diga, com base
+      em W07, se foi atingido. Liste as contribuições. Transforme a lista "fica de fora" do documento
+      de produto em trabalhos futuros, cada um com uma frase de motivação. Sem resultados novos nesta
+      seção. Saída em LaTeX (template SBC).
+
+  - id: W09
+    titulo: "Revisão geral: resumo, abstract, referências e formatação"
+    tipo: [escrita]
+    marco: M4
+    semana: 8
+    depende: [W02, W03, W04, W05, W06, W07, W08]
+    capacidades: []
+    contexto: |
+      Última passada antes de enviar à orientadora: consistência de termos, resumo final, referências
+      completas e template em ordem.
+    entrega: |
+      Versão completa do texto pronta para revisão da orientadora.
+    aceite:
+      - "Resumo final (até 150 palavras) e abstract em inglês"
+      - "Termo verificação/validação consistente no texto todo"
+      - "Todas as referências citadas existem no .bib, com os campos completos; nenhuma sobrando"
+      - "Nenhum [CITAR], [RESULTADO] ou [VERIFICAR] restante"
+      - "Figuras e tabelas numeradas, referenciadas e legíveis"
+      - "Compila sem avisos de referência indefinida"
+      - "Link para o repositório da biblioteca no texto"
+    instrucao: |
+      Faça uma revisão completa do texto do TCC. Liste problemas em vez de reescrever trechos inteiros:
+      a Isabella decide o que muda.
+      Verifique: consistência de termos e notação; frases com mais de 35 palavras; afirmações sem
+      referência; marcadores [CITAR], [RESULTADO] ou [VERIFICAR] restantes; referências não usadas ou
+      incompletas; figuras sem menção no texto. Escreva o resumo final e o abstract a partir do texto
+      pronto. Rode a compilação LaTeX e liste os avisos.
+
+  - id: W10
+    titulo: "Incorporar a revisão da orientadora e entregar"
+    tipo: [escrita, decisão]
+    marco: M4
+    semana: 9
+    depende: [W09]
+    capacidades: []
+    contexto: |
+      Folga reservada para a revisão da orientadora e da coorientadora. Sem essa folga, qualquer
+      pedido de ajuste compromete a entrega.
+    entrega: |
+      Texto final entregue.
+    aceite:
+      - "Versão enviada à orientadora até 22/11"
+      - "Todos os comentários respondidos (aceito, ajustado ou justificado)"
+      - "PDF final gerado e entregue até 29/11"
+    instrucao: |
+      Ajude a Isabella a processar os comentários da orientadora. Para cada comentário: classifique
+      (correção pontual, reescrita, questão de conteúdo), proponha a alteração e marque o que depende
+      de decisão dela. Não altere trechos que não foram comentados.
+
+# ---------------------------------------------------------------- OPCIONAL
+  - id: T19
+    titulo: "Segundo estudo de caso: Lemaire 2004 do BioModels"
+    tipo: [código, opcional]
+    marco: M3
+    semana: 6
+    depende: [T18]
+    capacidades: []
+    contexto: |
+      Mostra que a biblioteca é genérica, e não um script para o modelo da Verly. Só faz sentido se o
+      MVP estiver fechado com folga.
+    entrega: |
+      Evidência de generalidade: um segundo modelo verificado sem mudar o código.
+    aceite:
+      - "Lemaire 2004 baixado do BioModels (BIOMD0000000278) e reproduzindo o artigo"
+      - "Uma simplificação simples (ex.: QSSA de uma variável rápida) em SBML"
+      - "Relatório gerado sem nenhuma alteração no código da biblioteca"
+    instrucao: |
+      Só comece se a T18 estiver concluída e a Isabella confirmar que há tempo. Baixe o
+      BIOMD0000000278 do BioModels, confira que reproduz uma figura do artigo original, proponha UMA
+      simplificação simples, justificada, e rode a biblioteca sem alterar o código. Se precisar alterar
+      o código, pare e relate o motivo: isso é um resultado sobre a generalidade.

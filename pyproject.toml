@@ -30,6 +30,9 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "ruff>=0.5",
+    # Usado só por tests/fixtures/build_sbml.py, para regerar os SBML dos
+    # modelos de brinquedo a partir dos arquivos Antimony.
+    "antimony>=2.13",
 ]
 
 [project.urls]

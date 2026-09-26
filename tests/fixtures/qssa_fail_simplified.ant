@@ -1,0 +1,15 @@
+// The same QSSA reduction applied to qssa_fail_original, where the
+// assumption dB/dt ~ 0 does not hold.
+model qssa_fail_simplified
+  species A, C;
+
+  A = 10;
+  C = 0;
+
+  k1 = 0.1;
+  k2 = 0.05;
+
+  J1: A -> C; k1 * A;
+
+  B := k1 * A / k2;
+end

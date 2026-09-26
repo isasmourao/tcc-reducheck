@@ -1,0 +1,15 @@
+// Same chain A -> B -> C, but the intermediate is slower than the input
+// step (k2 / k1 = 0.5): there is no time-scale separation.
+model qssa_fail_original
+  species A, B, C;
+
+  A = 10;
+  B = 0;
+  C = 0;
+
+  k1 = 0.1;    // step A -> B
+  k2 = 0.05;   // step B -> C, slower than J1
+
+  J1: A -> B; k1 * A;
+  J2: B -> C; k2 * B;
+end

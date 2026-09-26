@@ -1,0 +1,13 @@
+// Aggregation of aggregation_original: the two pools become a single one,
+// X = X1 + X2, with the summed input and an averaged decay rate.
+model aggregation_simplified
+  species X;
+
+  X = 12;      // X1(0) + X2(0)
+
+  s = 1.5;     // s1 + s2
+  d = 0.207;   // input-weighted average of d1 and d2
+
+  Jin:  -> X; s;
+  Jout: X -> ; d * X;
+end

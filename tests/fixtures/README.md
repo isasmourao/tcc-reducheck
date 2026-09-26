@@ -11,6 +11,20 @@ não dependam do tradutor:
 python tests/fixtures/build_sbml.py
 ```
 
+## Configurações prontas
+
+Os pares 1 e 2 têm uma configuração YAML ao lado, usada pelos testes de ponta a ponta
+(`tests/test_pipeline.py`) e servindo de exemplo mínimo do formato de entrada:
+
+| Arquivo | Par | Veredito esperado |
+| --- | --- | --- |
+| `config_qssa_ok.yaml` | `qssa_ok` | aprovado |
+| `config_qssa_fail.yaml` | `qssa_fail` | reprovado |
+
+Os caminhos dentro do YAML são relativos ao próprio arquivo, então os testes copiam a
+configuração e os modelos para uma pasta temporária e rodam ali. O par 3 (`aggregation`)
+ainda não tem configuração: depende do mapeamento por soma.
+
 ## Como os números abaixo foram medidos
 
 Os dois modelos de cada par são simulados no libRoadRunner com o **mesmo vetor de tempo, solver e

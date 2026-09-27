@@ -6,9 +6,12 @@ import json
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 import reducheck
+from reducheck import config as config_mod
+from reducheck import metrics
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
@@ -176,3 +179,96 @@ def test_the_eliminated_variable_is_read_from_the_assignment_rule(tmp_path: Path
     # The QSSA is faithful in A and C but not in B itself, which the initial layer spoils.
     assert por_variavel["B"].passou is False
     assert por_variavel["A"].passou and por_variavel["C"].passou
+
+
+# --- pluggable metrics (issue #11) -------------------------------------------
+
+
+@metrics.registrar("erro_no_ultimo_ponto")
+def erro_no_ultimo_ponto(
+    tempo: np.ndarray,
+    original: np.ndarray,
+    simplificado: np.ndarray,
+    escala: float = 1.0,
+) -> metrics.ResultadoDeMetrica:
+    """A metric defined outside the package, to prove the registry is really pluggable."""
+    return metrics.ResultadoDeMetrica(
+        valor=escala * abs(float(original[-1]) - float(simplificado[-1])),
+        descricao="erro absoluto no último ponto, definido num arquivo de teste",
+    )
+
+
+def test_a_metric_registered_outside_the_package_is_usable_from_the_yaml(
+    tmp_path: Path,
+) -> None:
+    # Nothing in src/reducheck knows this metric exists: it is registered above, in this
+    # file, and the configuration cites it by name like any other.
+    config = prepare(tmp_path, "config_qssa_ok.yaml")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "  - metrica: nrmse\n    limite: 0.05\n    variaveis: [A, C]",
+            "  - metrica: erro_no_ultimo_ponto\n    limite: 0.05\n    variaveis: [A, C]\n"
+            "    parametros:\n      escala: 2.0",
+        ),
+        encoding="utf-8",
+    )
+
+    resultado = reducheck.verificar(config)
+
+    por_variavel = {c.variavel: c for c in resultado.criterios}
+    assert set(por_variavel) == {"A", "C"}
+    assert por_variavel["A"].metrica == "erro_no_ultimo_ponto"
+    assert por_variavel["A"].descricao.startswith("erro absoluto no último ponto")
+    # A is identical in both models, so the error at the last point is numerical noise.
+    assert por_variavel["A"].valor < RUIDO_NUMERICO
+    assert resultado.aprovado is True
+
+
+def test_an_unknown_parameter_of_a_metric_stops_the_run(tmp_path: Path) -> None:
+    config = prepare(tmp_path, "config_qssa_ok.yaml")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "    variaveis: [A, C]", "    variaveis: [A, C]\n    parametros:\n      epsilon: 1.0"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(config_mod.ErroDeConfiguracao, match="parametros"):
+        reducheck.verificar(config)
+
+
+#: Values of the four metrics of the MVP on the C variable of the qssa_ok pair, measured
+#: with the tolerances of the configuration (see fixtures/README.md).
+METRICAS_EM_C = {
+    "nrmse": 0.00072,
+    "mape": 0.00277,
+    "erro_max_abs": 0.01971,
+    "erro_max_rel": 0.24695,
+    "erro_estacionario": 0.00004,
+}
+
+
+def test_the_mvp_metrics_reproduce_the_recorded_values(tmp_path: Path) -> None:
+    config = prepare(tmp_path, "config_qssa_ok.yaml")
+    criterios = "\n".join(
+        f"  - metrica: {nome}\n    limite: 1.0\n    variaveis: [C]" for nome in METRICAS_EM_C
+    )
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "  - metrica: nrmse\n    limite: 0.05\n    variaveis: [A, C]", criterios
+        ),
+        encoding="utf-8",
+    )
+
+    resultado = reducheck.verificar(config)
+
+    itens = {c.metrica: c for c in resultado.criterios}
+    for nome, esperado in METRICAS_EM_C.items():
+        assert itens[nome].valor == pytest.approx(esperado, abs=1e-5), nome
+
+    # C starts at zero, so the relative metrics have to drop that one point and say so.
+    assert itens["mape"].detalhes["pontos_excluidos"] == 1
+    assert "1 de 401" in itens["mape"].avisos[0]
+    # The same pair passes in nrmse and is 24,7% wrong at its worst point (t = 0,1, the
+    # initial layer of the QSSA): the metrics answer different questions, on purpose.
+    assert itens["nrmse"].valor < 0.05 < itens["erro_max_rel"].valor
+    assert itens["erro_max_rel"].detalhes["instante"] == pytest.approx(0.1)

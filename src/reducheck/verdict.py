@@ -8,7 +8,8 @@ mandatory and desirable criteria, is a later task and will change :func:`avaliar
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from reducheck import metrics
 from reducheck.config import Criterio
@@ -26,6 +27,14 @@ class ItemAvaliado:
     valor: float
     limite: float
     passou: bool
+    #: What the metric says the number means; printed next to the value in the report.
+    descricao: str = ""
+    #: What the metric had to warn about, such as points excluded near zero. A warning
+    #: never changes whether the item passed: it is there so the reader can judge the
+    #: number, as ``docs/produto.md`` asks ("avisa, sem parar").
+    avisos: tuple[str, ...] = ()
+    #: Extra numbers the metric produced (when the maximum happened, points dropped).
+    detalhes: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -34,6 +43,17 @@ class Veredito:
 
     aprovado: bool
     criterios: tuple[ItemAvaliado, ...]
+
+    @property
+    def avisos(self) -> tuple[str, ...]:
+        """Every warning the metrics produced, each one saying which variable it is about.
+
+        Gathered here so the report has one place to print them, instead of the reader
+        having to look for them item by item.
+        """
+        return tuple(
+            f"{item.variavel}: {aviso}" for item in self.criterios for aviso in item.avisos
+        )
 
     @property
     def porcentagem(self) -> float:
@@ -58,7 +78,6 @@ def avaliar(
     """
     itens: list[ItemAvaliado] = []
     for criterio in criterios:
-        metrica = metrics.obter(criterio.metrica)
         nomes = list(core) if criterio.variaveis == "core" else list(criterio.variaveis or [])
         for nome in nomes:
             try:
@@ -68,14 +87,23 @@ def avaliar(
                     f"O critério '{criterio.metrica}' cita a variável '{nome}', "
                     "que não foi mapeada."
                 ) from erro
-            valor = metrica(serie.original, serie.simplificado)
+            resultado = metrics.calcular(
+                criterio.metrica,
+                serie.tempo,
+                serie.original,
+                serie.simplificado,
+                criterio.parametros,
+            )
             itens.append(
                 ItemAvaliado(
                     metrica=criterio.metrica,
                     variavel=nome,
-                    valor=valor,
+                    valor=resultado.valor,
                     limite=criterio.limite,
-                    passou=valor <= criterio.limite,
+                    passou=resultado.valor <= criterio.limite,
+                    descricao=resultado.descricao,
+                    avisos=tuple(resultado.avisos),
+                    detalhes=dict(resultado.detalhes),
                 )
             )
     return Veredito(aprovado=all(item.passou for item in itens), criterios=tuple(itens))

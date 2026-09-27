@@ -22,6 +22,7 @@ def como_dicionario(veredito: Veredito) -> dict[str, Any]:
     return {
         "aprovado": veredito.aprovado,
         "porcentagem": veredito.porcentagem,
+        "avisos": list(veredito.avisos),
         "criterios": [
             {
                 "metrica": item.metrica,
@@ -29,6 +30,9 @@ def como_dicionario(veredito: Veredito) -> dict[str, Any]:
                 "valor": item.valor,
                 "limite": item.limite,
                 "resultado": "passou" if item.passou else "falhou",
+                "descricao": item.descricao,
+                "avisos": list(item.avisos),
+                "detalhes": dict(item.detalhes),
             }
             for item in veredito.criterios
         ],

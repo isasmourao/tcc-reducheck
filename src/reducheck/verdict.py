@@ -45,16 +45,22 @@ class Veredito:
 
 
 def avaliar(
-    criterios: Sequence[Criterio], series: Mapping[str, SerieComparada]
+    criterios: Sequence[Criterio],
+    series: Mapping[str, SerieComparada],
+    core: Sequence[str] = (),
 ) -> Veredito:
     """Apply every criterion to its variables and decide whether the model is approved.
 
     A value exactly on the threshold passes: the threshold is the largest accepted error.
+    ``core`` is the list a criterion written as ``variaveis: core`` expands to; expanding it
+    here, and not when the file is read, is what keeps the configuration a faithful record
+    of what the user wrote.
     """
     itens: list[ItemAvaliado] = []
     for criterio in criterios:
         metrica = metrics.obter(criterio.metrica)
-        for nome in criterio.variaveis:
+        nomes = list(core) if criterio.variaveis == "core" else list(criterio.variaveis or [])
+        for nome in nomes:
             try:
                 serie = series[nome]
             except KeyError as erro:

@@ -13,17 +13,17 @@ python tests/fixtures/build_sbml.py
 
 ## Configurações prontas
 
-Os pares 1 e 2 têm uma configuração YAML ao lado, usada pelos testes de ponta a ponta
+Os três pares têm uma configuração YAML ao lado, usada pelos testes de ponta a ponta
 (`tests/test_pipeline.py`) e servindo de exemplo mínimo do formato de entrada:
 
-| Arquivo | Par | Veredito esperado |
-| --- | --- | --- |
-| `config_qssa_ok.yaml` | `qssa_ok` | aprovado |
-| `config_qssa_fail.yaml` | `qssa_fail` | reprovado |
+| Arquivo | Par | Mapeamento | Veredito esperado |
+| --- | --- | --- | --- |
+| `config_qssa_ok.yaml` | `qssa_ok` | 1:1 | aprovado |
+| `config_qssa_fail.yaml` | `qssa_fail` | 1:1 | reprovado |
+| `config_aggregation.yaml` | `aggregation` | soma (`[X1, X2]`) | aprovado |
 
 Os caminhos dentro do YAML são relativos ao próprio arquivo, então os testes copiam a
-configuração e os modelos para uma pasta temporária e rodam ali. O par 3 (`aggregation`)
-ainda não tem configuração: depende do mapeamento por soma.
+configuração e os modelos para uma pasta temporária e rodam ali.
 
 ## Como os números abaixo foram medidos
 
@@ -52,6 +52,25 @@ Mapeamento 1:1 (`A → A`, `C → C`), horizonte `t ∈ [0, 40]`, 401 pontos.
 
 `A` é idêntico nos dois modelos (a redução não toca na equação de `A`). O erro em `C` vem só do
 transiente inicial de `B`, que dura `1/k2 = 0,02` — desprezível no horizonte simulado.
+
+### O próprio `B`, a variável eliminada
+
+`B` sai da dinâmica mas continua legível no simplificado, como regra de atribuição
+(`B := k1·A/k2`). Comparado com o `B` do original, ele **não passa** no limite de 0,05:
+
+| Variável | NRMSE (amplitude) | NRMSE (média) | Limite |
+| --- | --- | --- | --- |
+| B | 0,05069 | 0,20464 | 0,05 |
+
+O erro está inteiro em **um único ponto**, `t = 0`: o original começa com `B = 0` e a regra de
+atribuição já diz `B = k1·A(0)/k2 = 0,02`, que é a amplitude inteira da série. É a *camada
+inicial* da QSSA — a aproximação só vale depois que o transiente rápido passa. Tirando esse
+ponto, o NRMSE por amplitude cai para 0,00075, da mesma ordem do erro em `C`.
+
+Por isso `B` entra no `exemplos/config_exemplo.yaml` com `core: false`: é uma variável cuja
+fidelidade a simplificação não promete. O par serve de exemplo de que o veredito depende de
+quais variáveis são declaradas core, e de que um único ponto da malha pode decidir um critério
+(ver `docs/questoes-em-aberto.md`).
 
 ## 2. `qssa_fail` — deve **FALHAR**
 
@@ -92,3 +111,6 @@ como as duas escalas são próximas o erro fica uma ordem de grandeza abaixo do 
 | `qssa_ok` | QSSA com separação de escala forte | 1:1 | passou | 0,00072 |
 | `qssa_fail` | a mesma QSSA, sem separação de escala | 1:1 | falhou | 0,52006 |
 | `aggregation` | agregação de compartimentos | soma | passou | 0,00523 |
+
+No par `qssa_fail` a variável eliminada também foi medida, e erra muito mais: NRMSE 1,14056 por
+amplitude, 1,52816 pela média — ali o problema não é só a camada inicial, é a QSSA inteira.

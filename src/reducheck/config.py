@@ -23,6 +23,8 @@ would be wrong without anyone noticing.
 from __future__ import annotations
 
 import difflib
+import math
+import re
 from pathlib import Path
 from types import UnionType
 from typing import Any, Literal, Union, get_args, get_origin
@@ -45,6 +47,7 @@ __all__ = [
     "Variavel",
     "carregar",
     "ler_yaml",
+    "normalizar_alvo",
     "validar_esquema",
 ]
 
@@ -60,6 +63,10 @@ FORMATOS_SUPORTADOS = frozenset({"json"})
 
 #: How one side of a mapping may be written: one name, a sum, or a weighted sum.
 Alvo = Union[str, list[str], dict[str, float]]  # noqa: UP007 (pydantic reads the annotation)
+
+#: An SBML identifier: a letter or underscore, then letters, digits or underscores. Anything
+#: else in that position is an expression, which this library deliberately does not read.
+_IDENTIFICADOR = re.compile(r"[A-Za-z_]\w*\Z")
 
 
 class ErroDeConfiguracao(Exception):
@@ -100,7 +107,8 @@ class Variavel(_Base):
     original: Alvo
     #: ``None`` means the reduction dropped this variable: there is nothing to compare.
     simplificado: Alvo | None = None
-    #: Whether the variable is essential to the purpose of the model (capability M4).
+    #: Whether the variable is essential to the purpose of the model. A criterion written
+    #: with ``variaveis: core`` is applied to exactly these (capability M4).
     core: bool = True
 
 
@@ -131,6 +139,33 @@ class Configuracao(_Base):
     variaveis: list[Variavel] = Field(min_length=1)
     criterios: list[Criterio] = Field(min_length=1)
     relatorio: Relatorio = Field(default_factory=Relatorio)
+
+    def nomes_core(self) -> list[str]:
+        """Return the report names of the core variables, in declaration order."""
+        return [variavel.nome for variavel in self.variaveis if variavel.core]
+
+    def variaveis_de(self, criterio: Criterio) -> list[str]:
+        """Return the report names a criterion applies to, expanding ``variaveis: core``."""
+        if criterio.variaveis == "core":
+            return self.nomes_core()
+        return list(criterio.variaveis or [])
+
+
+# --- mapping targets ---------------------------------------------------------
+
+
+def normalizar_alvo(alvo: Alvo) -> dict[str, float]:
+    """Return one side of a mapping as ``name -> weight``, whichever way it was written.
+
+    A plain name becomes ``{name: 1.0}`` and a list becomes every name with weight 1.0, so
+    everything downstream -- validation, simulation and :mod:`reducheck.mapping` -- only ever
+    deals with a weighted sum. The 1:1 case is just the one-term sum.
+    """
+    if isinstance(alvo, str):
+        return {alvo: 1.0}
+    if isinstance(alvo, dict):
+        return {nome: float(peso) for nome, peso in alvo.items()}
+    return dict.fromkeys(alvo, 1.0)
 
 
 # --- loading -----------------------------------------------------------------
@@ -334,6 +369,40 @@ def _e_qualitativo(criterio: Criterio) -> bool:
     return criterio.metrica in ANALISES_QUALITATIVAS
 
 
+def _conferir_alvo(campo: str, alvo: Alvo | None) -> list[str]:
+    """Check one side of a mapping: well-formed names, no repetitions, usable weights.
+
+    An expression is caught here, and not by the check against the SBML file, so that the
+    message says what the library does not support instead of claiming the model is missing
+    a variable called ``C1 + C2``.
+    """
+    if alvo is None:
+        return []
+    problemas: list[str] = []
+    if not isinstance(alvo, str) and not alvo:
+        return [f"{campo}: a lista de variáveis está vazia; declare ao menos uma."]
+
+    if isinstance(alvo, list):
+        repetidos = [nome for nome in dict.fromkeys(alvo) if alvo.count(nome) > 1]
+        if repetidos:
+            problemas.append(
+                f"{campo}: a variável {', '.join(repetidos)} aparece mais de uma vez na soma. "
+                "Para somar com peso, use um mapeamento: {%s: 2.0}." % repetidos[0]
+            )
+
+    pesos = normalizar_alvo(alvo)
+    for nome, peso in pesos.items():
+        if not _IDENTIFICADOR.match(nome):
+            problemas.append(
+                f"{campo}: '{nome}' não é um nome de variável. Expressões (contas, razões, "
+                "funções) não são suportadas; use uma lista [A, B] para a soma ou um "
+                "mapeamento {A: 1.0, B: 0.5} para a soma ponderada."
+            )
+        if not math.isfinite(peso):
+            problemas.append(f"{campo}: o peso de '{nome}' tem que ser um número finito.")
+    return problemas
+
+
 def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None:
     """Check what only makes sense once the whole file is read."""
     problemas: list[str] = []
@@ -352,6 +421,10 @@ def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None
             )
         else:
             vistos[variavel.nome] = indice
+        for papel in ("original", "simplificado"):
+            problemas.extend(
+                _conferir_alvo(f"variaveis[{indice}].{papel}", getattr(variavel, papel))
+            )
         if variavel.core and variavel.simplificado is None:
             problemas.append(
                 f"variaveis[{indice}].simplificado: a variável core '{variavel.nome}' não "
@@ -387,6 +460,11 @@ def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None
                     f"criterios[{indice}].variaveis: campo obrigatório para a métrica "
                     f"'{criterio.metrica}'; use uma lista de nomes ou 'core'."
                 )
+        if criterio.variaveis == "core" and not configuracao.nomes_core():
+            problemas.append(
+                f"criterios[{indice}].variaveis: 'core' não seleciona nada, porque nenhuma "
+                "variável foi declarada com 'core: true'."
+            )
         if not isinstance(criterio.variaveis, list):
             continue
         for nome in criterio.variaveis:
@@ -408,13 +486,7 @@ def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None
 
 def _nomes_citados(alvo: Alvo | None) -> list[str]:
     """Return the model variables one side of a mapping reads."""
-    if alvo is None:
-        return []
-    if isinstance(alvo, str):
-        return [alvo]
-    if isinstance(alvo, dict):
-        return list(alvo)
-    return list(alvo)
+    return [] if alvo is None else list(normalizar_alvo(alvo))
 
 
 def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) -> None:
@@ -464,9 +536,6 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
 
 #: Field -> (capability of docs/produto.md, issue that will implement it).
 _PENDENTES = {
-    "soma": ("mapeamento por soma e soma ponderada (M2)", "#10"),
-    "eliminada": ("variáveis eliminadas por QSSA no mapeamento (M3)", "#10"),
-    "core": ("seleção em bloco pelas variáveis core (M4)", "#10"),
     "obrigatorio": ("critérios obrigatórios e desejáveis (V2)", "#13"),
     "qualitativo": ("equilíbrio e estabilidade local (L1-L3)", "#18"),
     "sobrescrita": ("sobrescrever parâmetros e condições iniciais (S2)", "#12"),
@@ -500,26 +569,6 @@ def _exigir_suportado(configuracao: Configuracao, caminho: Path | str) -> None:
                 _ainda_nao(f"simulacao.{campo}", "a sobrescrita de valores", "sobrescrita")
             )
 
-    for indice, variavel in enumerate(configuracao.variaveis):
-        for papel in ("original", "simplificado"):
-            alvo = getattr(variavel, papel)
-            if isinstance(alvo, list):
-                problemas.append(
-                    _ainda_nao(f"variaveis[{indice}].{papel}", "a soma de variáveis", "soma")
-                )
-            elif isinstance(alvo, dict):
-                problemas.append(
-                    _ainda_nao(f"variaveis[{indice}].{papel}", "a soma ponderada", "soma")
-                )
-        if variavel.simplificado is None:
-            problemas.append(
-                _ainda_nao(
-                    f"variaveis[{indice}].simplificado",
-                    "declarar uma variável sem contrapartida",
-                    "eliminada",
-                )
-            )
-
     for indice, criterio in enumerate(configuracao.criterios):
         if _e_qualitativo(criterio):
             problemas.append(
@@ -528,10 +577,6 @@ def _exigir_suportado(configuracao: Configuracao, caminho: Path | str) -> None:
                     f"a análise '{criterio.metrica}'",
                     "qualitativo",
                 )
-            )
-        if criterio.variaveis == "core":
-            problemas.append(
-                _ainda_nao(f"criterios[{indice}].variaveis", "o valor 'core'", "core")
             )
         if not criterio.obrigatorio:
             problemas.append(

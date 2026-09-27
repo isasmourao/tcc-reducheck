@@ -107,10 +107,14 @@ criterios:
     limite: 0.05
     variaveis: [M]
     obrigatorio: false
+    parametros:                    # opções da própria métrica (ver tabela abaixo)
+      epsilon: 1e-6                # pontos com |original| < epsilon saem da conta
   - metrica: erro_estacionario
     limite: 0.01
     variaveis: core
     obrigatorio: true
+    parametros:
+      fracao_final: 0.1            # média dos últimos 10% do tempo simulado
   - metrica: estabilidade_local    # mesmo tipo de estabilidade nos dois
     obrigatorio: true
 
@@ -118,6 +122,28 @@ relatorio:
   formatos: [html, json]
   pasta: resultados/
 ```
+
+**Métricas disponíveis** (acrescentadas em v0.2; todas dizem, junto do valor, o que o número
+significa e o que precisou ser descartado):
+
+| Métrica | O que mede | Unidade | Parâmetros |
+| --- | --- | --- | --- |
+| `nrmse` | RMSE dividido pela amplitude (`max − min`) do original | fração (0,05 = 5%) | — |
+| `mape` | erro relativo médio | fração | `epsilon` |
+| `erro_max_abs` | maior erro absoluto, e em que instante | unidade da variável | — |
+| `erro_max_rel` | maior erro relativo, e em que instante | fração | `epsilon` |
+| `erro_estacionario` | erro relativo no fim da simulação | fração | `fracao_final` |
+
+`epsilon` protege as métricas que dividem pelo original: os pontos com `|original| < epsilon`
+são excluídos e o relatório diz **quantos**. Sem ele o valor explode onde a variável passa perto
+de zero, que é o caso das variáveis do modelo da Verly que começam em zero. Omitido, vale
+`10⁻⁶ · max|original|`, relativo à escala da variável (ver `docs/questoes-em-aberto.md`, item 17).
+`fracao_final` é a fração final do **intervalo de tempo** cuja média é comparada; `0` (o padrão)
+compara os valores finais.
+
+Uma métrica nova é uma função decorada com `@registrar("nome")`, que pode viver fora da
+biblioteca: o YAML passa a aceitar o nome e os parâmetros dela sem que nada no núcleo mude
+(capacidade Q5).
 
 **Duas formas de usar:**
 

@@ -7,5 +7,5 @@ venv/
 *.egg-info/
 dist/
 build/
-/resultados/
+resultados/
 .DS_Store

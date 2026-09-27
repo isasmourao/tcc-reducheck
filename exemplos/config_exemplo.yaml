@@ -70,10 +70,27 @@ variaveis:
 # Os critérios de aceitação, declarados ANTES de comparar. Cada par (critério, variável)
 # conta como um item na porcentagem do veredito.
 criterios:
-  - metrica: nrmse       # tem que estar no registro de métricas (hoje: nrmse)
+  - metrica: nrmse       # tem que estar no registro de métricas (ver abaixo)
     limite: 0.05         # maior erro aceito; o limite é inclusivo (passa com valor == limite)
     variaveis: [A, C]    # nomes declarados acima, ou a palavra 'core' (abaixo)
     obrigatorio: true    # opcional (padrão: true); 'false' (ainda não suportado)
+  # As métricas disponíveis são nrmse, mape, erro_max_abs, erro_max_rel e
+  # erro_estacionario (ver docs/produto.md). Algumas aceitam opções próprias em
+  # 'parametros'; o relatório sempre diz o que a métrica precisou descartar.
+  - metrica: erro_estacionario
+    limite: 0.01         # erro relativo no fim da simulação
+    variaveis: [A, C]
+    parametros:
+      fracao_final: 0.1  # opcional (padrão: 0 — compara só os valores finais)
+  # 'mape' e 'erro_max_rel' dividem pelo original, então descartam os pontos em que ele
+  # passa perto de zero. Em C, que começa em zero, o erro máximo relativo fica em 0,247:
+  # é a camada inicial da QSSA (ver tests/fixtures/README.md), e por isso o critério
+  # abaixo está comentado — ele reprovaria este par com o limite de 0,05.
+  # - metrica: erro_max_rel
+  #   limite: 0.05
+  #   variaveis: [A, C]
+  #   parametros:
+  #     epsilon: 1e-6    # opcional (padrão: 1e-6 * max|original|)
   # 'variaveis: core' seleciona de uma vez toda variável marcada com 'core: true'. Aqui
   # daria [A, C], porque B está com 'core: false':
   # - metrica: nrmse

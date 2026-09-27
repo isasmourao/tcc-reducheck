@@ -72,6 +72,24 @@ fidelidade a simplificação não promete. O par serve de exemplo de que o vered
 quais variáveis são declaradas core, e de que um único ponto da malha pode decidir um critério
 (ver `docs/questoes-em-aberto.md`).
 
+### As outras métricas na mesma variável
+
+As cinco métricas do MVP (issue #11), medidas em `C` no par `qssa_ok`, com a mesma configuração.
+Conferidas por `tests/test_pipeline.py`.
+
+| Métrica | Valor | Onde |
+| --- | --- | --- |
+| nrmse | 0,00072 | — |
+| mape | 0,00277 | 1 dos 401 pontos excluído (`C(0) = 0`) |
+| erro_max_abs | 0,01971 | t = 0,1 |
+| erro_max_rel | 0,24695 | t = 0,1 |
+| erro_estacionario | 0,00004 | último ponto |
+
+O par é aprovado por NRMSE e seria **reprovado** pelo erro máximo relativo com o mesmo limite de
+0,05: o pior ponto está dentro da camada inicial da QSSA, onde o original ainda é pequeno. É a
+mesma coisa que acontece com `B`, agora numa variável preservada — ver `docs/questoes-em-aberto.md`,
+itens 14, 17 e 18.
+
 ## 2. `qssa_fail` — deve **FALHAR**
 
 A mesma cadeia e a mesma redução, mas com `k2 = 0,05`: agora o intermediário é **mais lento** que a

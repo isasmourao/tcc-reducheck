@@ -449,3 +449,34 @@ def test_the_example_configuration_is_valid() -> None:
     # core, because the QSSA does not get it right at t = 0 (tests/fixtures/README.md).
     assert [v.nome for v in cfg.variaveis] == ["A", "C", "B"]
     assert cfg.nomes_core() == ["A", "C"]
+
+
+# --- per-metric parameters (issue #11) ---------------------------------------
+
+
+def test_the_parameters_of_a_metric_are_accepted(tmp_path: Path) -> None:
+    texto = BASE.replace(
+        "metrica: nrmse", "metrica: mape"
+    ) + "    parametros:\n      epsilon: 1e-6\n"
+    configuracao = config_mod.carregar(escrever(tmp_path, texto))
+
+    assert configuracao.criterios[0].parametros == {"epsilon": 1e-6}
+
+
+def test_a_parameter_the_metric_does_not_have_is_refused(tmp_path: Path) -> None:
+    texto = BASE + "    parametros:\n      epsilon: 1e-6\n"
+    mensagem = recusa(tmp_path, texto)
+
+    assert "criterios[0].parametros" in mensagem
+    assert "nrmse" in mensagem
+    assert "não recebe parâmetros" in mensagem
+
+
+def test_a_misspelled_parameter_suggests_the_right_name(tmp_path: Path) -> None:
+    texto = BASE.replace(
+        "metrica: nrmse", "metrica: mape"
+    ) + "    parametros:\n      epslon: 1e-6\n"
+    mensagem = recusa(tmp_path, texto)
+
+    assert "criterios[0].parametros" in mensagem
+    assert "epsilon" in mensagem

@@ -121,6 +121,9 @@ class Criterio(_Base):
     #: Report names of the variables, or ``core`` to select every core variable at once.
     variaveis: list[str] | Literal["core"] | None = None
     obrigatorio: bool = True
+    #: Options of the metric itself, such as the ``epsilon`` of ``mape``. The accepted names
+    #: are the keyword arguments of the registered function (``metrics.parametros_de``).
+    parametros: dict[str, float] = Field(default_factory=dict)
 
 
 class Relatorio(_Base):
@@ -444,6 +447,11 @@ def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None
                 f"registro.{_sugerir(criterio.metrica, conhecidas)}"
             )
         elif _e_qualitativo(criterio):
+            if criterio.parametros:
+                problemas.append(
+                    f"criterios[{indice}].parametros: a análise qualitativa "
+                    f"'{criterio.metrica}' não recebe parâmetros."
+                )
             if criterio.limite is not None:
                 problemas.append(
                     f"criterios[{indice}].limite: a análise qualitativa "
@@ -460,6 +468,18 @@ def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None
                     f"criterios[{indice}].variaveis: campo obrigatório para a métrica "
                     f"'{criterio.metrica}'; use uma lista de nomes ou 'core'."
                 )
+            aceitos = metrics.parametros_de(criterio.metrica)
+            for parametro in criterio.parametros:
+                if parametro not in aceitos:
+                    problemas.append(
+                        f"criterios[{indice}].parametros: a métrica '{criterio.metrica}' "
+                        f"não tem o parâmetro '{parametro}'."
+                        + (
+                            _sugerir(parametro, aceitos)
+                            if aceitos
+                            else " Ela não recebe parâmetros."
+                        )
+                    )
         if criterio.variaveis == "core" and not configuracao.nomes_core():
             problemas.append(
                 f"criterios[{indice}].variaveis: 'core' não seleciona nada, porque nenhuma "

@@ -37,6 +37,9 @@ dev = [
     "python-libsbml>=5.20",
 ]
 
+[project.scripts]
+reducheck = "reducheck.cli:main"
+
 [project.urls]
 Repository = "https://github.com/isasmourao/tcc-reducheck"
 

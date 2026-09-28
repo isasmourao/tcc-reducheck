@@ -325,11 +325,13 @@ def test_what_is_not_supported_yet_stops_with_the_field_and_the_reason(
     assert "ainda não" in mensagem
 
 
-def test_an_unsupported_report_format_stops(tmp_path: Path) -> None:
-    mensagem = recusa(tmp_path, BASE + "relatorio:\n  formatos: [html]\n")
+def test_an_unknown_report_format_stops(tmp_path: Path) -> None:
+    mensagem = recusa(tmp_path, BASE + "relatorio:\n  formatos: [pdf]\n")
 
     assert "relatorio.formatos" in mensagem
-    assert "ainda não" in mensagem
+    assert "não existe" in mensagem
+    # A mensagem lista os formatos que existem (a issue #14 acrescentou html e md).
+    assert "html" in mensagem and "md" in mensagem and "json" in mensagem
 
 
 # --- mapping by sum, weighted sum and core selection (issue #10) -------------

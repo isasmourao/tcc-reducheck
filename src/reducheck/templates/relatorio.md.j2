@@ -1,0 +1,62 @@
+# {{ titulo }}
+
+Veredito: {{ veredito.nivel }}
+Critérios atendidos: {{ passados }} de {{ total }} ({{ porcentagem }}%)
+Obrigatórios: {{ obrigatorios.passados }} de {{ obrigatorios.total }} | Desejáveis: {{ desejaveis.passados }} de {{ desejaveis.total }}
+{% if nota_dos_niveis %}
+
+{{ nota_dos_niveis }}
+{% endif %}
+
+## Critérios
+
+| Critério | Variável | Valor | Limite | Tipo | Resultado |
+| --- | --- | --- | --- | --- | --- |
+{% for item in criterios %}
+| {{ item.metrica }} | {{ item.variavel }} | {{ item.valor }} | {{ item.limite }} | {{ item.tipo }} | {{ item.resultado }} |
+{% endfor %}
+
+As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.
+
+## Razões
+
+{% if razoes %}
+{% for razao in razoes %}
+- {{ razao }}
+{% endfor %}
+
+{{ nota_das_razoes }}
+{% else %}
+Nenhum critério falhou.
+{% endif %}
+
+## Avisos
+
+{% if avisos %}
+{% for aviso in avisos %}
+- {{ aviso }}
+{% endfor %}
+{% else %}
+Nenhum aviso.
+{% endif %}
+
+## Gráficos
+
+{% if graficos %}
+{% for grafico in graficos %}
+![{{ grafico.variavel }}: original vs. simplificado e erro ao longo do tempo]({{ grafico.arquivo }})
+
+{# A frase da combinação entra como expressão, e não como bloco: um {% endif %} no fim da
+   linha faria o Jinja engolir a quebra e colar a legenda na figura seguinte. #}
+{{ grafico.variavel }}: original (linha contínua) e simplificado (tracejada), com o erro absoluto ao longo do tempo embaixo.{{ " Comparação: " ~ grafico.combinacao ~ "." if grafico.combinacao else "" }}
+
+{% endfor %}
+{% else %}
+Nenhuma variável mapeada para desenhar.
+
+{% endif %}
+## Dados da execução
+
+{% for rotulo, valor in execucao %}
+- {{ rotulo }}: {{ valor }}
+{% endfor %}

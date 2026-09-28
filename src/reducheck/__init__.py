@@ -7,11 +7,13 @@ map the variables, measure the metrics, decide the verdict and write the report.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from reducheck import config as _config
 from reducheck import mapping, report, simulation, verdict
+from reducheck.mapping import SerieComparada
 from reducheck.simulation import RuidoNumerico
 from reducheck.verdict import ItemAvaliado, Veredito
 
@@ -26,12 +28,26 @@ class Resultado:
 
     configuracao: _config.Configuracao
     veredito: Veredito
-    caminho_json: Path
+    #: Where each requested report format was written, keyed by format name.
+    caminhos: Mapping[str, Path]
     #: The floor of the comparison, measured by simulating the original twice.
     ruido: RuidoNumerico
     #: Warnings that are not about a single metric: the noise itself and every threshold
     #: too close to it.
     avisos: tuple[str, ...] = ()
+    #: The two series of each mapped variable, already on the same time grid. Kept so that
+    #: whoever calls from Python can plot or re-analyse without simulating again.
+    series: Mapping[str, SerieComparada] = field(default_factory=dict)
+
+    @property
+    def caminho_json(self) -> Path | None:
+        """Where ``resultado.json`` went, or ``None`` when json was not asked for."""
+        return self.caminhos.get("json")
+
+    @property
+    def caminho_relatorio(self) -> Path | None:
+        """Where the readable report went: the HTML if there is one, else the Markdown."""
+        return self.caminhos.get("html") or self.caminhos.get("md")
 
     @property
     def nivel(self) -> str:
@@ -89,14 +105,20 @@ def verificar(caminho_config: Path | str) -> Resultado:
         niveis=configuracao.relatorio.niveis,
     )
     avisos = (ruido.resumo(), *simulation.avisos_de_ruido(ruido, configuracao))
-    caminho_json = report.salvar_json(
-        veredito, configuracao.relatorio.pasta, ruido=ruido, avisos=avisos
+    caminhos = report.salvar(
+        veredito,
+        configuracao,
+        series,
+        ruido=ruido,
+        avisos=avisos,
+        caminho_config=caminho_config,
     )
 
     return Resultado(
         configuracao=configuracao,
         veredito=veredito,
-        caminho_json=caminho_json,
+        caminhos=caminhos,
         ruido=ruido,
         avisos=avisos,
+        series=series,
     )

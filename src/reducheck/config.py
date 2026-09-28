@@ -61,7 +61,7 @@ ANALISES_QUALITATIVAS = frozenset({"equilibrio", "estabilidade_local"})
 SOLVERS_SUPORTADOS = frozenset({"cvode"})
 
 #: Report formats this version knows how to write.
-FORMATOS_SUPORTADOS = frozenset({"json"})
+FORMATOS_SUPORTADOS = frozenset({"json", "html", "md"})
 
 #: How one side of a mapping may be written: one name, a sum, or a weighted sum.
 Alvo = Union[str, list[str], dict[str, float]]  # noqa: UP007 (pydantic reads the annotation)
@@ -621,7 +621,6 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
 #: Field -> (capability of docs/produto.md, issue that will implement it).
 _PENDENTES = {
     "qualitativo": ("equilíbrio e estabilidade local (L1-L3)", "#18"),
-    "html": ("relatório em HTML (R2)", "#14"),
 }
 
 
@@ -659,9 +658,9 @@ def _exigir_suportado(configuracao: Configuracao, caminho: Path | str) -> None:
         formato for formato in configuracao.relatorio.formatos if formato not in FORMATOS_SUPORTADOS
     ]
     if nao_suportados:
+        suportados = ", ".join(sorted(FORMATOS_SUPORTADOS))
         problemas.append(
-            _ainda_nao(
-                "relatorio.formatos", f"o formato '{', '.join(nao_suportados)}'", "html"
-            )
+            f"relatorio.formatos: o formato '{', '.join(nao_suportados)}' não existe. "
+            f"Disponíveis: {suportados}."
         )
     _reclamar(problemas, caminho)

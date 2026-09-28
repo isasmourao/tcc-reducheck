@@ -20,6 +20,7 @@ that means less than it looks like:
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ElementTree
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,6 +48,7 @@ __all__ = [
     "ruido_numerico",
     "simular",
     "tipos_disponiveis",
+    "unidade_de_tempo",
 ]
 
 #: How much looser the tolerances of the second run of the original are. Two orders of
@@ -244,6 +246,26 @@ def tipos_disponiveis(caminho_sbml: Path | str) -> dict[str, str]:
     ``parametro``, because that is how libRoadRunner exposes an assignment rule.
     """
     return _tipos(_carregar(caminho_sbml))
+
+
+def unidade_de_tempo(caminho_sbml: Path | str) -> str | None:
+    """Return the time unit the SBML model declares, or ``None`` when it declares none.
+
+    Only used to label the time axis of the plots. libRoadRunner does not expose the
+    attribute, so it is read from the file; a model that leaves ``timeUnits`` out (the
+    usual case, including the toy models here) gets a generic label instead of a guess.
+    """
+    try:
+        raiz = ElementTree.parse(str(caminho_sbml)).getroot()
+    except (OSError, ElementTree.ParseError):
+        return None
+    modelo = next(
+        (no for no in raiz.iter() if no.tag.endswith("}model") or no.tag == "model"), None
+    )
+    if modelo is None:
+        return None
+    unidade = modelo.get("timeUnits")
+    return unidade or None
 
 
 def _tipos(modelo: roadrunner.RoadRunner) -> dict[str, str]:

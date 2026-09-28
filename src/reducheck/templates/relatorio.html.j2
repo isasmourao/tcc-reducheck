@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ titulo }}</title>
+<style>
+  :root {
+    --tinta: #1a1a1a; --fundo: #ffffff; --suave: #5a5a5a; --linha: #dcdcdc;
+    --passou: #1a7f37; --falhou: #b3261e; --ressalva: #9a6700;
+  }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--tinta); background: var(--fundo); margin: 0 auto; padding: 2rem 1rem;
+    max-width: 52rem; line-height: 1.5;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 1rem; }
+  h2 { font-size: 1.1rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--linha);
+       padding-bottom: 0.25rem; }
+  .veredito { display: inline-block; padding: 0.4rem 0.9rem; border-radius: 0.3rem;
+              font-size: 1.2rem; font-weight: 700; color: #fff; }
+  .veredito.aprovado { background: var(--passou); }
+  .veredito.ressalvas { background: var(--ressalva); }
+  .veredito.reprovado { background: var(--falhou); }
+  .resumo { margin: 0.75rem 0 0; color: var(--suave); }
+  .resumo strong { color: var(--tinta); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--linha);
+           vertical-align: top; }
+  th { font-weight: 600; background: #f6f6f6; }
+  td.numero { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.falhou td { background: #fdf2f1; }
+  .passou { color: var(--passou); font-weight: 600; }
+  .falhou { color: var(--falhou); font-weight: 600; }
+  .descricao { display: block; color: var(--suave); font-size: 0.85rem; }
+  ul { padding-left: 1.2rem; }
+  li { margin-bottom: 0.35rem; }
+  figure { margin: 1.5rem 0; }
+  figure img { width: 100%; height: auto; border: 1px solid var(--linha); }
+  figcaption { color: var(--suave); font-size: 0.85rem; margin-top: 0.3rem; }
+  .nota { color: var(--suave); font-size: 0.85rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem;
+       font-size: 0.9rem; }
+  dt { color: var(--suave); }
+  dd { margin: 0; }
+</style>
+</head>
+<body>
+<h1>{{ titulo }}</h1>
+
+<p><span class="veredito {{ classe_do_veredito }}">{{ veredito.nivel }}</span></p>
+<p class="resumo">
+  Critérios atendidos: <strong>{{ passados }} de {{ total }} ({{ porcentagem }}%)</strong><br>
+  Obrigatórios: <strong>{{ obrigatorios.passados }} de {{ obrigatorios.total }}</strong> |
+  Desejáveis: <strong>{{ desejaveis.passados }} de {{ desejaveis.total }}</strong>
+</p>
+{% if nota_dos_niveis %}
+<p class="nota">{{ nota_dos_niveis }}</p>
+{% endif %}
+
+<h2>Critérios</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Critério</th><th>Variável</th><th>Valor</th><th>Limite</th>
+      <th>Tipo</th><th>Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in criterios %}
+    <tr class="{{ item.resultado }}">
+      <td>{{ item.metrica }}{% if item.descricao %}<span class="descricao">{{ item.descricao }}</span>{% endif %}</td>
+      <td>{{ item.variavel }}</td>
+      <td class="numero">{{ item.valor }}</td>
+      <td class="numero">{{ item.limite }}</td>
+      <td>{{ item.tipo }}</td>
+      <td class="{{ item.resultado }}">{{ item.resultado }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="nota">As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.</p>
+
+<h2>Razões</h2>
+{% if razoes %}
+<ul>
+  {% for razao in razoes %}<li>{{ razao }}</li>{% endfor %}
+</ul>
+<p class="nota">{{ nota_das_razoes }}</p>
+{% else %}
+<p>Nenhum critério falhou.</p>
+{% endif %}
+
+<h2>Avisos</h2>
+{% if avisos %}
+<ul>
+  {% for aviso in avisos %}<li>{{ aviso }}</li>{% endfor %}
+</ul>
+{% else %}
+<p>Nenhum aviso.</p>
+{% endif %}
+
+<h2>Gráficos</h2>
+{% if graficos %}
+  {% for grafico in graficos %}
+  <figure>
+    <img alt="Trajetórias e erro da variável {{ grafico.variavel }}"
+         src="data:image/png;base64,{{ grafico.base64 }}">
+    <figcaption>
+      {{ grafico.variavel }}: original (linha contínua) e simplificado (tracejada), com o
+      erro absoluto ao longo do tempo embaixo.
+      {%- if grafico.combinacao %} Comparação: {{ grafico.combinacao }}.{% endif %}
+      Arquivo: {{ grafico.arquivo }}.
+    </figcaption>
+  </figure>
+  {% endfor %}
+{% else %}
+<p>Nenhuma variável mapeada para desenhar.</p>
+{% endif %}
+
+<h2>Dados da execução</h2>
+<dl>
+  {% for rotulo, valor in execucao %}
+  <dt>{{ rotulo }}</dt><dd>{{ valor }}</dd>
+  {% endfor %}
+</dl>
+</body>
+</html>

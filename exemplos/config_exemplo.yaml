@@ -107,6 +107,8 @@ criterios:
 
 # Onde escrever o resultado.
 relatorio:
-  formatos: [json]       # opcional (padrão: [json]); 'html' (ainda não suportado)
+  formatos: [html, json] # opcional (padrão: [json]); 'html', 'md' e 'json'. 'md' gera o
+                         # mesmo relatório em Markdown, com os gráficos ligados em
+                         # graficos/ em vez de embutidos
   pasta: resultados/     # opcional (padrão: resultados/)
   niveis: 3              # opcional (padrão: 3); 2 junta APROVADO COM RESSALVAS em APROVADO

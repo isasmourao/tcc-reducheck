@@ -212,6 +212,16 @@ corresponde ao código de saída 0 da linha de comando.
 | series.csv | As séries simuladas, para quem quiser refazer a análise |
 | config_usada.yaml | Cópia da configuração e versões das bibliotecas, para reprodutibilidade |
 
+`relatorio.formatos` escolhe o que é escrito: `html`, `md` e `json`, em qualquer combinação
+(padrão: `[json]`). O HTML é **um arquivo só** — os gráficos vão embutidos em base64 —, e o
+Markdown é o mesmo relatório com os gráficos ligados aos PNG de `graficos/`. Os PNG saem
+sempre que um dos dois formatos legíveis é pedido, a 300 dpi, para irem direto ao texto.
+A ordem das seções é: veredito → resumo numérico → tabela de critérios (falhas primeiro) →
+razões → avisos → gráficos → dados da execução (modelos, condições de simulação, versões e
+data). Cada gráfico é um painel por variável mapeada: original (linha contínua) e
+simplificado (tracejada) em cima, erro absoluto ao longo do tempo embaixo
+(acrescentado na issue #14).
+
 **Exemplo do topo do relatório** (valores ilustrativos):
 
 ```markdown

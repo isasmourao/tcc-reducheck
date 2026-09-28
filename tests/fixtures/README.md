@@ -11,6 +11,14 @@ não dependam do tradutor:
 python tests/fixtures/build_sbml.py
 ```
 
+Além dos pares, há **dois modelos sozinhos**, sem contrapartida simplificada, que só existem para
+exercitar uma simulação quebrada (issue #12):
+
+| Arquivo | O que faz | Usado em |
+| --- | --- | --- |
+| `negativa.ant` / `.xml` | remoção de ordem zero (`X -> ; k`, `X(0) = 1`, `k = 1`): `X` zera em `t = 1` e continua caindo | `config_negativa.yaml`, comparado com ele mesmo: todo erro seria zero, mas a simulação é inválida |
+| `divergente.ant` / `.xml` | `dX/dt = X²` com `X(0) = 1`: explode em `t = 1` e o CVODE falha | teste de que a falha do solver vira `ErroDeSimulacao` |
+
 ## Configurações prontas
 
 Os três pares têm uma configuração YAML ao lado, usada pelos testes de ponta a ponta
@@ -21,6 +29,7 @@ Os três pares têm uma configuração YAML ao lado, usada pelos testes de ponta
 | `config_qssa_ok.yaml` | `qssa_ok` | 1:1 | aprovado |
 | `config_qssa_fail.yaml` | `qssa_fail` | 1:1 | reprovado |
 | `config_aggregation.yaml` | `aggregation` | soma (`[X1, X2]`) | aprovado |
+| `config_negativa.yaml` | `negativa` com ele mesmo | 1:1 | erro de simulação (valor negativo) |
 
 Os caminhos dentro do YAML são relativos ao próprio arquivo, então os testes copiam a
 configuração e os modelos para uma pasta temporária e rodam ali.
@@ -121,6 +130,27 @@ Mapeamento por soma (`X1 + X2 → X`), horizonte `t ∈ [0, 50]`, 501 pontos.
 
 A agregação não é exata (`d1 ≠ d2`, então a soma de duas exponenciais não é uma exponencial), mas
 como as duas escalas são próximas o erro fica uma ordem de grandeza abaixo do limite.
+
+## Ruído numérico de referência
+
+O original de cada par simulado **duas vezes**, a segunda com `rtol` e `atol` 100× mais frouxas
+(`1e-6` e `1e-8`), e o NRMSE entre as duas execuções. É o piso da comparação: erro que o solver
+produz sozinho, sem nenhuma simplificação envolvida (capacidade S3, issue #12). Conferido por
+`tests/test_pipeline.py`.
+
+| Par | Variável | Ruído (NRMSE) | Limite | Quanto o limite é maior |
+| --- | --- | --- | --- | --- |
+| `qssa_ok` | A | 9,53 × 10⁻⁷ | 0,05 | 52 000× |
+| `qssa_ok` | C | 9,56 × 10⁻⁷ | 0,05 | 52 000× |
+| `qssa_fail` | A | 2,50 × 10⁻⁷ | 0,05 | 200 000× |
+| `qssa_fail` | C | 2,22 × 10⁻⁷ | 0,05 | 225 000× |
+| `aggregation` | X | 1,59 × 10⁻⁶ | 0,05 | 31 000× |
+
+Nos três pares o ruído está quatro ordens de grandeza abaixo do limite, então nenhum veredito aqui
+depende do solver. Vale notar que em `qssa_ok` o ruído de `A` (9,5 × 10⁻⁷) é **maior** que a
+diferença medida entre os dois modelos nessa variável (2,8 × 10⁻⁸, questão 7 de
+`docs/questoes-em-aberto.md`): o piso medido com tolerâncias 100× mais frouxas é um limite superior
+conservador, não a incerteza da execução usada na comparação (ver questão 21).
 
 ## Resumo
 

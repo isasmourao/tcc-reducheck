@@ -26,10 +26,15 @@ simulacao:
   solver: cvode          # opcional (padrão: cvode; é o único disponível)
   tol_relativa: 1e-8     # opcional (padrão: 1e-8)
   tol_absoluta: 1e-10    # opcional (padrão: 1e-10)
-  # parametros:          # (ainda não suportado) sobrescreve valores do SBML
-  #   k1: 0.5
-  # condicoes_iniciais:  # (ainda não suportado)
-  #   A: 2.0
+  nao_negativas: true    # opcional (padrão: true) — variável negativa vira erro, não veredito
+  # sobrescrever:        # troca valores do SBML; o bloco de um modelo vence o comum
+  #   parametros:        # vale para os dois modelos
+  #     k1: 0.5
+  #   condicoes_iniciais:
+  #     A: 2.0
+  #   original:          # só no original (B não existe na dinâmica do simplificado)
+  #     condicoes_iniciais:
+  #       B: 0.0
 
 # Como casar as variáveis dos dois modelos. Uma entrada por variável comparada.
 variaveis:

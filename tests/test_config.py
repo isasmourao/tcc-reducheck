@@ -106,10 +106,14 @@ simulacao:
   solver: cvode
   tol_relativa: 1e-8
   tol_absoluta: 1e-10
-  parametros:
-    k1: 0.5
-  condicoes_iniciais:
-    A: 2.0
+  sobrescrever:
+    parametros:
+      k1: 0.5
+    condicoes_iniciais:
+      A: 2.0
+    simplificado:
+      parametros:
+        k2: 40.0
 variaveis:
   - nome: soma
     original: [A, C]
@@ -142,8 +146,12 @@ def test_the_full_schema_of_the_product_document_is_parsed(tmp_path: Path) -> No
     dados = config_mod.ler_yaml(escrever(tmp_path, COMPLETA))
     cfg = config_mod.validar_esquema(dados, Path("config.yaml"))
 
-    assert cfg.simulacao.parametros == {"k1": 0.5}
-    assert cfg.simulacao.condicoes_iniciais == {"A": 2.0}
+    assert cfg.simulacao.sobrescrever.para("original") == config_mod.Valores(
+        parametros={"k1": 0.5}, condicoes_iniciais={"A": 2.0}
+    )
+    assert cfg.simulacao.sobrescrever.para("simplificado") == config_mod.Valores(
+        parametros={"k1": 0.5, "k2": 40.0}, condicoes_iniciais={"A": 2.0}
+    )
     assert [v.original for v in cfg.variaveis] == [["A", "C"], {"A": 1.0, "C": 0.5}, "C"]
     assert cfg.variaveis[2].simplificado is None
     assert [v.core for v in cfg.variaveis] == [True, False, False]
@@ -308,12 +316,6 @@ def test_a_yaml_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
             "    variaveis: [A, C]",
             "    variaveis: [A, C]\n    obrigatorio: false",
             "criterios[0].obrigatorio",
-        ),
-        ("  pontos: 401", "  pontos: 401\n  parametros:\n    k1: 0.5", "simulacao.parametros"),
-        (
-            "  pontos: 401",
-            "  pontos: 401\n  condicoes_iniciais:\n    A: 2.0",
-            "simulacao.condicoes_iniciais",
         ),
         ("  pontos: 401", "  pontos: 401\n  solver: euler", "simulacao.solver"),
     ],
@@ -480,3 +482,79 @@ def test_a_misspelled_parameter_suggests_the_right_name(tmp_path: Path) -> None:
 
     assert "criterios[0].parametros" in mensagem
     assert "epsilon" in mensagem
+
+
+# --- overrides (capability S2) -----------------------------------------------
+
+
+def test_an_override_of_a_name_no_model_has_names_the_field_and_the_model(
+    tmp_path: Path,
+) -> None:
+    mensagem = recusa(
+        tmp_path,
+        BASE.replace(
+            "  pontos: 401", "  pontos: 401\n  sobrescrever:\n    parametros:\n      k3: 0.5"
+        ),
+    )
+
+    assert "simulacao.sobrescrever.parametros: 'k3' não existe no modelo original" in mensagem
+
+
+def test_an_override_of_only_one_model_is_checked_against_that_model_alone(
+    tmp_path: Path,
+) -> None:
+    # B only exists in the original (the reduction turned it into an assignment rule, which
+    # is a parameter there), so the common block would be refused and the per-model one is
+    # the way to write it.
+    texto = BASE.replace(
+        "  pontos: 401",
+        "  pontos: 401\n  sobrescrever:\n    original:\n      condicoes_iniciais:\n        B: 0.5",
+    )
+
+    cfg = config_mod.carregar(escrever(tmp_path, texto))
+
+    assert cfg.simulacao.sobrescrever.para("original").condicoes_iniciais == {"B": 0.5}
+    assert cfg.simulacao.sobrescrever.para("simplificado").vazio()
+
+
+def test_the_path_of_a_per_model_override_points_at_the_block_that_was_written(
+    tmp_path: Path,
+) -> None:
+    mensagem = recusa(
+        tmp_path,
+        BASE.replace(
+            "  pontos: 401",
+            "  pontos: 401\n  sobrescrever:\n    simplificado:\n"
+            "      condicoes_iniciais:\n        B: 0.5",
+        ),
+    )
+
+    # In the simplified model B is the assignment rule, that is, a parameter.
+    assert "simulacao.sobrescrever.simplificado.condicoes_iniciais" in mensagem
+
+
+def test_an_initial_condition_written_on_a_parameter_is_refused(tmp_path: Path) -> None:
+    # libRoadRunner would accept init(k1) and apply it, so a silent success here would
+    # simulate something other than what was asked.
+    mensagem = recusa(
+        tmp_path,
+        BASE.replace(
+            "  pontos: 401",
+            "  pontos: 401\n  sobrescrever:\n    condicoes_iniciais:\n      k1: 0.5",
+        ),
+    )
+
+    assert "é parametro no modelo original" in mensagem
+    assert "simulacao.sobrescrever.parametros" in mensagem
+
+
+def test_a_parameter_written_on_a_species_is_refused(tmp_path: Path) -> None:
+    mensagem = recusa(
+        tmp_path,
+        BASE.replace(
+            "  pontos: 401", "  pontos: 401\n  sobrescrever:\n    parametros:\n      A: 0.5"
+        ),
+    )
+
+    assert "é especie no modelo original" in mensagem
+    assert "simulacao.sobrescrever.condicoes_iniciais" in mensagem

@@ -1,0 +1,8 @@
+// Single toy model, with no simplified counterpart: it only exists to make the solver fail.
+// dX/dt = X^2 with X(0) = 1 blows up at t = 1, so CVODE cannot reach a larger horizon.
+model divergente
+  species X;
+
+  X = 1;
+  J1: -> X; X^2;
+end

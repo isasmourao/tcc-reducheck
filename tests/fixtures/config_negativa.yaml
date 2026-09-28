@@ -1,0 +1,26 @@
+# O modelo negativa.xml comparado com ele mesmo. Não é um par de simplificação: serve para o
+# teste de que uma simulação que cai abaixo de zero para a verificação, em vez de produzir um
+# veredito perfeito (comparado com ele mesmo, todo erro seria exatamente zero).
+versao: 1
+
+modelos:
+  original: negativa.xml
+  simplificado: negativa.xml
+
+simulacao:
+  t_inicio: 0
+  t_fim: 3
+  pontos: 31
+
+variaveis:
+  - nome: X
+    original: X
+    simplificado: X
+
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: [X]
+
+relatorio:
+  pasta: resultados/

@@ -34,8 +34,13 @@ class Resultado:
     avisos: tuple[str, ...] = ()
 
     @property
+    def nivel(self) -> str:
+        """The verdict itself: APROVADO, APROVADO COM RESSALVAS or REPROVADO."""
+        return self.veredito.nivel
+
+    @property
     def aprovado(self) -> bool:
-        """Whether every criterion passed."""
+        """Whether the verdict is the plain approval, with no reservation."""
         return self.veredito.aprovado
 
     @property
@@ -78,7 +83,10 @@ def verificar(caminho_config: Path | str) -> Resultado:
         configuracao.variaveis, trajetorias_originais, trajetorias_simplificadas
     )
     veredito = verdict.avaliar(
-        configuracao.criterios, series, core=configuracao.nomes_core()
+        configuracao.criterios,
+        series,
+        core=configuracao.nomes_core(),
+        niveis=configuracao.relatorio.niveis,
     )
     avisos = (ruido.resumo(), *simulation.avisos_de_ruido(ruido, configuracao))
     caminho_json = report.salvar_json(

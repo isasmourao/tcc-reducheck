@@ -78,13 +78,14 @@ criterios:
   - metrica: nrmse       # tem que estar no registro de métricas (ver abaixo)
     limite: 0.05         # maior erro aceito; o limite é inclusivo (passa com valor == limite)
     variaveis: [A, C]    # nomes declarados acima, ou a palavra 'core' (abaixo)
-    obrigatorio: true    # opcional (padrão: true); 'false' (ainda não suportado)
+    obrigatorio: true    # opcional (padrão: true); 'false' torna o critério desejável
   # As métricas disponíveis são nrmse, mape, erro_max_abs, erro_max_rel e
   # erro_estacionario (ver docs/produto.md). Algumas aceitam opções próprias em
   # 'parametros'; o relatório sempre diz o que a métrica precisou descartar.
   - metrica: erro_estacionario
     limite: 0.01         # erro relativo no fim da simulação
     variaveis: [A, C]
+    obrigatorio: false   # desejável: se só ele falhar, o veredito é APROVADO COM RESSALVAS
     parametros:
       fracao_final: 0.1  # opcional (padrão: 0 — compara só os valores finais)
   # 'mape' e 'erro_max_rel' dividem pelo original, então descartam os pontos em que ele
@@ -108,3 +109,4 @@ criterios:
 relatorio:
   formatos: [json]       # opcional (padrão: [json]); 'html' (ainda não suportado)
   pasta: resultados/     # opcional (padrão: resultados/)
+  niveis: 3              # opcional (padrão: 3); 2 junta APROVADO COM RESSALVAS em APROVADO

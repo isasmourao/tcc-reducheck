@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from reducheck.simulation import RuidoNumerico
-from reducheck.verdict import Veredito
+from reducheck.verdict import Contagem, Veredito
 
 __all__ = ["NOME_DO_JSON", "como_dicionario", "salvar_json"]
 
@@ -31,8 +31,11 @@ def como_dicionario(
     how much of the numbers below is worth reading.
     """
     return {
+        "veredito": veredito.nivel,
         "aprovado": veredito.aprovado,
         "porcentagem": veredito.porcentagem,
+        "obrigatorios": _contagem(veredito.obrigatorios),
+        "desejaveis": _contagem(veredito.desejaveis),
         "avisos": [*avisos, *veredito.avisos],
         "ruido_numerico": None if ruido is None else _ruido(ruido),
         "criterios": [
@@ -42,6 +45,7 @@ def como_dicionario(
                 "valor": item.valor,
                 "limite": item.limite,
                 "resultado": "passou" if item.passou else "falhou",
+                "tipo": "obrigatório" if item.obrigatorio else "desejável",
                 "descricao": item.descricao,
                 "avisos": list(item.avisos),
                 "detalhes": dict(item.detalhes),
@@ -49,6 +53,10 @@ def como_dicionario(
             for item in veredito.criterios
         ],
     }
+
+
+def _contagem(contagem: Contagem) -> dict[str, int]:
+    return {"passados": contagem.passados, "total": contagem.total}
 
 
 def _ruido(ruido: RuidoNumerico) -> dict[str, Any]:

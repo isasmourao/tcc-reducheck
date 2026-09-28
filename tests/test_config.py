@@ -88,6 +88,7 @@ def test_the_base_configuration_loads(tmp_path: Path) -> None:
     assert cfg.simulacao.tol_relativa == 1e-8
     assert cfg.simulacao.tol_absoluta == 1e-10
     assert cfg.relatorio.formatos == ["json"]
+    assert cfg.relatorio.niveis == 3
     assert cfg.relatorio.pasta == tmp_path / "resultados"
 
 
@@ -311,11 +312,6 @@ def test_a_yaml_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
             "metrica: nrmse\n    limite: 0.05\n    variaveis: [A, C]",
             "metrica: estabilidade_local",
             "criterios[0].metrica",
-        ),
-        (
-            "    variaveis: [A, C]",
-            "    variaveis: [A, C]\n    obrigatorio: false",
-            "criterios[0].obrigatorio",
         ),
         ("  pontos: 401", "  pontos: 401\n  solver: euler", "simulacao.solver"),
     ],
@@ -558,3 +554,34 @@ def test_a_parameter_written_on_a_species_is_refused(tmp_path: Path) -> None:
 
     assert "é especie no modelo original" in mensagem
     assert "simulacao.sobrescrever.condicoes_iniciais" in mensagem
+
+
+# --- the number of verdict levels (decision D01, issue #1) -------------------
+
+NIVEIS_2 = BASE + "relatorio:\n  niveis: 2\n"
+
+
+def test_two_verdict_levels_can_be_asked_for(tmp_path: Path) -> None:
+    cfg = config_mod.carregar(escrever(tmp_path, NIVEIS_2))
+
+    assert cfg.relatorio.niveis == 2
+
+
+def test_a_number_of_levels_that_is_not_two_or_three_is_refused(tmp_path: Path) -> None:
+    mensagem = recusa(tmp_path, NIVEIS_2.replace("niveis: 2", "niveis: 1"))
+
+    assert "relatorio.niveis" in mensagem
+
+
+def test_a_desirable_criterion_now_runs(tmp_path: Path) -> None:
+    # It used to stop at the support gate; issue #13 implements it, so it has to load.
+    cfg = config_mod.carregar(
+        escrever(
+            tmp_path,
+            BASE.replace(
+                "    variaveis: [A, C]", "    variaveis: [A, C]\n    obrigatorio: false"
+            ),
+        )
+    )
+
+    assert cfg.criterios[0].obrigatorio is False

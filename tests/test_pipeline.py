@@ -378,3 +378,72 @@ def test_a_simulation_that_goes_negative_stops_the_run_instead_of_giving_a_verdi
 
     assert "'X'" in str(erro.value)
     assert "t = 1.1" in str(erro.value)
+
+
+# --- three-level verdict (issue #13) -----------------------------------------
+
+#: A desirable criterion that the qssa_ok pair fails: erro_max_rel in C is 0,24695, against
+#: the same 0,05 limit that NRMSE passes (tests/fixtures/README.md, and question 18 of
+#: docs/questoes-em-aberto.md). It is the real case the three levels exist for.
+DESEJAVEL_QUE_FALHA = """
+  - metrica: erro_max_rel
+    limite: 0.05
+    variaveis: [C]
+    obrigatorio: false
+"""
+
+
+def com_criterio_extra(config: Path, trecho: str) -> Path:
+    """Append ``trecho`` to the criteria of ``config``, in place."""
+    texto = config.read_text(encoding="utf-8")
+    config.write_text(
+        texto.replace("\nrelatorio:", trecho + "\nrelatorio:", 1), encoding="utf-8"
+    )
+    return config
+
+
+def test_only_a_desirable_criterion_failing_gives_reservations(tmp_path: Path) -> None:
+    config = com_criterio_extra(prepare(tmp_path, "config_qssa_ok.yaml"), DESEJAVEL_QUE_FALHA)
+
+    resultado = reducheck.verificar(config)
+
+    assert resultado.nivel == "APROVADO COM RESSALVAS"
+    assert resultado.aprovado is False
+    assert resultado.veredito.obrigatorios == (2, 2)
+    assert resultado.veredito.desejaveis == (0, 1)
+    dados = json.loads(resultado.caminho_json.read_text(encoding="utf-8"))
+    assert dados["veredito"] == "APROVADO COM RESSALVAS"
+    assert dados["criterios"][-1]["valor"] == pytest.approx(0.24695, abs=1e-4)
+    assert dados["criterios"][-1]["tipo"] == "desejável"
+
+
+def test_the_same_criterion_as_mandatory_rejects_the_pair(tmp_path: Path) -> None:
+    # Same number, same limit: only 'obrigatorio' changes, and the verdict changes with it.
+    config = com_criterio_extra(
+        prepare(tmp_path, "config_qssa_ok.yaml"),
+        DESEJAVEL_QUE_FALHA.replace("obrigatorio: false", "obrigatorio: true"),
+    )
+
+    resultado = reducheck.verificar(config)
+
+    assert resultado.nivel == "REPROVADO"
+    # Two of three items passed, and the pair is rejected anyway.
+    assert resultado.porcentagem == pytest.approx(200 / 3)
+
+
+def test_two_levels_report_the_same_run_as_approved(tmp_path: Path) -> None:
+    config = com_criterio_extra(prepare(tmp_path, "config_qssa_ok.yaml"), DESEJAVEL_QUE_FALHA)
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "relatorio:\n  pasta: resultados/", "relatorio:\n  pasta: resultados/\n  niveis: 2"
+        ),
+        encoding="utf-8",
+    )
+
+    resultado = reducheck.verificar(config)
+
+    assert resultado.nivel == "APROVADO"
+    assert resultado.aprovado is True
+    # The item that failed is still in the table and still out of the percentage.
+    assert resultado.veredito.desejaveis == (0, 1)
+    assert resultado.porcentagem == pytest.approx(200 / 3)

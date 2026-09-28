@@ -17,9 +17,11 @@ _Cópia de 26/09/2026. O plano está em `docs/produto.md`; as tarefas, nas issue
 1. **Validar o escopo com a orientadora.**
 2. **Público**: a biblioteca vai ser usada pelo grupo ou é uma prova de conceito para o TCC?
 3. **Formato de entrada**: SBML como único formato (proposto). Configuração em YAML. O SED-ML serve de referência para descrever a simulação.
-4. **Formato do relatório**: estilo **JEV** (porcentagem aprovada + razões). Falta levantar um exemplo concreto do relatório do JEV. Proposta atual: três níveis (aprovado / aprovado com ressalvas / reprovado).
+4. **Formato do relatório**: estilo **JEV** (porcentagem aprovada + razões). Falta levantar um exemplo concreto do relatório do JEV. Proposta atual: três níveis (aprovado / aprovado com ressalvas / reprovado) — implementado assim na issue #13, com `relatorio.niveis: 2` para desligar o nível intermediário se a decisão for outra; o padrão é 3.
 5. **Nome da biblioteca**: ReduCheck é provisório.
 6. **Código das simplificações do TCC I**: onde está? A equação da variável M da simplificação 2 não está no PDF nem no repositório TCC-bone_estradiol.
+7. **Quais métricas entram no estudo de caso e com quais limites** (subido para cá em 27/09, issues #11 e #13). As cinco métricas do MVP discordam no mesmo par, e não por pouco: em `qssa_ok`, na variável `C`, o NRMSE dá 0,00072 e o erro máximo relativo dá 0,24695, de modo que o mesmo par é aprovado por uma e reprovado pela outra com o limite de 0,05. Sem essa escolha, "a simplificação é fiel" não quer dizer nada. Detalhe na questão 18 de "Encontrado durante o desenvolvimento".
+8. **Quais critérios são obrigatórios e quais são desejáveis no modelo da Verly** (subido para cá em 27/09, issue #13). A regra de três níveis já está implementada, mas ela só se distingue da de dois quando algum critério é declarado `obrigatorio: false`, e nada no estudo de caso declara ainda: com tudo obrigatório, o nível intermediário nunca aparece e a capacidade V2 não se vê no resultado do TCC. Decidir junto com o item 7, antes da issue #16. Detalhe na questão 27.
 
 ## Questões técnicas
 1. **Mapeamento de variáveis** (ex.: M do simplificado ↔ Mo+M1+M2 do original)

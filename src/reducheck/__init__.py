@@ -70,9 +70,24 @@ class Resultado:
         return self.veredito.criterios
 
 
-def verificar(caminho_config: Path | str) -> Resultado:
-    """Run the whole verification described by the YAML at ``caminho_config``."""
+def verificar(
+    caminho_config: Path | str, pasta_de_saida: Path | str | None = None
+) -> Resultado:
+    """Run the whole verification described by the YAML at ``caminho_config``.
+
+    ``pasta_de_saida`` replaces ``relatorio.pasta`` of the configuration, for the ``--saida``
+    option of the command line. Paths inside the YAML are relative to the YAML itself, but
+    this one comes from a shell, so it is relative to the current directory instead.
+    """
     configuracao = _config.carregar(caminho_config)
+    if pasta_de_saida is not None:
+        configuracao = configuracao.model_copy(
+            update={
+                "relatorio": configuracao.relatorio.model_copy(
+                    update={"pasta": Path(pasta_de_saida).expanduser().resolve()}
+                )
+            }
+        )
 
     sobrescrever = configuracao.simulacao.sobrescrever
     trajetorias_originais = simulation.simular(

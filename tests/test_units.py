@@ -49,6 +49,214 @@ def test_simulation_rejects_an_unsupported_solver() -> None:
         simulation.simular(FIXTURES_DIR / "qssa_ok_original.xml", condicoes, ["A"])
 
 
+# --- simulation: overrides (capability S2) -----------------------------------
+
+
+def test_an_override_replaces_a_parameter_of_the_file() -> None:
+    # k1 is the rate of A -> B; doubling it has to make A decay faster.
+    padrao = simulation.simular(FIXTURES_DIR / "qssa_ok_original.xml", CONDICOES, ["A"])
+    dobrado = simulation.simular(
+        FIXTURES_DIR / "qssa_ok_original.xml",
+        CONDICOES,
+        ["A"],
+        config_mod.Valores(parametros={"k1": 0.2}),
+    )
+
+    assert dobrado.serie("A")[-1] < padrao.serie("A")[-1]
+
+
+def test_an_override_replaces_an_initial_condition_and_it_survives_the_first_step() -> None:
+    # Assigning the current value instead of init(A) would be overwritten by the solver, so
+    # the whole trajectory, and not only the first point, has to follow the new condition.
+    trajetorias = simulation.simular(
+        FIXTURES_DIR / "qssa_ok_original.xml",
+        CONDICOES,
+        ["A"],
+        config_mod.Valores(condicoes_iniciais={"A": 5.0}),
+    )
+
+    assert trajetorias.serie("A")[0] == pytest.approx(5.0)
+    # A decays as 5 * exp(-k1 t) with k1 = 0.1, independent of the rest of the chain.
+    assert trajetorias.serie("A")[-1] == pytest.approx(5.0 * np.exp(-0.1 * 40.0), rel=1e-6)
+
+
+def test_the_common_block_reaches_both_models_and_the_per_model_block_wins() -> None:
+    sobrescrever = config_mod.Sobrescrita(
+        parametros={"k1": 0.2},
+        condicoes_iniciais={"A": 5.0},
+        simplificado=config_mod.Valores(parametros={"k1": 0.3}),
+    )
+
+    assert sobrescrever.para("original") == config_mod.Valores(
+        parametros={"k1": 0.2}, condicoes_iniciais={"A": 5.0}
+    )
+    assert sobrescrever.para("simplificado") == config_mod.Valores(
+        parametros={"k1": 0.3}, condicoes_iniciais={"A": 5.0}
+    )
+
+
+def test_an_override_of_a_name_the_model_does_not_have_is_a_clear_error() -> None:
+    # The configuration catches this before simulating; the message here is the last resort
+    # for a caller that builds the overrides by hand.
+    with pytest.raises(simulation.ErroDeSimulacao, match="parametros"):
+        simulation.simular(
+            FIXTURES_DIR / "qssa_ok_original.xml",
+            CONDICOES,
+            ["A"],
+            config_mod.Valores(parametros={"k9": 1.0}),
+        )
+
+
+# --- simulation: broken runs (capability S4) ---------------------------------
+
+
+CURTAS = config_mod.Simulacao(t_fim=3.0, pontos=31)
+
+
+def test_a_variable_that_goes_negative_names_the_variable_and_the_instant() -> None:
+    # X is emptied at t = 1 by a zeroth-order reaction and keeps going down; the first point
+    # of the grid below zero is t = 1.1, where X = -0.1.
+    with pytest.raises(simulation.ErroDeSimulacao) as erro:
+        simulation.simular(FIXTURES_DIR / "negativa.xml", CURTAS, ["X"])
+
+    mensagem = str(erro.value)
+    assert "'X'" in mensagem
+    assert "t = 1.1" in mensagem
+    assert "-0.1" in mensagem
+    assert "nao_negativas" in mensagem
+
+
+def test_a_negative_value_is_accepted_when_the_model_allows_it() -> None:
+    condicoes = CURTAS.model_copy(update={"nao_negativas": False})
+
+    trajetorias = simulation.simular(FIXTURES_DIR / "negativa.xml", condicoes, ["X"])
+
+    assert trajetorias.serie("X")[-1] == pytest.approx(-2.0, rel=1e-6)
+
+
+def test_a_zero_within_the_absolute_tolerance_is_not_taken_for_a_negative_value() -> None:
+    # The same model stopped exactly where X = 0: the solver lands there with a residue of
+    # the order of its own tolerance, which must not be read as a sign change.
+    condicoes = config_mod.Simulacao(t_fim=1.0, pontos=11)
+
+    trajetorias = simulation.simular(FIXTURES_DIR / "negativa.xml", condicoes, ["X"])
+
+    assert trajetorias.serie("X")[-1] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_a_solver_failure_becomes_a_simulation_error() -> None:
+    # dX/dt = X^2 blows up at t = 1, so CVODE cannot reach t = 3.
+    with pytest.raises(simulation.ErroDeSimulacao, match="falhou"):
+        simulation.simular(FIXTURES_DIR / "divergente.xml", CURTAS, ["X"])
+
+
+# --- simulation: reference numerical noise (capability S3) -------------------
+
+
+VARIAVEIS_QSSA = [
+    config_mod.Variavel(nome="A", original="A", simplificado="A"),
+    config_mod.Variavel(nome="C", original="C", simplificado="C"),
+]
+
+
+def referencia_qssa_ok(nomes: list[str]) -> simulation.Trajetorias:
+    return simulation.simular(FIXTURES_DIR / "qssa_ok_original.xml", CONDICOES, nomes)
+
+
+def test_the_numerical_noise_is_measured_on_every_report_variable() -> None:
+    ruido = simulation.ruido_numerico(
+        FIXTURES_DIR / "qssa_ok_original.xml",
+        CONDICOES,
+        VARIAVEIS_QSSA,
+        referencia_qssa_ok(["A", "C"]),
+    )
+
+    assert ruido.fator == 100.0
+    assert set(ruido.por_variavel) == {"A", "C"}
+    # Measured values (see tests/fixtures/README.md): around 1e-6, four orders of magnitude
+    # below the 0.05 threshold of the fixtures.
+    assert ruido.por_variavel["A"] == pytest.approx(9.53e-07, rel=0.05)
+    assert ruido.por_variavel["C"] == pytest.approx(9.56e-07, rel=0.05)
+    assert ruido.maximo == ruido.por_variavel["C"]
+    assert "9.56e-07" in ruido.resumo()
+
+
+def test_loosening_the_tolerances_more_raises_the_noise() -> None:
+    referencia = referencia_qssa_ok(["A", "C"])
+    cem = simulation.ruido_numerico(
+        FIXTURES_DIR / "qssa_ok_original.xml", CONDICOES, VARIAVEIS_QSSA, referencia
+    )
+    dez_mil = simulation.ruido_numerico(
+        FIXTURES_DIR / "qssa_ok_original.xml",
+        CONDICOES,
+        VARIAVEIS_QSSA,
+        referencia,
+        fator=1e4,
+    )
+
+    assert dez_mil.maximo > cem.maximo
+
+
+def test_the_noise_skips_a_variable_the_reduction_dropped() -> None:
+    variaveis = [
+        config_mod.Variavel(nome="A", original="A", simplificado="A"),
+        config_mod.Variavel(nome="C", original="C", simplificado=None, core=False),
+    ]
+
+    ruido = simulation.ruido_numerico(
+        FIXTURES_DIR / "qssa_ok_original.xml",
+        CONDICOES,
+        variaveis,
+        referencia_qssa_ok(["A", "C"]),
+    )
+
+    assert set(ruido.por_variavel) == {"A"}
+
+
+def test_a_constant_variable_is_named_instead_of_left_out_in_silence() -> None:
+    # k1 is a parameter: it does not change, so the NRMSE has no range to normalize by.
+    variaveis = [
+        config_mod.Variavel(nome="A", original="A", simplificado="A"),
+        config_mod.Variavel(nome="k1", original="k1", simplificado="k1"),
+    ]
+
+    ruido = simulation.ruido_numerico(
+        FIXTURES_DIR / "qssa_ok_original.xml",
+        CONDICOES,
+        variaveis,
+        referencia_qssa_ok(["A", "k1"]),
+    )
+
+    assert set(ruido.por_variavel) == {"A"}
+    assert "constante" in ruido.sem_medida["k1"]
+
+
+def configuracao_com(limite: float) -> config_mod.Configuracao:
+    return config_mod.Configuracao(
+        versao=1,
+        modelos=config_mod.Modelos(original=Path("o.xml"), simplificado=Path("s.xml")),
+        simulacao=CONDICOES,
+        variaveis=VARIAVEIS_QSSA,
+        criterios=[config_mod.Criterio(metrica="nrmse", limite=limite, variaveis="core")],
+    )
+
+
+def test_a_threshold_close_to_the_noise_is_warned_about() -> None:
+    ruido = simulation.RuidoNumerico(fator=100.0, por_variavel={"A": 1e-3, "C": 1e-6})
+
+    avisos = simulation.avisos_de_ruido(ruido, configuracao_com(limite=5e-3))
+
+    assert len(avisos) == 1
+    assert "'A'" in avisos[0]
+    assert "nrmse" in avisos[0]
+
+
+def test_a_threshold_ten_times_the_noise_is_not_warned_about() -> None:
+    ruido = simulation.RuidoNumerico(fator=100.0, por_variavel={"A": 1e-3, "C": 1e-6})
+
+    assert simulation.avisos_de_ruido(ruido, configuracao_com(limite=1e-2)) == ()
+
+
 # --- mapping -----------------------------------------------------------------
 
 
@@ -500,3 +708,24 @@ def test_the_json_carries_the_warnings_of_the_metrics(tmp_path: Path) -> None:
     assert dados["criterios"][0]["detalhes"]["pontos_excluidos"] == 1
     assert len(dados["criterios"][0]["avisos"]) == 1
     assert dados["avisos"][0].startswith("A: mape:")
+
+
+def test_the_json_carries_the_reference_numerical_noise(tmp_path: Path) -> None:
+    criterios = [config_mod.Criterio(metrica="nrmse", limite=0.05, variaveis=["A"])]
+    veredito = verdict.avaliar(criterios, series_com({"A": 0.0}))
+    ruido = simulation.RuidoNumerico(
+        fator=100.0, por_variavel={"A": 1e-6}, sem_medida={"B": "nrmse: constante"}
+    )
+
+    caminho = report.salvar_json(
+        veredito, tmp_path / "saida", ruido=ruido, avisos=(ruido.resumo(), "limite apertado")
+    )
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+
+    assert dados["ruido_numerico"]["fator_de_tolerancia"] == 100.0
+    assert dados["ruido_numerico"]["maximo"] == 1e-6
+    assert dados["ruido_numerico"]["por_variavel"] == {"A": 1e-6}
+    assert dados["ruido_numerico"]["sem_medida"] == {"B": "nrmse: constante"}
+    # The warnings that are not about a single metric come first.
+    assert dados["avisos"][0].startswith("Ruído numérico de referência")
+    assert dados["avisos"][1] == "limite apertado"

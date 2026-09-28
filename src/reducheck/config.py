@@ -1,8 +1,8 @@
 """Read and validate the YAML configuration file.
 
 The schema is the whole "Input" section of ``docs/produto.md``, including fields that only
-later versions of the pipeline will act on (sum mapping, ``core``, ``obrigatorio``,
-qualitative criteria, report formats, parameter overrides). Parsing everything now is what
+later versions of the pipeline will act on (``obrigatorio``, qualitative criteria, report
+formats). Parsing everything now is what
 keeps the file format stable for the people who write it.
 
 Validation happens in four separate passes, in this order, and each one produces messages
@@ -44,6 +44,8 @@ __all__ = [
     "Modelos",
     "Relatorio",
     "Simulacao",
+    "Sobrescrita",
+    "Valores",
     "Variavel",
     "carregar",
     "ler_yaml",
@@ -86,6 +88,42 @@ class Modelos(_Base):
     simplificado: Path
 
 
+class Valores(_Base):
+    """Values that replace what the SBML files say, for one model or for both."""
+
+    parametros: dict[str, float] = Field(default_factory=dict)
+    condicoes_iniciais: dict[str, float] = Field(default_factory=dict)
+
+    def vazio(self) -> bool:
+        """Whether there is nothing to override."""
+        return not self.parametros and not self.condicoes_iniciais
+
+
+class Sobrescrita(Valores):
+    """Overrides of the values in the SBML files (capability S2).
+
+    What is written directly under ``sobrescrever`` goes to *both* models, which is the
+    common case: the same scenario simulated in the original and in the reduction. The
+    ``original`` and ``simplificado`` blocks exist for what only one of them has -- a
+    parameter the reduction lumped, an initial condition of a variable that only the full
+    model carries -- and win over the common value for that model.
+    """
+
+    original: Valores = Field(default_factory=Valores)
+    simplificado: Valores = Field(default_factory=Valores)
+
+    def para(self, papel: str) -> Valores:
+        """Return what is applied to the model of ``papel``: the common values, then its own."""
+        do_modelo: Valores = getattr(self, papel)
+        return Valores(
+            parametros={**self.parametros, **do_modelo.parametros},
+            condicoes_iniciais={
+                **self.condicoes_iniciais,
+                **do_modelo.condicoes_iniciais,
+            },
+        )
+
+
 class Simulacao(_Base):
     """Conditions shared by both simulations."""
 
@@ -95,9 +133,11 @@ class Simulacao(_Base):
     solver: str = "cvode"
     tol_relativa: float = Field(default=1e-8, gt=0.0)
     tol_absoluta: float = Field(default=1e-10, gt=0.0)
-    #: Overrides of the values in the SBML, applied to both models (capability S2).
-    parametros: dict[str, float] = Field(default_factory=dict)
-    condicoes_iniciais: dict[str, float] = Field(default_factory=dict)
+    sobrescrever: Sobrescrita = Field(default_factory=Sobrescrita)
+    #: Whether every simulated variable is expected to stay non-negative. True by default
+    #: because the variables of a biological model are concentrations and cell counts; a
+    #: negative value there means the integration went wrong, not that the model says so.
+    nao_negativas: bool = True
 
 
 class Variavel(_Base):
@@ -504,6 +544,12 @@ def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None
 # --- pass 3: against the two SBML files --------------------------------------
 
 
+#: Which kind of name each override field takes. An initial condition only makes sense for
+#: a species; a parameter is a constant of the equations.
+_TIPO_ESPERADO = {"parametros": "parametro", "condicoes_iniciais": "especie"}
+_CAMPO_DO_TIPO = {tipo: campo for campo, tipo in _TIPO_ESPERADO.items()}
+
+
 def _nomes_citados(alvo: Alvo | None) -> list[str]:
     """Return the model variables one side of a mapping reads."""
     return [] if alvo is None else list(normalizar_alvo(alvo))
@@ -514,6 +560,7 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
     from reducheck import simulation  # deferred: simulation imports this module
 
     problemas: list[str] = []
+    tipos: dict[str, dict[str, str]] = {}
     disponiveis: dict[str, frozenset[str]] = {}
     for papel in ("original", "simplificado"):
         arquivo: Path = getattr(configuracao.modelos, papel)
@@ -523,7 +570,8 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
             )
             continue
         try:
-            disponiveis[papel] = simulation.nomes_disponiveis(arquivo)
+            tipos[papel] = simulation.tipos_disponiveis(arquivo)
+            disponiveis[papel] = frozenset(tipos[papel])
         except simulation.ErroDeSimulacao as erro:
             # The libsbml diagnostic comes in several lines; keep one problem per line.
             problemas.append(f"modelos.{papel}: {' '.join(str(erro).split())}")
@@ -537,18 +585,30 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
                         f"variaveis[{indice}].{papel}: o modelo {papel} não tem a variável "
                         f"'{nome}'.{_sugerir(nome, disponiveis[papel])}"
                     )
-    for campo in ("parametros", "condicoes_iniciais"):
-        for nome in getattr(configuracao.simulacao, campo):
-            ausentes = [
-                papel
-                for papel in ("original", "simplificado")
-                if nome not in disponiveis[papel]
-            ]
-            if ausentes:
-                problemas.append(
-                    f"simulacao.{campo}: '{nome}' não existe no modelo "
-                    f"{' nem no '.join(ausentes)}.{_sugerir(nome, disponiveis['original'])}"
-                )
+    sobrescrever = configuracao.simulacao.sobrescrever
+    for papel in ("original", "simplificado"):
+        proprios: Valores = getattr(sobrescrever, papel)
+        for campo in ("parametros", "condicoes_iniciais"):
+            for nome in getattr(sobrescrever.para(papel), campo):
+                # The path has to point at what the user actually wrote: the value may come
+                # from the common block or from the block of this model alone.
+                onde = papel if nome in getattr(proprios, campo) else ""
+                campo_escrito = ".".join(filter(None, ("simulacao.sobrescrever", onde, campo)))
+                if nome not in disponiveis[papel]:
+                    problemas.append(
+                        f"{campo_escrito}: '{nome}' não existe no modelo {papel}."
+                        f"{_sugerir(nome, disponiveis[papel])}"
+                    )
+                    continue
+                esperado = _TIPO_ESPERADO[campo]
+                if tipos[papel][nome] != esperado:
+                    # libRoadRunner accepts init(k) for a parameter too, so without this the
+                    # value would be applied to the wrong thing and nothing would complain.
+                    outro = _CAMPO_DO_TIPO[tipos[papel][nome]]
+                    problemas.append(
+                        f"{campo_escrito}: '{nome}' é {tipos[papel][nome]} no modelo {papel}, "
+                        f"não {esperado}; use 'simulacao.sobrescrever.{outro}'."
+                    )
     _reclamar(problemas, caminho)
 
 
@@ -558,7 +618,6 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
 _PENDENTES = {
     "obrigatorio": ("critérios obrigatórios e desejáveis (V2)", "#13"),
     "qualitativo": ("equilíbrio e estabilidade local (L1-L3)", "#18"),
-    "sobrescrita": ("sobrescrever parâmetros e condições iniciais (S2)", "#12"),
     "html": ("relatório em HTML (R2)", "#14"),
 }
 
@@ -583,12 +642,6 @@ def _exigir_suportado(configuracao: Configuracao, caminho: Path | str) -> None:
             f"simulacao.solver: o solver '{configuracao.simulacao.solver}' ainda não é "
             f"suportado. Disponíveis: {suportados}."
         )
-    for campo in ("parametros", "condicoes_iniciais"):
-        if getattr(configuracao.simulacao, campo):
-            problemas.append(
-                _ainda_nao(f"simulacao.{campo}", "a sobrescrita de valores", "sobrescrita")
-            )
-
     for indice, criterio in enumerate(configuracao.criterios):
         if _e_qualitativo(criterio):
             problemas.append(

@@ -1,0 +1,11 @@
+// Single toy model, with no simplified counterpart: it only exists to make a simulation go
+// negative. Zeroth-order removal of X (rate k, independent of X) empties the pool at
+// t = X(0) / k = 1 and keeps going down from there, so X is negative for every t > 1.
+model negativa
+  species X;
+
+  X = 1;
+  k = 1;
+
+  J1: X -> ; k;
+end

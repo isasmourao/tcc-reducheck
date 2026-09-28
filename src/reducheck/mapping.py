@@ -20,7 +20,7 @@ import numpy as np
 from reducheck.config import Variavel, normalizar_alvo
 from reducheck.simulation import Trajetorias
 
-__all__ = ["ErroDeMapeamento", "SerieComparada", "mapear", "nomes_simulados"]
+__all__ = ["ErroDeMapeamento", "SerieComparada", "combinar", "mapear", "nomes_simulados"]
 
 
 class ErroDeMapeamento(Exception):
@@ -77,8 +77,8 @@ def mapear(
         series[variavel.nome] = SerieComparada(
             nome=variavel.nome,
             tempo=original.tempo,
-            original=_combinar(original, pesos_original, variavel.nome, "original"),
-            simplificado=_combinar(
+            original=combinar(original, pesos_original, variavel.nome, "original"),
+            simplificado=combinar(
                 simplificado, pesos_simplificado, variavel.nome, "simplificado"
             ),
             pesos_original=pesos_original,
@@ -87,10 +87,16 @@ def mapear(
     return series
 
 
-def _combinar(
+def combinar(
     trajetorias: Trajetorias, pesos: Mapping[str, float], nome: str, papel: str
 ) -> np.ndarray:
-    """Return the weighted sum of the columns named in ``pesos``."""
+    """Return the weighted sum of the columns named in ``pesos``.
+
+    Public because the reference numerical noise (:func:`reducheck.simulation.ruido_numerico`)
+    measures itself on the same combinations the report compares, not on the raw columns of
+    the model: a limit is written against ``M = Mo + M1 + M2``, so the floor it is compared
+    to has to be measured on ``M`` too.
+    """
     total = np.zeros_like(trajetorias.tempo, dtype=float)
     for variavel, peso in pesos.items():
         try:

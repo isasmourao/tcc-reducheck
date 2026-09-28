@@ -68,6 +68,14 @@ PAIRS: tuple[Pair, ...] = (
     ),
 )
 
+PAIR_MODELS = sorted(
+    nome for pair in PAIRS for nome in (pair.original, pair.simplified)
+)
+
+#: Models with no simplified counterpart, used only to exercise a broken run (issue #12):
+#: ``negativa`` drives a species below zero, ``divergente`` blows up and the solver fails.
+SINGLE_MODELS = ("divergente", "negativa")
+
 ALL_MODELS = sorted(p.stem for p in FIXTURES_DIR.glob("*.xml"))
 
 
@@ -90,14 +98,30 @@ def nrmse(reference: np.ndarray, candidate: np.ndarray) -> float:
 def test_every_ant_file_has_an_sbml_file() -> None:
     ant_files = sorted(p.stem for p in FIXTURES_DIR.glob("*.ant"))
     assert ant_files == ALL_MODELS
-    assert len(ALL_MODELS) == 2 * len(PAIRS)
+    assert ALL_MODELS == sorted([*PAIR_MODELS, *SINGLE_MODELS])
+    assert len(PAIR_MODELS) == 2 * len(PAIRS)
 
 
-@pytest.mark.parametrize("model", ALL_MODELS)
+@pytest.mark.parametrize("model", PAIR_MODELS)
 def test_model_loads_and_simulates(model: str) -> None:
     result = simulate(model, ["time"], t_end=10.0, n_points=11)
     assert result.shape == (11, 1)
     assert np.isfinite(result).all()
+
+
+def test_the_negative_model_really_goes_below_zero() -> None:
+    # Zeroth-order removal of X, which is emptied at t = 1 and keeps going: the run itself
+    # is fine for the solver, which is the point -- only the sign says it is wrong.
+    result = simulate("negativa", ["time", "X"], t_end=3.0, n_points=31)
+
+    assert np.isfinite(result).all()
+    assert result[-1, 1] == pytest.approx(-2.0, rel=1e-6)
+
+
+def test_the_divergent_model_really_breaks_the_solver() -> None:
+    # dX/dt = X^2 with X(0) = 1 blows up at t = 1.
+    with pytest.raises(RuntimeError):
+        simulate("divergente", ["time", "X"], t_end=3.0, n_points=31)
 
 
 @pytest.mark.parametrize("pair", PAIRS, ids=lambda pair: pair.name)

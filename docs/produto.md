@@ -81,8 +81,15 @@ simulacao:
   solver: cvode
   tol_relativa: 1e-8
   tol_absoluta: 1e-10
-  # condições iniciais e parâmetros vêm do SBML;
-  # podem ser sobrescritos aqui se necessário
+  nao_negativas: true  # padrão: toda variável simulada tem que ficar >= 0
+  sobrescrever:        # condições iniciais e parâmetros vêm do SBML; aqui são trocados
+    parametros:        # vale para os DOIS modelos
+      gamma: 0.2
+    condicoes_iniciais:
+      E2: 0.019
+    original:          # só para um dos modelos; vence o bloco comum
+      condicoes_iniciais:
+        M1: 0.0
 
 variaveis:
   - nome: M                       # nome usado no relatório
@@ -165,7 +172,15 @@ sugere o mais parecido. Uma variável que a simplificação eliminou é declarad
 `simplificado: null` e exige `core: false`, já que não há o que comparar (acrescentado na
 issue #9; ver `docs/questoes-em-aberto.md`, itens 9 a 13).
 
-Ela também **avisa, sem parar**, quando uma escolha é arriscada: por exemplo, MAPE numa variável que chega perto de zero.
+**Durante a simulação, ela para quando a integração não é confiável** (acrescentado na issue #12):
+o solver falha, a série tem NaN ou infinito, ou uma variável fica negativa além da precisão que o
+solver garante para ela (`tol_absoluta + tol_relativa · max|x|`). A mensagem diz a variável e o
+instante. Um modelo cujas variáveis podem ser negativas declara `simulacao.nao_negativas: false`.
+Nenhum desses casos gera veredito: uma integração quebrada comparada com outra produz números que
+parecem métricas.
+
+Ela também **avisa, sem parar**, quando uma escolha é arriscada: por exemplo, MAPE numa variável que
+chega perto de zero, ou um limite de critério menor que 10× o ruído numérico da variável.
 
 ## Output
 
@@ -215,6 +230,9 @@ Avisos:
 - Ruído numérico de referência: 0,0003 (desprezível frente aos limites).
 ```
 
+O ruído numérico também vai para o `resultado.json`, em `ruido_numerico`, com o valor por variável,
+o fator de tolerância usado (100) e as variáveis em que não foi possível medir.
+
 Cada razão diz **qual critério falhou, por quanto e onde** no tempo. Um veredito sem explicação não é aceito como saída.
 
 ## Como funciona
@@ -232,7 +250,7 @@ flowchart LR
     F --> G[6. Gerar relatório<br/>HTML + JSON + gráficos]
 ```
 
-O ruído numérico de referência é calculado na etapa 2 (o original simulado duas vezes com tolerâncias diferentes) e aparece no relatório como aviso. O motor de simulação proposto é o libRoadRunner (via Tellurium), que já lê SBML e calcula estado estacionário e Jacobiana.
+O ruído numérico de referência é calculado na etapa 2 (o original simulado duas vezes, a segunda com tolerâncias 100× mais frouxas) e aparece no relatório como aviso; ele é medido nas variáveis do relatório, e não nas colunas do modelo, para poder ser lido contra os limites dos critérios. O motor de simulação proposto é o libRoadRunner (via Tellurium), que já lê SBML e calcula estado estacionário e Jacobiana.
 
 ## Complexidade e riscos
 

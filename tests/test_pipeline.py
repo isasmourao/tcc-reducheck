@@ -272,3 +272,109 @@ def test_the_mvp_metrics_reproduce_the_recorded_values(tmp_path: Path) -> None:
     # initial layer of the QSSA): the metrics answer different questions, on purpose.
     assert itens["nrmse"].valor < 0.05 < itens["erro_max_rel"].valor
     assert itens["erro_max_rel"].detalhes["instante"] == pytest.approx(0.1)
+
+
+# --- simulation conditions (issue #12) ---------------------------------------
+
+#: Reference numerical noise of each pair, per report variable (see fixtures/README.md).
+RUIDO_DOS_PARES = {
+    "config_qssa_ok.yaml": {"A": 9.53e-07, "C": 9.56e-07},
+    "config_qssa_fail.yaml": {"A": 2.50e-07, "C": 2.22e-07},
+    "config_aggregation.yaml": {"X": 1.59e-06},
+}
+
+
+@pytest.mark.parametrize("config_name", list(RUIDO_DOS_PARES))
+def test_the_run_measures_and_records_the_reference_numerical_noise(
+    tmp_path: Path, config_name: str
+) -> None:
+    resultado = reducheck.verificar(prepare(tmp_path, config_name))
+
+    esperado = RUIDO_DOS_PARES[config_name]
+    assert set(resultado.ruido.por_variavel) == set(esperado)
+    for nome, valor in esperado.items():
+        assert resultado.ruido.por_variavel[nome] == pytest.approx(valor, rel=0.05)
+    # Four orders of magnitude below the 0.05 threshold of the fixtures: nothing here is
+    # measuring the solver.
+    assert resultado.ruido.maximo < 0.05 / 10
+    assert resultado.avisos[0].startswith("Ruído numérico de referência")
+    assert len(resultado.avisos) == 1
+
+    dados = json.loads(resultado.caminho_json.read_text(encoding="utf-8"))
+    assert dados["ruido_numerico"]["maximo"] == resultado.ruido.maximo
+    assert dados["avisos"][0] == resultado.avisos[0]
+
+
+def test_a_threshold_under_ten_times_the_noise_is_warned_about_without_failing(
+    tmp_path: Path,
+) -> None:
+    # A is identical in both models, so a threshold at the level of the noise still passes:
+    # the warning is there to say the number means nothing, not to change the verdict.
+    config = prepare(tmp_path, "config_qssa_ok.yaml")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "    limite: 0.05\n    variaveis: [A, C]",
+            "    limite: 1e-6\n    variaveis: [A]",
+        ),
+        encoding="utf-8",
+    )
+
+    resultado = reducheck.verificar(config)
+
+    assert resultado.aprovado is True
+    assert len(resultado.avisos) == 2
+    assert "o limite 1e-06 é menor que 10× o ruído numérico" in resultado.avisos[1]
+
+
+def test_an_override_turns_the_approved_pair_into_the_failing_one(tmp_path: Path) -> None:
+    # qssa_fail is qssa_ok with k2 = 0.05 in both models and nothing else changed, so
+    # overriding k2 has to reproduce its recorded NRMSE (0.52006) and its verdict.
+    config = prepare(tmp_path, "config_qssa_ok.yaml")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "  tol_absoluta: 1e-10",
+            "  tol_absoluta: 1e-10\n  sobrescrever:\n    parametros:\n      k2: 0.05",
+        ),
+        encoding="utf-8",
+    )
+
+    resultado = reducheck.verificar(config)
+
+    assert resultado.aprovado is False
+    por_variavel = {c.variavel: c.valor for c in resultado.criterios}
+    assert por_variavel["C"] == pytest.approx(0.52006, abs=1e-4)
+
+
+def test_an_override_of_one_model_alone_changes_only_that_model(tmp_path: Path) -> None:
+    # Same k2 = 0.05, but only in the simplified model: now the two models do not even
+    # share the parameter, and A, which was identical, stays identical.
+    config = prepare(tmp_path, "config_qssa_ok.yaml")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "  tol_absoluta: 1e-10",
+            "  tol_absoluta: 1e-10\n  sobrescrever:\n    simplificado:\n"
+            "      parametros:\n        k2: 0.05",
+        ),
+        encoding="utf-8",
+    )
+
+    resultado = reducheck.verificar(config)
+
+    por_variavel = {c.variavel: c.valor for c in resultado.criterios}
+    # k2 does not appear in the equations of A in either model, nor in the equation of C of
+    # the reduction, so nothing that is compared moves: only the noise of the original.
+    assert por_variavel["A"] < RUIDO_NUMERICO
+    assert por_variavel["C"] == pytest.approx(0.00072, abs=1e-4)
+    assert resultado.aprovado is True
+
+
+def test_a_simulation_that_goes_negative_stops_the_run_instead_of_giving_a_verdict(
+    tmp_path: Path,
+) -> None:
+    # config_negativa.yaml compares the zeroth-order model with itself: every metric would
+    # be exactly zero, that is, a perfect verdict, on a run that went below zero.
+    with pytest.raises(reducheck.simulation.ErroDeSimulacao) as erro:
+        reducheck.verificar(prepare(tmp_path, "config_negativa.yaml"))
+
+    assert "'X'" in str(erro.value)
+    assert "t = 1.1" in str(erro.value)

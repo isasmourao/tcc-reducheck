@@ -666,6 +666,112 @@ def test_the_core_selector_evaluates_every_core_variable() -> None:
     assert resultado.aprovado is True
 
 
+def obrigatorio(metrica: str, limite: float, variaveis: list[str]) -> config_mod.Criterio:
+    """A mandatory criterion, which is what ``obrigatorio`` defaults to."""
+    return config_mod.Criterio(metrica=metrica, limite=limite, variaveis=variaveis)
+
+
+def desejavel(metrica: str, limite: float, variaveis: list[str]) -> config_mod.Criterio:
+    return config_mod.Criterio(
+        metrica=metrica, limite=limite, variaveis=variaveis, obrigatorio=False
+    )
+
+
+def test_the_verdict_is_approved_when_every_item_passes() -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"]), desejavel("nrmse", 0.05, ["C"])]
+
+    resultado = verdict.avaliar(criterios, series_com({"A": 0.0, "C": 0.02}))
+
+    assert resultado.nivel == verdict.APROVADO
+    assert resultado.aprovado is True
+    assert resultado.porcentagem == 100.0
+
+
+def test_only_a_desirable_item_failing_gives_approved_with_reservations() -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"]), desejavel("nrmse", 0.05, ["C"])]
+
+    resultado = verdict.avaliar(criterios, series_com({"A": 0.0, "C": 0.4}))
+
+    assert resultado.nivel == verdict.COM_RESSALVAS
+    # "Com ressalvas" is a level of its own, not a pass: the CLI of issue #15 gives it its
+    # own exit code (1), apart from approved (0) and rejected (2).
+    assert resultado.aprovado is False
+    assert resultado.porcentagem == 50.0
+
+
+def test_a_mandatory_item_failing_rejects_the_model() -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"]), desejavel("nrmse", 0.05, ["C"])]
+
+    resultado = verdict.avaliar(criterios, series_com({"A": 0.4, "C": 0.02}))
+
+    assert resultado.nivel == verdict.REPROVADO
+    assert resultado.aprovado is False
+
+
+def test_a_high_percentage_does_not_save_a_failing_mandatory_item() -> None:
+    # The whole point of mandatory criteria: 9 of 10 items pass, the one that fails is
+    # mandatory, and the verdict is REPROVADO -- 90% and rejected.
+    passam = [f"V{indice}" for indice in range(9)]
+    criterios = [desejavel("nrmse", 0.05, passam), obrigatorio("nrmse", 0.05, ["X"])]
+    erros = dict.fromkeys(passam, 0.0) | {"X": 0.4}
+
+    resultado = verdict.avaliar(criterios, series_com(erros))
+
+    assert resultado.porcentagem == 90.0
+    assert resultado.nivel == verdict.REPROVADO
+    assert resultado.obrigatorios == (0, 1)
+    assert resultado.desejaveis == (9, 9)
+
+
+def test_each_item_says_whether_its_criterion_was_mandatory() -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"]), desejavel("nrmse", 0.05, ["C"])]
+
+    itens = verdict.avaliar(criterios, series_com({"A": 0.0, "C": 0.02})).criterios
+
+    assert [(item.variavel, item.obrigatorio) for item in itens] == [("A", True), ("C", False)]
+
+
+def test_the_counts_are_separated_by_kind() -> None:
+    criterios = [
+        obrigatorio("nrmse", 0.05, ["A", "C"]),
+        desejavel("nrmse", 0.05, ["D", "E"]),
+    ]
+
+    resultado = verdict.avaliar(
+        criterios, series_com({"A": 0.0, "C": 0.02, "D": 0.0, "E": 0.4})
+    )
+
+    assert resultado.obrigatorios == (2, 2)
+    assert resultado.desejaveis == (1, 2)
+
+
+def test_two_levels_turn_reservations_into_approved() -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"]), desejavel("nrmse", 0.05, ["C"])]
+    series = series_com({"A": 0.0, "C": 0.4})
+
+    resultado = verdict.avaliar(criterios, series, niveis=2)
+
+    assert resultado.nivel == verdict.APROVADO
+    assert resultado.aprovado is True
+    # The percentage still counts the item that failed: the level was switched off, the
+    # measurement was not.
+    assert resultado.porcentagem == 50.0
+
+
+def test_two_levels_do_not_rescue_a_failing_mandatory_item() -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"]), desejavel("nrmse", 0.05, ["C"])]
+
+    resultado = verdict.avaliar(criterios, series_com({"A": 0.4, "C": 0.4}), niveis=2)
+
+    assert resultado.nivel == verdict.REPROVADO
+
+
+def test_an_unknown_number_of_levels_is_refused() -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"])]
+
+    with pytest.raises(ValueError, match="niveis"):
+        verdict.avaliar(criterios, series_com({"A": 0.0}), niveis=4)
+
 
 # --- report ------------------------------------------------------------------
 
@@ -687,12 +793,29 @@ def test_report_writes_the_json(tmp_path: Path) -> None:
             "valor": 0.0,
             "limite": 0.05,
             "resultado": "passou",
+            "tipo": "obrigatório",
             "descricao": "RMSE normalizado pela amplitude do original (fração: 0,05 = 5%)",
             "avisos": [],
             "detalhes": {},
         }
     ]
     assert dados["avisos"] == []
+
+
+def test_the_json_carries_the_level_and_the_separate_counts(tmp_path: Path) -> None:
+    criterios = [obrigatorio("nrmse", 0.05, ["A"]), desejavel("nrmse", 0.05, ["C"])]
+    veredito = verdict.avaliar(criterios, series_com({"A": 0.0, "C": 0.4}))
+
+    caminho = report.salvar_json(veredito, tmp_path / "saida")
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+
+    assert dados["veredito"] == "APROVADO COM RESSALVAS"
+    assert dados["aprovado"] is False
+    assert dados["obrigatorios"] == {"passados": 1, "total": 1}
+    assert dados["desejaveis"] == {"passados": 0, "total": 1}
+    # The table has to say which kind each item is, as in the example of docs/produto.md.
+    assert [c["tipo"] for c in dados["criterios"]] == ["obrigatório", "desejável"]
+
 
 
 def test_the_json_carries_the_warnings_of_the_metrics(tmp_path: Path) -> None:

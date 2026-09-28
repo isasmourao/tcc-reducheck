@@ -171,6 +171,10 @@ class Relatorio(_Base):
 
     formatos: list[str] = Field(default_factory=lambda: ["json"])
     pasta: Path = Path("resultados")
+    #: How many verdict levels to use: 3 (the rule of ``docs/produto.md``) or 2, which
+    #: turns "aprovado com ressalvas" into "aprovado". The default is 3 while decision D01
+    #: (issue #1) is open, because that is what the product document describes.
+    niveis: Literal[2, 3] = 3
 
 
 class Configuracao(_Base):
@@ -616,7 +620,6 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
 
 #: Field -> (capability of docs/produto.md, issue that will implement it).
 _PENDENTES = {
-    "obrigatorio": ("critérios obrigatórios e desejáveis (V2)", "#13"),
     "qualitativo": ("equilíbrio e estabilidade local (L1-L3)", "#18"),
     "html": ("relatório em HTML (R2)", "#14"),
 }
@@ -649,14 +652,6 @@ def _exigir_suportado(configuracao: Configuracao, caminho: Path | str) -> None:
                     f"criterios[{indice}].metrica",
                     f"a análise '{criterio.metrica}'",
                     "qualitativo",
-                )
-            )
-        if not criterio.obrigatorio:
-            problemas.append(
-                _ainda_nao(
-                    f"criterios[{indice}].obrigatorio",
-                    "'obrigatorio: false'",
-                    "obrigatorio",
                 )
             )
 

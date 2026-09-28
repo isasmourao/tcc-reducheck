@@ -128,6 +128,7 @@ criterios:
 relatorio:
   formatos: [html, json]
   pasta: resultados/
+  niveis: 3                        # 2 junta "com ressalvas" em APROVADO (ver issue #1)
 ```
 
 **Métricas disponíveis** (acrescentadas em v0.2; todas dizem, junto do valor, o que o número
@@ -195,6 +196,11 @@ A saída principal é um **veredito em três níveis**, sempre acompanhado da po
 A porcentagem conta cada par (critério, variável) como um item. Com 2 critérios em 3 variáveis core, são 6 itens.
 
 (Decisão pendente com a orientadora: manter três níveis ou só aprovado/reprovado. Ver issue #1.)
+Enquanto a decisão não sai, o padrão é três níveis e `relatorio.niveis: 2` junta "com ressalvas" em
+APROVADO, sem mudar nenhuma medida: o que a opção desliga é o nível, não o item que falhou
+(acrescentado na issue #13). No `resultado.json`, o nível vai em `veredito` e as contagens separadas
+em `obrigatorios` e `desejaveis`; `aprovado` é estrito, verdadeiro só no APROVADO — é o que
+corresponde ao código de saída 0 da linha de comando.
 
 **Arquivos gerados na pasta de resultados:**
 

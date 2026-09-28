@@ -34,7 +34,6 @@
       <parameter id="ae2" value="0.5" constant="true"/>
       <parameter id="de2" value="0.03" constant="true"/>
       <parameter id="E2max" value="0.06" constant="true"/>
-      <parameter id="Es" value="0" constant="true"/>
       <parameter id="M" constant="false"/>
       <parameter id="Mo" value="4000" constant="false"/>
       <parameter id="M1" value="0" constant="false"/>
@@ -373,7 +372,7 @@
             <minus/>
             <apply>
               <plus/>
-              <ci> Es </ci>
+              <ci> E2 </ci>
               <apply>
                 <times/>
                 <ci> Ab </ci>

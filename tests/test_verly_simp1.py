@@ -1,9 +1,9 @@
 """Checks on the SBML translation of simplification 1 of the Verly model.
 
-These tests guard `modelos/verly_simp1.ant` against typos, and they pin the two
-structural consequences of the simplification that the case study is about: the
-variables removed with `Cm` and `Mc` are really gone, and with the provisional
-`Es = 0` the osteoblasts never leave zero.
+These tests guard `modelos/verly_simp1.ant` against typos, and they pin the
+structural consequence of the simplification that the case study is about: the
+term `F1 * Cm` was the only source of osteoblasts, so what replaces it decides
+whether `Cb` ever leaves zero.
 
 The equations come from `referencia/simplificacao_2026-04-22.md`; the numbers of
 the comparison against the original live in `estudo_de_caso/NOTAS.md`.
@@ -37,8 +37,9 @@ REMOVED_PARAMETERS = [
     "k_3",
 ]
 
-# Every parameter kept from the original, with the value of the original code,
-# plus Es, which the note introduces in the place of the term F1 * Cm.
+# Every parameter kept from the original, with the value of the original code.
+# The note replaces the term F1 * Cm by a source `Es`, read here as the
+# estradiol E2, so it adds no parameter of its own.
 PARAMETERS = {
     "ke_1": 3.0,
     "ke_2": 3.0,
@@ -71,7 +72,6 @@ PARAMETERS = {
     "ae2": 0.5,
     "de2": 0.03,
     "E2max": 0.060,
-    "Es": 0.0,
 }
 
 INITIAL_CONDITIONS = {
@@ -129,34 +129,54 @@ def test_initial_condition(runner: roadrunner.RoadRunner, name: str, value: floa
     assert runner[name] == pytest.approx(value, rel=0, abs=0)
 
 
-def test_osteoblasts_stay_at_zero_while_es_is_zero(
+def test_osteoblasts_leave_zero_through_the_estradiol_source(
     runner: roadrunner.RoadRunner,
 ) -> None:
-    """With Es = 0 the equation of Cb is homogeneous, so Cb and Mb never leave 0.
-
-    This is the central finding of the case study, not a defect of the library:
-    `F1 * Cm` was the only term of `dCb/dt` that does not carry a factor of `Cb`,
-    so removing it leaves bone formation with no source. It is what makes the
-    open question about `Es` worth answering (see `docs/questoes-em-aberto.md`).
-    """
+    """With `Es` read as E2, bone formation starts instead of staying at zero."""
     runner.reset()
     runner.selections = ["time", "Cb", "Mb"]
     result = runner.simulate(0, 720, 1000)
+    assert result[:, 1].max() > 0.0
+    assert result[:, 2].max() > 0.0
+
+
+def test_without_any_source_the_osteoblasts_stay_at_zero(
+    runner: roadrunner.RoadRunner,
+) -> None:
+    """The source term is what unlocks Cb, and this is the finding of the study.
+
+    `F1 * Cm` was the only term of `dCb/dt` that does not carry a factor of `Cb`,
+    so with no replacement the equation is homogeneous and `Cb(0) = 0` is a fixed
+    point: removing it leaves bone formation with no source at all. Starting E2
+    at zero holds it at zero (`dE2/dt` vanishes there) and so zeroes the source,
+    which is how that case is reproduced here. See `estudo_de_caso/NOTAS.md`.
+    """
+    runner.reset()
+    runner["init(E2)"] = 0.0
+    runner.selections = ["time", "Cb", "Mb"]
+    result = runner.simulate(0, 720, 1000)
+    runner.reset()
+    runner["init(E2)"] = 0.060
     assert result[:, 1].max() == 0.0
     assert result[:, 2].max() == 0.0
 
 
-def test_a_positive_es_does_start_bone_formation(
+def test_the_source_only_seeds_and_the_logistic_sets_the_level(
     runner: roadrunner.RoadRunner,
 ) -> None:
-    """The zero above comes from Es, not from a typo in the rest of the equation."""
+    """Cb settles at the non-zero fixed point of the logistic, not at the source.
+
+    This is why the open question about `Es` does not change the verdict: the
+    magnitude of the source is almost irrelevant to where `Cb` ends up. What it
+    decides is only whether `Cb` leaves zero at all.
+    """
     runner.reset()
-    runner["Es"] = 1.0e4
-    runner.selections = ["time", "Cb", "Mb"]
+    runner.selections = ["time", "Cb", "C1"]
     result = runner.simulate(0, 720, 1000)
-    runner["Es"] = 0.0
-    assert result[:, 1].max() > 0.0
-    assert result[:, 2].max() > 0.0
+    cb_final, c1_final = result[-1, 1], result[-1, 2]
+    ab_final = PARAMETERS["kpb"] * PARAMETERS["apb"] / (PARAMETERS["apb"] + c1_final)
+    esperado = PARAMETERS["k_lb"] * (1 - PARAMETERS["d_b"] / ab_final)
+    assert cb_final == pytest.approx(esperado, rel=1e-2)
 
 
 def test_estradiol_matches_the_original_exactly() -> None:

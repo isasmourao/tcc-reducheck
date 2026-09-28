@@ -128,7 +128,7 @@ resolvida por conta própria.** O detalhamento e o impacto numérico estão na s
 
 | # | Ponto | Documento | `bone_estradiol.py` | Situação |
 | --- | --- | --- | --- | --- |
-| 1 | Fonte de `Cb` | `Es + ...` | `F1*Cm + ...` | `Es` **não existe no código original e não tem valor**. É o único termo de `Cb` que não é proporcional a `Cb`, então com `Es = 0` e `Cb(0) = 0` sai `Cb ≡ 0` e `Mb ≡ 0`. |
-| 2 | Degradação de `c1` | `- dc1*c1` | `- (d_c1*C1)*E2` | O documento não tem o `E2`. Muda o NRMSE de `C1` de 3,03 para 0,68. Mesmo ponto da questão 3 de `referencia/duvidas.md`. |
+| 1 | Fonte de `Cb` | `Es + ...` | `F1*Cm + ...` | `Es` **não existe no código original e não tem valor**. É o único termo de `Cb` que não é proporcional a `Cb`: sem substituto, `Cb ≡ 0` e `Mb ≡ 0`. Lido como o estradiol `E2` (Isabella, 29/09/2026), **ainda sem confirmação da Ana Clara**; as unidades não fecham. Ver a questão 34. |
+| 2 | Degradação de `c1` | `- dc1*c1` | `- (d_c1*C1)*E2` | O documento não tem o `E2`. **Decidido em 29/09: seguir o documento.** Muda o NRMSE de `C1` de 3,03 para 0,68, então parte da diferença medida em `C1` não é efeito da simplificação. Mesmo ponto da questão 3 de `referencia/duvidas.md`. |
 | 3 | Logística de `Cb` | `Ab*Cb*(1 - Cb)/klb` | `Ab*Cb*(1 - Cb/k_lb)` | O próprio documento manda conferir no código. Foi adotada a forma do código. |
 | 4 | `dE2/dt` | `a*E2*(1 - E2/E2max) - d*E2` | `((E2max - E2)/E2max)*ae2*E2 - de2*E2` | **Equivalentes**: `(E2max - E2)/E2max == 1 - E2/E2max`. Não é divergência. |

@@ -20,10 +20,16 @@
 // desenvolvimento", items 34 and 35) and in the table at the end of
 // `referencia/simplificacao_2026-04-22.md`:
 //
-//   1. `Es` has no value in the note and does not exist in the original code.
-//      The provisional value here is 0, which is the literal reading of the
-//      TCC I text ("removed the term F1 * Cm"). With Es = 0 and Cb(0) = 0 the
-//      variable Cb is identically zero, and so is Mb.
+//   1. `Es`, the source term the note puts in the place of `F1 * Cm`, is read
+//      here as the estradiol E2 (Isabella, 2026-09-29: "parece que e o E2").
+//      Not confirmed by Ana Clara Verly yet. It is a plausible reading of the
+//      note, and the magnitude barely matters: any positive seed between
+//      0.056 and 100 drives Cb to the same ~150,600, which is the non-zero
+//      fixed point of the logistic, k_lb * (1 - d_b / Ab). What the term does
+//      is unlock the equation, not set the level -- with no source at all, Cb
+//      and Mb stay identically zero. The units do not work out, though:
+//      estradiol is a concentration around 0.056 and Cb is a cell count
+//      around 1e5.
 //   2. The equation of C1 follows the NOTE, without the E2 that multiplies the
 //      degradation term in the original code. This is a difference between the
 //      note and the code, not a consequence of removing Cm and Mc.
@@ -66,11 +72,6 @@ model verly_simp1
 
   E2max = 0.060;
 
-  // New parameter, introduced by the note of 2026-04-22 to stand in for the
-  // removed term F1 * Cm. OPEN QUESTION: the note gives no value. 0 is the
-  // provisional choice (see the header).
-  Es = 0.0;
-
   // --- Auxiliary functions (Am and F1 are gone with Cm) -------------------
   M  := Mo + M1 + M2;                                  // total macrophages
   RD := D / (aed + D);                                 // phagocytosis rate
@@ -88,7 +89,7 @@ model verly_simp1
   M2' = G2 * Mo + (k_12 * M1) - (k_21 * M2) - (d_2 * M2);
   C1' = H1 * (k_o * D + k_1 * M1) - (d_c1 * C1);       // note: no E2 (open question 35)
   C2' = H2 * (k_2 * M2) * E2 - (d_c2 * C2);            // without k_3 * Cm
-  Cb' = Es + Ab * Cb * (1 - (Cb / k_lb)) - (d_b * Cb); // F1 * Cm replaced by Es
+  Cb' = E2 + Ab * Cb * (1 - (Cb / k_lb)) - (d_b * Cb); // F1 * Cm -> Es, read as E2
   Mb' = (p_bs - (q_bd * Mb)) * Cb;
   E2' = ((E2max - E2) / E2max) * ae2 * E2 - de2 * E2;
 

@@ -194,3 +194,61 @@ def test_estradiol_matches_the_original_exactly() -> None:
     assert simplified.simulate(0, 720, 1000)[-1, 1] == pytest.approx(
         original.simulate(0, 720, 1000)[-1, 1], rel=1e-8
     )
+
+
+# --- qualitative analysis of the case study (issue #18) ----------------------
+
+#: Measured by `reducheck verificar estudo_de_caso/simp1_qualitativo.yaml` and recorded in
+#: `estudo_de_caso/NOTAS.md`. The equilibrium is only reached at t = 7.2e8, a million times
+#: the 720-day horizon, which is why these numbers come with question 39 attached.
+EQUILIBRIO_VERLY = {
+    "Cb": (318795.0, 4.17e-06),
+    "Mb": (1.0, 0.0),
+    "C1": (8.2922e-05, 0.09330),
+    "C2": (8.17263e-10, 0.00087),
+    "E2": (0.0564, 0.0),
+}
+
+
+def test_the_qualitative_analysis_of_the_case_study() -> None:
+    """The library on the real case study: same stability, equilibrium fails on C1.
+
+    This is the "works on the Verly model" criterion of issue #18, and it works in a
+    narrow sense: both models are classified the same way and the variables with a non-zero
+    equilibrium agree to six digits, while `C1`, which decays to zero, disagrees by 9.3% --
+    a number that depends on where the integration stopped (question 42).
+    """
+    import reducheck
+
+    resultado = reducheck.verificar(ROOT / "estudo_de_caso" / "simp1_qualitativo.yaml")
+    comparacao = resultado.comparacao
+    assert comparacao is not None
+
+    # Neither steadyState nor getFullJacobian is usable: the model has no floating species.
+    assert "integração até" in comparacao.original.equilibrio.metodo
+    assert comparacao.original.estabilidade.metodo.startswith("diferenças finitas")
+    assert comparacao.original.equilibrio.instante == pytest.approx(7.2e8, rel=1e-9)
+    assert comparacao.original.equilibrio.vezes_o_horizonte(720.0) == pytest.approx(1e6)
+
+    # Same classification in both models, so the stability criterion passes.
+    assert comparacao.original.estabilidade.classificacao == "marginal"
+    assert comparacao.simplificado.estabilidade.classificacao == "marginal"
+    estabilidade = next(
+        item for item in resultado.criterios if item.metrica == "estabilidade_local"
+    )
+    assert estabilidade.passou
+
+    itens = {
+        item.variavel: item
+        for item in resultado.criterios
+        if item.metrica == "equilibrio"
+    }
+    for nome, (valor_original, erro) in EQUILIBRIO_VERLY.items():
+        assert itens[nome].detalhes["equilibrio_original"] == pytest.approx(
+            valor_original, rel=1e-4
+        )
+        assert itens[nome].valor == pytest.approx(erro, abs=5e-5)
+
+    assert resultado.nivel == "REPROVADO"
+    assert not itens["C1"].passou
+    assert resultado.porcentagem == pytest.approx(100.0 * 5 / 6)

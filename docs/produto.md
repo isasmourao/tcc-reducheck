@@ -254,6 +254,21 @@ Avisos:
 O ruído numérico também vai para o `resultado.json`, em `ruido_numerico`, com o valor por variável,
 o fator de tolerância usado (100) e as variáveis em que não foi possível medir.
 
+**Análise qualitativa** (acrescentada na issue #18). São dois critérios, declarados como os
+outros — declarar é o que os liga, e cada item conta na porcentagem: `equilibrio`, que compara
+cada variável mapeada no equilíbrio com um limite relativo, e `estabilidade_local`, um item único
+que passa quando os dois modelos recebem a mesma classificação (estável, instável ou marginal).
+Os modelos têm dimensões diferentes, então o que se compara é a classificação e as variáveis
+mapeadas, nunca os vetores de autovalores. O relatório ganha uma seção com a tabela do equilíbrio
+nos dois modelos e os três autovalores de maior parte real de cada um, e sempre imprime dois
+avisos: o de que **só um equilíbrio foi analisado**, aquele alcançado a partir das condições
+iniciais, e — quando é o caso — **em que instante** ele foi alcançado e quantas vezes o horizonte
+simulado isso é. O segundo existe porque o equilíbrio pode estar muito fora da janela declarada:
+no modelo da Verly ele chega em t ≈ 7×10⁸ dias, um milhão de vezes os 720 dias simulados, e sem
+esse aviso um critério sobre esse estado seria lido como uma afirmação sobre a janela pedida
+(ver `docs/questoes-em-aberto.md`, questões 39 a 42). Em `resultado.json` tudo isso vai em
+`qualitativo`, com o ponto completo, o método, o instante, o resíduo e os autovalores por modelo.
+
 Cada razão diz **qual critério falhou, por quanto e onde** no tempo. Um veredito sem explicação não é aceito como saída.
 
 ## Como funciona

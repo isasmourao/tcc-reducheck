@@ -40,6 +40,34 @@ Nenhum critério falhou.
 Nenhum aviso.
 {% endif %}
 
+{% if qualitativo %}
+## Análise qualitativa
+
+{% if qualitativo.equilibrio %}
+Equilíbrio das variáveis mapeadas:
+
+| Variável | Original | Simplificado | Erro relativo | Limite | Resultado |
+| --- | --- | --- | --- | --- | --- |
+{% for linha in qualitativo.equilibrio %}
+| {{ linha.variavel }} | {{ linha.original }} | {{ linha.simplificado }} | {{ linha.erro }} | {{ linha.limite }} | {{ linha.resultado }} |
+{% endfor %}
+
+{% endif %}
+Estabilidade local, com os três autovalores de maior parte real:
+
+| Modelo | Classificação | Autovalores dominantes | Equilíbrio alcançado em | Resíduo relativo | Jacobiana |
+| --- | --- | --- | --- | --- | --- |
+{% for modelo in qualitativo.modelos %}
+| {{ modelo.papel }} | {{ modelo.classificacao }} | {{ modelo.autovalores | join(", ") }} | {{ modelo.instante }} | {{ modelo.residuo }} | {{ modelo.metodo_da_jacobiana }} |
+{% endfor %}
+
+{{ qualitativo.aviso }}
+{% if qualitativo.nota %}
+
+{{ qualitativo.nota }}
+{% endif %}
+
+{% endif %}
 ## Gráficos
 
 {% if graficos %}

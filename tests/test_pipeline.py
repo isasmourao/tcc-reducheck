@@ -447,3 +447,98 @@ def test_two_levels_report_the_same_run_as_approved(tmp_path: Path) -> None:
     # The item that failed is still in the table and still out of the percentage.
     assert resultado.veredito.desejaveis == (0, 1)
     assert resultado.porcentagem == pytest.approx(200 / 3)
+
+
+# --- qualitative criteria end to end (issue #18) -----------------------------
+
+#: From tests/fixtures/README.md: the aggregation pair misses the equilibrium by 0.36%.
+ERRO_NO_EQUILIBRIO = 0.00362
+
+
+def test_the_two_qualitative_criteria_become_items_of_the_verdict(tmp_path: Path) -> None:
+    resultado = reducheck.verificar(prepare(tmp_path, "config_qualitativo.yaml"))
+
+    metricas = [(item.metrica, item.variavel) for item in resultado.criterios]
+    assert metricas == [("nrmse", "X"), ("equilibrio", "X"), ("estabilidade_local", "—")]
+    assert resultado.aprovado
+    assert resultado.porcentagem == 100.0
+
+
+def test_the_equilibrium_item_measures_the_hand_computed_error(tmp_path: Path) -> None:
+    resultado = reducheck.verificar(prepare(tmp_path, "config_qualitativo.yaml"))
+    item = next(c for c in resultado.criterios if c.metrica == "equilibrio")
+
+    assert item.valor == pytest.approx(ERRO_NO_EQUILIBRIO, abs=1e-5)
+    assert item.detalhes["equilibrio_original"] == pytest.approx(
+        1.0 / 0.20 + 0.5 / 0.22, rel=1e-6
+    )
+    assert item.detalhes["equilibrio_simplificado"] == pytest.approx(
+        1.5 / 0.207, rel=1e-6
+    )
+
+
+def test_the_stability_item_compares_labels_and_not_eigenvalues(tmp_path: Path) -> None:
+    resultado = reducheck.verificar(prepare(tmp_path, "config_qualitativo.yaml"))
+    item = next(c for c in resultado.criterios if c.metrica == "estabilidade_local")
+
+    assert item.valor is None and item.limite is None
+    assert item.valor_texto == "estável / estável"
+    assert item.limite_texto == "igual"
+    assert item.passou
+    # Different dimensions: 2 eigenvalues against 1. Comparing the vectors is meaningless,
+    # which is why the criterion compares the classification.
+    assert len(item.detalhes["autovalores_dominantes_original"]) == 2
+    assert len(item.detalhes["autovalores_dominantes_simplificado"]) == 1
+
+
+def test_a_tight_threshold_fails_the_equilibrium_without_touching_the_rest(
+    tmp_path: Path,
+) -> None:
+    caminho = prepare(tmp_path, "config_qualitativo.yaml")
+    caminho.write_text(
+        caminho.read_text(encoding="utf-8").replace(
+            "metrica: equilibrio\n    limite: 0.05", "metrica: equilibrio\n    limite: 0.001"
+        ),
+        encoding="utf-8",
+    )
+    resultado = reducheck.verificar(caminho)
+
+    assert not resultado.aprovado
+    assert resultado.nivel == "REPROVADO"
+    item = next(c for c in resultado.criterios if c.metrica == "equilibrio")
+    assert not item.passou
+    assert item.valor == pytest.approx(ERRO_NO_EQUILIBRIO, abs=1e-5)
+
+
+def test_the_json_records_the_equilibrium_of_both_models(tmp_path: Path) -> None:
+    resultado = reducheck.verificar(prepare(tmp_path, "config_qualitativo.yaml"))
+    dados = json.loads(resultado.caminho_json.read_text(encoding="utf-8"))
+
+    qualitativo = dados["qualitativo"]
+    assert "um único equilíbrio" in qualitativo["aviso"]
+    assert qualitativo["original"]["equilibrio"]["X1"] == pytest.approx(5.0, rel=1e-6)
+    assert qualitativo["original"]["classificacao"] == "estável"
+    assert qualitativo["simplificado"]["classificacao"] == "estável"
+    assert "steadyState" in qualitativo["original"]["metodo"]
+
+
+def test_the_readable_report_shows_the_equilibrium_and_the_eigenvalues(
+    tmp_path: Path,
+) -> None:
+    resultado = reducheck.verificar(prepare(tmp_path, "config_qualitativo.yaml"))
+    markdown = (tmp_path / "resultados" / "relatorio.md").read_text(encoding="utf-8")
+
+    assert "## Análise qualitativa" in markdown
+    assert "Autovalores dominantes" in markdown
+    assert "-0,2" in markdown  # autovalor do original, com vírgula decimal
+    assert "estável / estável" in resultado.criterios[-1].valor_texto
+    assert "outros equilíbrios não foram buscados" in markdown
+
+
+def test_without_a_qualitative_criterion_nothing_is_analysed(tmp_path: Path) -> None:
+    """The analysis can integrate far past the horizon, so it only runs when asked."""
+    resultado = reducheck.verificar(prepare(tmp_path, "config_aggregation.yaml"))
+
+    assert resultado.comparacao is None
+    dados = json.loads(resultado.caminho_json.read_text(encoding="utf-8"))
+    assert dados["qualitativo"] is None

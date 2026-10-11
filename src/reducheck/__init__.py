@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from reducheck import config as _config
-from reducheck import mapping, report, simulation, verdict
+from reducheck import mapping, qualitative, report, simulation, verdict
 from reducheck.mapping import SerieComparada
 from reducheck.simulation import RuidoNumerico
 from reducheck.verdict import ItemAvaliado, Veredito
@@ -38,6 +38,9 @@ class Resultado:
     #: The two series of each mapped variable, already on the same time grid. Kept so that
     #: whoever calls from Python can plot or re-analyse without simulating again.
     series: Mapping[str, SerieComparada] = field(default_factory=dict)
+    #: The equilibrium and the local stability of each model, or ``None`` when no
+    #: qualitative criterion was declared and the analysis was therefore not run.
+    comparacao: qualitative.Comparacao | None = None
 
     @property
     def caminho_json(self) -> Path | None:
@@ -113,13 +116,17 @@ def verificar(
     series = mapping.mapear(
         configuracao.variaveis, trajetorias_originais, trajetorias_simplificadas
     )
+    comparacao = _analisar_qualitativo(configuracao)
     veredito = verdict.avaliar(
         configuracao.criterios,
         series,
         core=configuracao.nomes_core(),
         niveis=configuracao.relatorio.niveis,
+        comparacao=comparacao,
     )
     avisos = (ruido.resumo(), *simulation.avisos_de_ruido(ruido, configuracao))
+    if comparacao is not None:
+        avisos += qualitative.avisos(comparacao, configuracao.simulacao.t_fim)
     caminhos = report.salvar(
         veredito,
         configuracao,
@@ -127,6 +134,7 @@ def verificar(
         ruido=ruido,
         avisos=avisos,
         caminho_config=caminho_config,
+        comparacao=comparacao,
     )
 
     return Resultado(
@@ -136,4 +144,38 @@ def verificar(
         ruido=ruido,
         avisos=avisos,
         series=series,
+        comparacao=comparacao,
+    )
+
+
+def _analisar_qualitativo(
+    configuracao: _config.Configuracao,
+) -> qualitative.Comparacao | None:
+    """Analyse both models qualitatively, and only when some criterion asks for it.
+
+    Finding the equilibrium can mean integrating far past the declared horizon, so a
+    configuration that does not declare a qualitative criterion does not pay for it. This
+    is also the answer to "can I switch it off": declaring the criterion is switching it on.
+    """
+    pedidos = [
+        criterio
+        for criterio in configuracao.criterios
+        if criterio.metrica in _config.ANALISES_QUALITATIVAS
+    ]
+    if not pedidos:
+        return None
+    sobrescrever = configuracao.simulacao.sobrescrever
+    return qualitative.Comparacao(
+        original=qualitative.analisar(
+            configuracao.modelos.original,
+            configuracao.simulacao,
+            sobrescrever.para("original"),
+            papel="original",
+        ),
+        simplificado=qualitative.analisar(
+            configuracao.modelos.simplificado,
+            configuracao.simulacao,
+            sobrescrever.para("simplificado"),
+            papel="simplificado",
+        ),
     )

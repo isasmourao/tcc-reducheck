@@ -162,9 +162,13 @@ def test_the_full_schema_of_the_product_document_is_parsed(tmp_path: Path) -> No
     assert cfg.relatorio.formatos == ["html", "json"]
 
 
-def test_the_full_schema_still_stops_before_simulating(tmp_path: Path) -> None:
-    # Whatever this version cannot honour has to stop, never be silently ignored.
-    assert "ainda não" in recusa(tmp_path, COMPLETA)
+def test_the_full_schema_now_loads_end_to_end(tmp_path: Path) -> None:
+    # Every capability the schema accepts is implemented since issue #18, so the support
+    # gate has nothing left to refuse here. The gate itself is still tested below, on the
+    # solver; what changed is that the qualitative criterion is no longer on the list.
+    cfg = config_mod.carregar(escrever(tmp_path, COMPLETA))
+
+    assert [c.metrica for c in cfg.criterios] == ["nrmse", "estabilidade_local"]
 
 
 # --- one test per kind of error ----------------------------------------------
@@ -307,12 +311,9 @@ def test_a_yaml_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("de", "para", "campo"),
     [
-        # A qualitative criterion carries no threshold and no list of variables.
-        (
-            "metrica: nrmse\n    limite: 0.05\n    variaveis: [A, C]",
-            "metrica: estabilidade_local",
-            "criterios[0].metrica",
-        ),
+        # The qualitative criterion used to be here, and is implemented since issue #18.
+        # The gate stays tested on the solver, which is the next thing the schema accepts
+        # and the library cannot honour.
         ("  pontos: 401", "  pontos: 401\n  solver: euler", "simulacao.solver"),
     ],
 )
@@ -587,3 +588,46 @@ def test_a_desirable_criterion_now_runs(tmp_path: Path) -> None:
     )
 
     assert cfg.criterios[0].obrigatorio is False
+
+
+# --- shape of a qualitative criterion (issue #18) ----------------------------
+
+QUANTITATIVO = """metrica: nrmse
+    limite: 0.05
+    variaveis: [A, C]"""
+
+
+def test_estabilidade_local_refuses_a_threshold(tmp_path: Path) -> None:
+    mensagem = recusa(
+        tmp_path,
+        BASE.replace(QUANTITATIVO, "metrica: estabilidade_local\n    limite: 0.05"),
+    )
+
+    assert "criterios[0].limite" in mensagem
+    assert "mesma classificação" in mensagem
+
+
+def test_estabilidade_local_refuses_a_list_of_variables(tmp_path: Path) -> None:
+    mensagem = recusa(
+        tmp_path,
+        BASE.replace(QUANTITATIVO, "metrica: estabilidade_local\n    variaveis: [A]"),
+    )
+
+    assert "criterios[0].variaveis" in mensagem
+    assert "modelo inteiro" in mensagem
+
+
+def test_equilibrio_demands_a_threshold_and_a_list(tmp_path: Path) -> None:
+    mensagem = recusa(tmp_path, BASE.replace(QUANTITATIVO, "metrica: equilibrio"))
+
+    assert "criterios[0].limite" in mensagem
+    assert "criterios[0].variaveis" in mensagem
+
+
+def test_equilibrio_with_a_threshold_and_a_list_is_accepted(tmp_path: Path) -> None:
+    cfg = config_mod.carregar(
+        escrever(tmp_path, BASE.replace("metrica: nrmse", "metrica: equilibrio"))
+    )
+
+    assert cfg.criterios[0].metrica == "equilibrio"
+    assert cfg.criterios[0].limite == 0.05

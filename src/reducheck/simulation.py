@@ -45,6 +45,7 @@ __all__ = [
     "RuidoNumerico",
     "Trajetorias",
     "avisos_de_ruido",
+    "preparar",
     "ruido_numerico",
     "simular",
     "tipos_disponiveis",
@@ -122,6 +123,39 @@ class RuidoNumerico:
         )
 
 
+def preparar(
+    caminho_sbml: Path | str,
+    condicoes: Simulacao,
+    variaveis: Sequence[str] = (),
+    sobrescrever: Valores | None = None,
+) -> roadrunner.RoadRunner:
+    """Load the model, apply the overrides and set the solver and its tolerances.
+
+    Everything that makes two runs comparable happens here, in one place: both models of a
+    comparison go through this function with the same :class:`~reducheck.config.Simulacao`.
+    Public because the qualitative analysis (:mod:`reducheck.qualitative`) needs the loaded
+    model itself, and not a table of trajectories -- it asks it for rates of change and for
+    the Jacobian -- and it has to ask under exactly the same conditions the metrics saw.
+
+    ``variaveis``, when given, are required to exist in the model before anything else
+    happens, so a typo is a configuration error and not an empty column.
+    """
+    if condicoes.solver not in SOLVERS_SUPORTADOS:
+        suportados = ", ".join(sorted(SOLVERS_SUPORTADOS))
+        raise ErroDeSimulacao(
+            f"O solver '{condicoes.solver}' não é suportado. Disponíveis: {suportados}."
+        )
+    modelo = _carregar(caminho_sbml)
+    if variaveis:
+        _exigir_variaveis_existentes(modelo, variaveis, caminho_sbml)
+    _aplicar(modelo, sobrescrever, caminho_sbml)
+
+    modelo.setIntegrator(condicoes.solver)
+    modelo.integrator.relative_tolerance = condicoes.tol_relativa
+    modelo.integrator.absolute_tolerance = condicoes.tol_absoluta
+    return modelo
+
+
 def simular(
     caminho_sbml: Path | str,
     condicoes: Simulacao,
@@ -134,21 +168,10 @@ def simular(
     integrating; it is what :meth:`reducheck.config.Sobrescrita.para` produced for this
     model, so the caller cannot mix up the two models' overrides.
     """
-    if condicoes.solver not in SOLVERS_SUPORTADOS:
-        suportados = ", ".join(sorted(SOLVERS_SUPORTADOS))
-        raise ErroDeSimulacao(
-            f"O solver '{condicoes.solver}' não é suportado. Disponíveis: {suportados}."
-        )
     if not variaveis:
         raise ErroDeSimulacao(f"Nenhuma variável pedida para '{caminho_sbml}'.")
 
-    modelo = _carregar(caminho_sbml)
-    _exigir_variaveis_existentes(modelo, variaveis, caminho_sbml)
-    _aplicar(modelo, sobrescrever, caminho_sbml)
-
-    modelo.setIntegrator(condicoes.solver)
-    modelo.integrator.relative_tolerance = condicoes.tol_relativa
-    modelo.integrator.absolute_tolerance = condicoes.tol_absoluta
+    modelo = preparar(caminho_sbml, condicoes, variaveis, sobrescrever)
     modelo.selections = ["time", *variaveis]
 
     try:

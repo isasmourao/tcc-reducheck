@@ -15,8 +15,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
-from reducheck import metrics
-from reducheck.config import Criterio
+import numpy as np
+
+from reducheck import metrics, qualitative
+from reducheck.config import ANALISES_QUALITATIVAS, Criterio
 from reducheck.mapping import SerieComparada
 
 __all__ = [
@@ -24,6 +26,7 @@ __all__ = [
     "COM_RESSALVAS",
     "NIVEIS",
     "REPROVADO",
+    "SEM_VARIAVEL",
     "Contagem",
     "ItemAvaliado",
     "Veredito",
@@ -37,6 +40,10 @@ REPROVADO = "REPROVADO"
 
 #: How many levels the verdict may have, pending D01.
 NIVEIS = frozenset({2, 3})
+
+#: Printed in the "Variável" column of an item that is about the whole model, and not about
+#: one variable: ``estabilidade_local`` is one item, whatever the number of variables.
+SEM_VARIAVEL = "—"
 
 
 class Contagem(NamedTuple):
@@ -52,14 +59,23 @@ class ItemAvaliado:
 
     metrica: str
     variavel: str
-    valor: float
-    limite: float
+    #: The measured number, or ``None`` for an item that is not a number -- the
+    #: ``estabilidade_local`` criterion compares two labels, not two values.
+    valor: float | None
+    #: The threshold, or ``None`` when the criterion has none.
+    limite: float | None
     passou: bool
     #: Whether the criterion this item came from is mandatory. A mandatory item that fails
     #: rejects the model on its own; a desirable one only adds a reservation.
     obrigatorio: bool = True
     #: What the metric says the number means; printed next to the value in the report.
     descricao: str = ""
+    #: What the report prints in the "Valor" column when there is no number to print, such
+    #: as ``"marginal / marginal"`` for the comparison of two stability classifications.
+    valor_texto: str = ""
+    #: The same, for the "Limite" column: a qualitative criterion is met when the two
+    #: labels are equal, and ``"igual"`` is what that reads as in the table.
+    limite_texto: str = ""
     #: What the metric had to warn about, such as points excluded near zero. A warning
     #: never changes whether the item passed: it is there so the reader can judge the
     #: number, as ``docs/produto.md`` asks ("avisa, sem parar").
@@ -126,6 +142,7 @@ def avaliar(
     series: Mapping[str, SerieComparada],
     core: Sequence[str] = (),
     niveis: int = 3,
+    comparacao: qualitative.Comparacao | None = None,
 ) -> Veredito:
     """Apply every criterion to its variables and decide the verdict.
 
@@ -133,12 +150,26 @@ def avaliar(
     ``core`` is the list a criterion written as ``variaveis: core`` expands to; expanding it
     here, and not when the file is read, is what keeps the configuration a faithful record
     of what the user wrote. ``niveis`` comes from ``relatorio.niveis``.
+
+    ``comparacao`` is the qualitative analysis of both models, required when and only when
+    some criterion is one of :data:`~reducheck.config.ANALISES_QUALITATIVAS`. A qualitative
+    item counts in the percentage like any other, which is the sense in which it is "a
+    criterion like the others"; what it is not is a pluggable metric (question 41 of
+    ``docs/questoes-em-aberto.md``).
     """
     if niveis not in NIVEIS:
         raise ValueError(f"niveis tem que ser 2 ou 3; recebido {niveis}.")
     itens: list[ItemAvaliado] = []
     for criterio in criterios:
         nomes = list(core) if criterio.variaveis == "core" else list(criterio.variaveis or [])
+        if criterio.metrica in ANALISES_QUALITATIVAS:
+            if comparacao is None:
+                raise ValueError(
+                    f"O critério '{criterio.metrica}' precisa da análise qualitativa dos "
+                    "dois modelos, que não foi informada."
+                )
+            itens.extend(_itens_qualitativos(criterio, nomes, series, comparacao))
+            continue
         for nome in nomes:
             try:
                 serie = series[nome]
@@ -168,6 +199,155 @@ def avaliar(
                 )
             )
     return Veredito(nivel=_decidir(itens, niveis), criterios=tuple(itens))
+
+
+# --- qualitative criteria (capability L3) ------------------------------------
+
+
+def _itens_qualitativos(
+    criterio: Criterio,
+    nomes: Sequence[str],
+    series: Mapping[str, SerieComparada],
+    comparacao: qualitative.Comparacao,
+) -> list[ItemAvaliado]:
+    if criterio.metrica == "estabilidade_local":
+        return [_item_de_estabilidade(criterio, comparacao)]
+    return [_item_de_equilibrio(criterio, nome, series, comparacao) for nome in nomes]
+
+
+def _item_de_estabilidade(
+    criterio: Criterio, comparacao: qualitative.Comparacao
+) -> ItemAvaliado:
+    """Compare the two classifications, which is the only comparison that makes sense.
+
+    The two models have different dimensions, so their eigenvalue vectors cannot be put
+    side by side; what can is the label each spectrum earns. The eigenvalues themselves go
+    into the details, so the report can print them and the reader can judge the label.
+    """
+    original = comparacao.original.estabilidade
+    simplificado = comparacao.simplificado.estabilidade
+    passou = original.classificacao == simplificado.classificacao
+    coincidem = "coincidem" if passou else "são diferentes"
+    return ItemAvaliado(
+        metrica=criterio.metrica,
+        variavel=SEM_VARIAVEL,
+        valor=None,
+        limite=None,
+        valor_texto=f"{original.classificacao} / {simplificado.classificacao}",
+        limite_texto="igual",
+        passou=passou,
+        obrigatorio=criterio.obrigatorio,
+        descricao=(
+            f"a classificação do original ({original.classificacao}) e a do simplificado "
+            f"({simplificado.classificacao}) {coincidem}"
+        ),
+        detalhes={
+            "classificacao_original": original.classificacao,
+            "classificacao_simplificado": simplificado.classificacao,
+            "autovalores_dominantes_original": _autovalores(original),
+            "autovalores_dominantes_simplificado": _autovalores(simplificado),
+            "metodo_original": original.metodo,
+            "metodo_simplificado": simplificado.metodo,
+            "tolerancia": original.tolerancia,
+            "limiar_original": original.limiar,
+            "limiar_simplificado": simplificado.limiar,
+        },
+    )
+
+
+def _autovalores(estabilidade: qualitative.Estabilidade) -> list[list[float]]:
+    """Return the dominant eigenvalues as ``[real, imaginary]`` pairs, for the JSON."""
+    return [[valor.real, valor.imag] for valor in estabilidade.dominantes()]
+
+
+def _item_de_equilibrio(
+    criterio: Criterio,
+    nome: str,
+    series: Mapping[str, SerieComparada],
+    comparacao: qualitative.Comparacao,
+) -> ItemAvaliado:
+    """Compare one mapped variable at the equilibrium of each model, relatively.
+
+    The denominator is the equilibrium value of the original, with a floor of
+    ``EPSILON_RELATIVO`` times the largest value that variable reaches in the simulated
+    trajectory. The floor is what keeps a variable that decays to zero from reporting a
+    meaningless relative error: in the Verly model ``C2`` settles at 4e-11 against a peak of
+    8e-2, so dividing by 4e-11 would turn two numbers that are both zero, as far as the
+    variable's own scale goes, into a percentage. When the floor is used the item says so.
+    """
+    serie = _serie(criterio, nome, series)
+    original = _combinar(
+        comparacao.original.equilibrio.ponto, serie.pesos_original, nome, "original"
+    )
+    simplificado = _combinar(
+        comparacao.simplificado.equilibrio.ponto,
+        serie.pesos_simplificado,
+        nome,
+        "simplificado",
+    )
+    diferenca = abs(simplificado - original)
+    escala = float(np.max(np.abs(serie.original))) if serie.original.size else 0.0
+    piso = metrics.EPSILON_RELATIVO * escala
+    denominador = max(abs(original), piso)
+
+    avisos: tuple[str, ...] = ()
+    if denominador <= 0.0:
+        # The variable is identically zero in the whole trajectory and at the equilibrium:
+        # there is nothing to normalise by, and nothing to disagree about either.
+        valor = 0.0 if diferenca == 0.0 else float("inf")
+    else:
+        valor = diferenca / denominador
+        if abs(original) < piso:
+            avisos = (
+                f"o equilíbrio do original ({original:.3g}) está abaixo de "
+                f"{metrics.EPSILON_RELATIVO:g}× o máximo da trajetória ({escala:.3g}); o "
+                f"erro foi normalizado por esse piso ({piso:.3g}), e não pelo valor, que "
+                "nessa escala é indistinguível de zero",
+            )
+    return ItemAvaliado(
+        metrica=criterio.metrica,
+        variavel=nome,
+        valor=valor,
+        limite=criterio.limite,
+        passou=criterio.limite is not None and valor <= criterio.limite,
+        obrigatorio=criterio.obrigatorio,
+        descricao="o erro relativo entre os dois equilíbrios (fração: 0,05 = 5%)",
+        avisos=avisos,
+        detalhes={
+            "equilibrio_original": original,
+            "equilibrio_simplificado": simplificado,
+            "diferenca": diferenca,
+            "denominador": denominador,
+            "piso": piso,
+        },
+    )
+
+
+def _serie(
+    criterio: Criterio, nome: str, series: Mapping[str, SerieComparada]
+) -> SerieComparada:
+    try:
+        return series[nome]
+    except KeyError as erro:
+        raise KeyError(
+            f"O critério '{criterio.metrica}' cita a variável '{nome}', que não foi mapeada."
+        ) from erro
+
+
+def _combinar(
+    ponto: Mapping[str, float], pesos: Mapping[str, float], nome: str, papel: str
+) -> float:
+    """Apply the declared linear combination to the equilibrium point of one model."""
+    total = 0.0
+    for variavel, peso in pesos.items():
+        try:
+            total += peso * ponto[variavel]
+        except KeyError as erro:
+            raise KeyError(
+                f"O critério 'equilibrio' em '{nome}' precisa de '{variavel}' no "
+                f"equilíbrio do modelo {papel}, que não está entre as variáveis de estado."
+            ) from erro
+    return total
 
 
 def _decidir(itens: Sequence[ItemAvaliado], niveis: int) -> str:

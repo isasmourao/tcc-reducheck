@@ -26,7 +26,7 @@ import roadrunner
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 import reducheck
-from reducheck import plots
+from reducheck import plots, qualitative
 from reducheck.config import Configuracao
 from reducheck.mapping import SerieComparada
 from reducheck.simulation import RuidoNumerico, unidade_de_tempo
@@ -58,6 +58,8 @@ def como_dicionario(
     veredito: Veredito,
     ruido: RuidoNumerico | None = None,
     avisos: Sequence[str] = (),
+    comparacao: qualitative.Comparacao | None = None,
+    t_fim: float | None = None,
 ) -> dict[str, Any]:
     """Return the verdict as the structure written to ``resultado.json``.
 
@@ -73,12 +75,17 @@ def como_dicionario(
         "desejaveis": _contagem(veredito.desejaveis),
         "avisos": [*avisos, *veredito.avisos],
         "ruido_numerico": None if ruido is None else _ruido(ruido),
+        "qualitativo": (
+            None if comparacao is None else _qualitativo(comparacao, t_fim)
+        ),
         "criterios": [
             {
                 "metrica": item.metrica,
                 "variavel": item.variavel,
                 "valor": item.valor,
                 "limite": item.limite,
+                **({"valor_texto": item.valor_texto} if item.valor_texto else {}),
+                **({"limite_texto": item.limite_texto} if item.limite_texto else {}),
                 "resultado": "passou" if item.passou else "falhou",
                 "tipo": "obrigatório" if item.obrigatorio else "desejável",
                 "descricao": item.descricao,
@@ -87,6 +94,44 @@ def como_dicionario(
             }
             for item in veredito.criterios
         ],
+    }
+
+
+def _qualitativo(
+    comparacao: qualitative.Comparacao, t_fim: float | None
+) -> dict[str, Any]:
+    """Return the qualitative analysis of both models as the JSON records it.
+
+    The warning about a single equilibrium travels with the numbers, and not only in the
+    report meant for a person: whoever reads ``resultado.json`` in a script is the reader
+    most likely to take an equilibrium for *the* equilibrium.
+    """
+    return {
+        "aviso": qualitative.AVISO_DO_EQUILIBRIO_UNICO,
+        "original": _analise(comparacao.original, t_fim),
+        "simplificado": _analise(comparacao.simplificado, t_fim),
+    }
+
+
+def _analise(analise: qualitative.Analise, t_fim: float | None) -> dict[str, Any]:
+    equilibrio, estabilidade = analise.equilibrio, analise.estabilidade
+    return {
+        "equilibrio": dict(equilibrio.ponto),
+        "metodo": equilibrio.metodo,
+        "instante": equilibrio.instante,
+        "vezes_o_horizonte": (
+            None if t_fim is None else equilibrio.vezes_o_horizonte(t_fim)
+        ),
+        "residuo": equilibrio.residuo,
+        "residuo_absoluto": equilibrio.residuo_absoluto,
+        "escala_de_taxa": equilibrio.escala_de_taxa,
+        "classificacao": estabilidade.classificacao,
+        "autovalores_dominantes": [
+            [valor.real, valor.imag] for valor in estabilidade.dominantes()
+        ],
+        "metodo_da_jacobiana": estabilidade.metodo,
+        "tolerancia_marginal": estabilidade.tolerancia,
+        "limiar_marginal": estabilidade.limiar,
     }
 
 
@@ -109,13 +154,17 @@ def salvar_json(
     pasta: Path | str,
     ruido: RuidoNumerico | None = None,
     avisos: Sequence[str] = (),
+    comparacao: qualitative.Comparacao | None = None,
+    t_fim: float | None = None,
 ) -> Path:
     """Write ``resultado.json`` into ``pasta``, creating the folder if needed."""
     pasta = Path(pasta)
     pasta.mkdir(parents=True, exist_ok=True)
     caminho = pasta / NOME_DO_JSON
     conteudo = json.dumps(
-        como_dicionario(veredito, ruido, avisos), ensure_ascii=False, indent=2
+        como_dicionario(veredito, ruido, avisos, comparacao, t_fim),
+        ensure_ascii=False,
+        indent=2,
     )
     caminho.write_text(conteudo + "\n", encoding="utf-8")
     return caminho
@@ -131,6 +180,11 @@ def razoes(veredito: Veredito) -> list[str]:
     linhas = []
     for item in veredito.criterios:
         if item.passou:
+            continue
+        if item.valor is None:
+            # A qualitative item has no number and no threshold: what it failed on is the
+            # comparison of two labels, which the description already states.
+            linhas.append(f"{item.metrica} falhou: {item.descricao}.")
             continue
         excesso = "" if item.limite in (0, None) else f", {item.valor / item.limite:.3g}× o limite"
         linha = (
@@ -153,6 +207,7 @@ def salvar(
     ruido: RuidoNumerico | None = None,
     avisos: Sequence[str] = (),
     caminho_config: Path | str | None = None,
+    comparacao: qualitative.Comparacao | None = None,
 ) -> dict[str, Path]:
     """Write every format asked for in ``relatorio.formatos`` and return where each went.
 
@@ -165,7 +220,9 @@ def salvar(
     caminhos: dict[str, Path] = {}
 
     if "json" in formatos:
-        caminhos["json"] = salvar_json(veredito, pasta, ruido, avisos)
+        caminhos["json"] = salvar_json(
+            veredito, pasta, ruido, avisos, comparacao, configuracao.simulacao.t_fim
+        )
 
     legiveis = [formato for formato in formatos if formato in ("html", "md")]
     if not legiveis:
@@ -176,7 +233,9 @@ def salvar(
         pasta,
         unidade_de_tempo=_unidade_de_tempo(configuracao),
     )
-    contexto = _contexto(veredito, configuracao, graficos, ruido, avisos, caminho_config)
+    contexto = _contexto(
+        veredito, configuracao, graficos, ruido, avisos, caminho_config, comparacao
+    )
     for formato in legiveis:
         caminho = pasta / ARQUIVOS[formato]
         caminho.write_text(_renderizar(formato, contexto), encoding="utf-8")
@@ -217,6 +276,7 @@ def _contexto(
     ruido: RuidoNumerico | None,
     avisos: Sequence[str],
     caminho_config: Path | str | None,
+    comparacao: qualitative.Comparacao | None = None,
 ) -> dict[str, Any]:
     passados = sum(1 for item in veredito.criterios if item.passou)
     return {
@@ -235,6 +295,7 @@ def _contexto(
         "razoes": razoes(veredito),
         "nota_das_razoes": NOTA_DAS_RAZOES,
         "avisos": [*avisos, *veredito.avisos],
+        "qualitativo": _secao_qualitativa(comparacao, configuracao, veredito),
         "graficos": [_grafico(grafico) for grafico in graficos],
         "execucao": _execucao(configuracao, ruido, caminho_config, avisos),
     }
@@ -259,6 +320,82 @@ def _nota_dos_niveis(veredito: Veredito, niveis: int) -> str:
     return f"Veredito em dois níveis (relatorio.niveis: 2): {frase} {resto}"
 
 
+def _secao_qualitativa(
+    comparacao: qualitative.Comparacao | None,
+    configuracao: Configuracao,
+    veredito: Veredito,
+) -> dict[str, Any] | None:
+    """Return the qualitative section of the readable report, or ``None`` if there is none.
+
+    Three things, in this order: the equilibrium of the mapped variables side by side (the
+    items the ``equilibrio`` criterion already measured, so the table and the verdict cannot
+    disagree), the summary of each model with its three dominant eigenvalues, and the fixed
+    warning that a single equilibrium was analysed.
+    """
+    if comparacao is None:
+        return None
+    t_fim = configuracao.simulacao.t_fim
+    itens = [item for item in veredito.criterios if item.metrica == "equilibrio"]
+    return {
+        "aviso": qualitative.AVISO_DO_EQUILIBRIO_UNICO,
+        "modelos": [
+            _resumo_qualitativo(analise, t_fim)
+            for analise in (comparacao.original, comparacao.simplificado)
+        ],
+        "equilibrio": [_linha_de_equilibrio(item) for item in itens],
+        "nota": (
+            ""
+            if itens
+            else "Nenhum critério 'equilibrio' foi declarado, então o equilíbrio aqui "
+            "serviu só para classificar a estabilidade local; os pontos completos estão "
+            f"em {NOME_DO_JSON}."
+        ),
+    }
+
+
+def _resumo_qualitativo(analise: qualitative.Analise, t_fim: float) -> dict[str, Any]:
+    equilibrio, estabilidade = analise.equilibrio, analise.estabilidade
+    vezes = equilibrio.vezes_o_horizonte(t_fim)
+    if equilibrio.instante is None:
+        instante = "—"
+    else:
+        instante = f"t = {_numero(equilibrio.instante)}"
+        if vezes is not None and vezes > 1.0:
+            instante += f" ({_numero(vezes)}× o horizonte simulado)"
+    return {
+        "papel": analise.papel,
+        "classificacao": estabilidade.classificacao,
+        "metodo": equilibrio.metodo,
+        "instante": instante,
+        "residuo": _numero(equilibrio.residuo),
+        "autovalores": [_autovalor(valor) for valor in estabilidade.dominantes()],
+        "metodo_da_jacobiana": estabilidade.metodo,
+    }
+
+
+def _linha_de_equilibrio(item: ItemAvaliado) -> dict[str, str]:
+    return {
+        "variavel": item.variavel,
+        "original": _numero(_como_numero(item.detalhes.get("equilibrio_original"))),
+        "simplificado": _numero(_como_numero(item.detalhes.get("equilibrio_simplificado"))),
+        "erro": _numero(item.valor),
+        "limite": _numero(item.limite),
+        "resultado": "passou" if item.passou else "falhou",
+    }
+
+
+def _como_numero(valor: Any) -> float | None:
+    return None if valor is None else float(valor)
+
+
+def _autovalor(valor: complex) -> str:
+    """Format one eigenvalue, hiding the imaginary part when it is a real number."""
+    if valor.imag == 0.0:
+        return _numero(valor.real)
+    sinal = "+" if valor.imag >= 0 else "−"
+    return f"{_numero(valor.real)} {sinal} {_numero(abs(valor.imag))}i"
+
+
 def _falhou_primeiro(item: ItemAvaliado) -> int:
     return int(item.passou)
 
@@ -273,8 +410,8 @@ def _linha(item: ItemAvaliado) -> dict[str, str]:
     return {
         "metrica": item.metrica,
         "variavel": item.variavel,
-        "valor": _numero(item.valor),
-        "limite": _numero(item.limite),
+        "valor": item.valor_texto or _numero(item.valor),
+        "limite": item.limite_texto or _numero(item.limite),
         "tipo": "obrigatório" if item.obrigatorio else "desejável",
         "resultado": "passou" if item.passou else "falhou",
         "descricao": item.descricao,

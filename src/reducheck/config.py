@@ -37,6 +37,7 @@ from reducheck import metrics
 __all__ = [
     "ANALISES_QUALITATIVAS",
     "FORMATOS_SUPORTADOS",
+    "QUALITATIVAS_POR_VARIAVEL",
     "SOLVERS_SUPORTADOS",
     "Configuracao",
     "Criterio",
@@ -53,9 +54,17 @@ __all__ = [
     "validar_esquema",
 ]
 
-#: Names of the qualitative analyses of ``docs/produto.md``. They are criteria without a
-#: threshold, and none of them is implemented yet (capabilities L1-L3).
+#: Names of the qualitative analyses of ``docs/produto.md`` (capabilities L1-L3). They are
+#: criteria like any other -- declaring one is how it is switched on, and each item counts
+#: in the percentage -- but they are not registered metrics: a metric takes two series, and
+#: these take the two models (see ``docs/questoes-em-aberto.md``, question 41).
 ANALISES_QUALITATIVAS = frozenset({"equilibrio", "estabilidade_local"})
+
+#: Which qualitative analyses are measured per variable, and therefore need ``limite`` and
+#: ``variaveis`` like a metric. ``estabilidade_local`` is the other kind: one item about the
+#: whole model, met when the two classifications are equal, so a threshold would mean
+#: nothing there.
+QUALITATIVAS_POR_VARIAVEL = frozenset({"equilibrio"})
 
 #: Solvers this version knows how to configure.
 SOLVERS_SUPORTADOS = frozenset({"cvode"})
@@ -416,6 +425,41 @@ def _e_qualitativo(criterio: Criterio) -> bool:
     return criterio.metrica in ANALISES_QUALITATIVAS
 
 
+def _conferir_qualitativo(indice: int, criterio: Criterio) -> list[str]:
+    """Demand ``limite`` and ``variaveis`` from ``equilibrio``, and refuse both elsewhere.
+
+    The two qualitative analyses are not the same shape. ``equilibrio`` compares each mapped
+    variable at the equilibrium and so needs a threshold and a list, exactly like a metric.
+    ``estabilidade_local`` is a single item about the whole model, met when the two
+    classifications are equal: a threshold there would suggest a number that does not exist.
+    """
+    problemas: list[str] = []
+    if criterio.metrica in QUALITATIVAS_POR_VARIAVEL:
+        if criterio.limite is None:
+            problemas.append(
+                f"criterios[{indice}].limite: campo obrigatório para a análise "
+                f"'{criterio.metrica}', que compara o equilíbrio variável por variável "
+                "com um limite relativo."
+            )
+        if criterio.variaveis is None:
+            problemas.append(
+                f"criterios[{indice}].variaveis: campo obrigatório para a análise "
+                f"'{criterio.metrica}'; use uma lista de nomes ou 'core'."
+            )
+        return problemas
+    if criterio.limite is not None:
+        problemas.append(
+            f"criterios[{indice}].limite: a análise qualitativa '{criterio.metrica}' não "
+            "usa limite; ela passa quando os dois modelos têm a mesma classificação."
+        )
+    if criterio.variaveis is not None:
+        problemas.append(
+            f"criterios[{indice}].variaveis: a análise qualitativa '{criterio.metrica}' é "
+            "um item único sobre o modelo inteiro, e não aceita lista de variáveis."
+        )
+    return problemas
+
+
 def _conferir_alvo(campo: str, alvo: Alvo | None) -> list[str]:
     """Check one side of a mapping: well-formed names, no repetitions, usable weights.
 
@@ -496,11 +540,7 @@ def _conferir_coerencia(configuracao: Configuracao, caminho: Path | str) -> None
                     f"criterios[{indice}].parametros: a análise qualitativa "
                     f"'{criterio.metrica}' não recebe parâmetros."
                 )
-            if criterio.limite is not None:
-                problemas.append(
-                    f"criterios[{indice}].limite: a análise qualitativa "
-                    f"'{criterio.metrica}' não usa limite."
-                )
+            problemas.extend(_conferir_qualitativo(indice, criterio))
         else:
             if criterio.limite is None:
                 problemas.append(
@@ -618,10 +658,11 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
 
 # --- pass 4: what this version cannot honour yet -----------------------------
 
-#: Field -> (capability of docs/produto.md, issue that will implement it).
-_PENDENTES = {
-    "qualitativo": ("equilíbrio e estabilidade local (L1-L3)", "#18"),
-}
+#: Field -> (capability of docs/produto.md, issue that will implement it). Empty while
+#: every capability the schema accepts is implemented; kept because the mechanism is what
+#: makes a valid-but-unsupported request stop with an explicit message instead of being
+#: silently ignored, and the next unimplemented field goes here.
+_PENDENTES: dict[str, tuple[str, str]] = {}
 
 
 def _ainda_nao(campo: str, pedido: str, chave: str) -> str:
@@ -644,16 +685,6 @@ def _exigir_suportado(configuracao: Configuracao, caminho: Path | str) -> None:
             f"simulacao.solver: o solver '{configuracao.simulacao.solver}' ainda não é "
             f"suportado. Disponíveis: {suportados}."
         )
-    for indice, criterio in enumerate(configuracao.criterios):
-        if _e_qualitativo(criterio):
-            problemas.append(
-                _ainda_nao(
-                    f"criterios[{indice}].metrica",
-                    f"a análise '{criterio.metrica}'",
-                    "qualitativo",
-                )
-            )
-
     nao_suportados = [
         formato for formato in configuracao.relatorio.formatos if formato not in FORMATOS_SUPORTADOS
     ]

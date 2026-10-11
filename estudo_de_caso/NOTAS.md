@@ -143,6 +143,65 @@ debri, e erra a parte óssea e as citocinas.** Se o conjunto core fosse escolhid
 a mesma simplificação seria aprovada — o que é um bom argumento, para o texto do TCC II,
 a favor de declarar as variáveis core antes de comparar.
 
+## Análise qualitativa: equilíbrio e estabilidade local
+
+Acrescentado em 11/10/2026 (issue #18). Configuração separada, `simp1_qualitativo.yaml`,
+para não alterar a porcentagem do veredito de trajetória registrado acima:
+
+```bash
+reducheck verificar estudo_de_caso/simp1_qualitativo.yaml
+```
+
+**Veredito: REPROVADO. 5 de 6 critérios (83,3%); obrigatórios 5/6.**
+
+Duas coisas precisam ser lidas antes dos números:
+
+1. **Nenhuma das duas facilidades do libRoadRunner funciona neste modelo.** As 11 variáveis
+   são parâmetros com regra de taxa, e não espécies flutuantes, então o `steadyState`
+   devolve "convergiu" com resíduo 1,8e-18 sem ter resolvido nada (as taxas continuam em
+   2500) e o `getFullJacobian` recusa (*fewer floating species (0) than rate rules (11)*).
+   O equilíbrio sai por integração estendida e a Jacobiana por diferenças finitas centrais.
+2. **O equilíbrio só é alcançado em t = 7,2×10⁸ dias**, um milhão de vezes os 720 dias
+   simulados. É matematicamente legítimo e biologicamente sem sentido: o `Cb` quase dobra
+   depois do fim da simulação (1,67×10⁵ em t = 720 contra 3,19×10⁵ no equilíbrio), e o
+   modelo foi parametrizado para uma janela de meses a poucos anos. O relatório imprime o
+   instante e o múltiplo do horizonte justamente para isso não passar batido.
+
+| Variável | Equilíbrio original | Equilíbrio simp. 1 | Erro relativo | Limite | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| Cb | 318 795 | 318 797 | 4,17e-06 | 0,05 | passou |
+| Mb | 1 | 1 | 0 | 0,05 | passou |
+| C1 | 8,2922e-05 | 7,5185e-05 | **0,0933** | 0,05 | **falhou** |
+| C2 | 8,1726e-10 | 7,4352e-10 | 0,00087 | 0,05 | passou |
+| E2 | 0,0564 | 0,0564 | 0 | 0,05 | passou |
+
+| Modelo | Classificação | Autovalores dominantes |
+| --- | --- | --- |
+| original | marginal | −3,945e-09, −0,011057, −0,015940 |
+| simplificado | marginal | −3,596e-09, −0,015940, −0,070199 |
+
+A classificação coincide, então `estabilidade_local` passa. O autovalor dominante é
+−3,9×10⁻⁹: um modo com escala de ~10⁹ dias, que é o `D` esvaziando. Ele é o motivo de os
+dois modelos serem lidos como **marginais** e não como estáveis — com a tolerância relativa
+ao espectro (10⁻⁶ × maior parte real, questão 40 de `docs/questoes-em-aberto.md`), uma parte
+real nove ordens de grandeza abaixo do modo mais rápido é indistinguível de zero.
+
+**O que isso diz sobre a simplificação 1.** Nas variáveis que têm equilíbrio diferente de
+zero — `Cb`, `Mb`, `E2` — a simplificação **acerta o destino com seis dígitos**, enquanto
+reprova nas trajetórias dentro dos 720 dias (`Mb` em 720 dias: 0,999 no original contra
+0,896 no simplificado). Ela erra o caminho e acerta o ponto de chegada. Para o texto do
+TCC II, é o complemento do argumento da seção anterior: não basta escolher as variáveis
+core, é preciso escolher também **em que horizonte** a fidelidade é exigida.
+
+**O que isso não diz.** O erro de 9,33% em `C1` **não é uma propriedade do modelo**. `C1` e
+`C2` decaem para zero, então o equilíbrio delas é 0 nos dois modelos, e o erro relativo
+num ponto de parada finito mede onde a integração parou: 79% em t = 7,2×10⁷, 9,3% em
+7,2×10⁸, 0,75% em 7,2×10⁹, 0,07% em 7,2×10¹⁰. A tabela completa e as três saídas possíveis
+estão na questão 42 de `docs/questoes-em-aberto.md`. **Enquanto essa questão não for
+decidida com a orientadora, esta reprovação não deve ser citada no texto como resultado
+sobre o modelo**; o que vale como resultado é o acordo em `Cb`, `Mb` e `E2` e a igualdade
+das classificações.
+
 ## Comparação com o TCC I
 
 | | TCC I | reducheck |

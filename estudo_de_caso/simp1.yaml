@@ -1,0 +1,105 @@
+# Estudo de caso — Simplificação 1 do modelo de Verly et al. (2024).
+#
+# Rodar a partir da raiz do repositório:
+#     reducheck verificar estudo_de_caso/simp1.yaml
+#
+# A simplificação 1 remove as células-tronco mesenquimais (Cm) e a fibrocartilagem (Mc),
+# levando o sistema de 11 para 9 variáveis. Ver `modelos/verly_simp1.ant` para a lista
+# exata do que foi retirado e `estudo_de_caso/NOTAS.md` para o resultado.
+#
+# ATENÇÃO — os critérios abaixo são PROVISÓRIOS. As variáveis core e os limites ainda
+# precisam ser fechados com a orientadora (questão 7 de `docs/questoes-em-aberto.md`).
+
+versao: 1
+
+modelos:
+  original: ../modelos/verly_original.xml
+  simplificado: ../modelos/verly_simp1.xml
+
+# Horizonte e malha do TCC I (seção 4: "720 dias, com 1000 pontos de avaliação
+# uniformemente distribuídos"). Ver a questão 6 de "Encontrado durante o
+# desenvolvimento": o script original usa 360 dias com 50 pontos.
+simulacao:
+  t_inicio: 0
+  t_fim: 720
+  pontos: 1000
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+  nao_negativas: true
+
+variaveis:
+  # --- Variáveis core: o que a simplificação tem que acertar ---------------
+  # Cb (osteoblastos) e Mb (massa óssea) são a saída do modelo; C1, C2 e E2 são o
+  # mecanismo hormonal/inflamatório que o trabalho estuda.
+  - nome: Cb
+    original: Cb
+    simplificado: Cb
+    core: true
+  - nome: Mb
+    original: Mb
+    simplificado: Mb
+    core: true
+  - nome: C1
+    original: C1
+    simplificado: C1
+    core: true
+  - nome: C2
+    original: C2
+    simplificado: C2
+    core: true
+  - nome: E2
+    original: E2
+    simplificado: E2
+    core: true
+
+  # --- Comparadas, mas fora dos critérios obrigatórios ---------------------
+  # D e os macrófagos têm um transiente muito rápido nas primeiras horas (Mo cai de
+  # 4000 para ~0,015; M1 e M2 começam em 0), o que torna as métricas relativas pouco
+  # informativas neles. Ver as questões 8 de `referencia/duvidas.md` e 14/18 de
+  # `docs/questoes-em-aberto.md`.
+  - nome: D
+    original: D
+    simplificado: D
+    core: false
+  - nome: Mo
+    original: Mo
+    simplificado: Mo
+    core: false
+  - nome: M1
+    original: M1
+    simplificado: M1
+    core: false
+  - nome: M2
+    original: M2
+    simplificado: M2
+    core: false
+
+  # --- Eliminadas pela simplificação, sem contrapartida --------------------
+  - nome: Cm
+    original: Cm
+    simplificado: null
+    core: false
+  - nome: Mc
+    original: Mc
+    simplificado: null
+    core: false
+
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: core
+    obrigatorio: true
+  - metrica: mape
+    limite: 0.05
+    variaveis: core
+    obrigatorio: false
+  - metrica: erro_estacionario
+    limite: 0.01
+    variaveis: core
+    obrigatorio: true
+
+relatorio:
+  formatos: [html, md, json]
+  pasta: resultados/simp1/
+  niveis: 3

@@ -15,21 +15,22 @@
 //   * the term k_3 * Cm in C2 (and the parameter k_3);
 //   * the term F1 * Cm in Cb, replaced by the constant source Es.
 //
-// TWO POINTS OF THIS FILE ARE STILL OPEN, waiting for Ana Clara Verly. Both
-// are written up in `docs/questoes-em-aberto.md` ("Encontrado durante o
-// desenvolvimento", items 34 and 35) and in the table at the end of
+// TWO POINTS OF THIS FILE DID NOT COME FROM THE NOTE. Both are written up in
+// `docs/questoes-em-aberto.md` ("Encontrado durante o desenvolvimento", items
+// 34 and 35) and in the table at the end of
 // `referencia/simplificacao_2026-04-22.md`:
 //
-//   1. `Es`, the source term the note puts in the place of `F1 * Cm`, is read
-//      here as the estradiol E2 (Isabella, 2026-09-29: "parece que e o E2").
-//      Not confirmed by Ana Clara Verly yet. It is a plausible reading of the
-//      note, and the magnitude barely matters: any positive seed between
-//      0.056 and 100 drives Cb to the same ~150,600, which is the non-zero
-//      fixed point of the logistic, k_lb * (1 - d_b / Ab). What the term does
-//      is unlock the equation, not set the level -- with no source at all, Cb
-//      and Mb stay identically zero. The units do not work out, though:
-//      estradiol is a concentration around 0.056 and Cb is a cell count
-//      around 1e5.
+//   1. The note has NO equation for Cb: its image lists eight equations and Cb
+//      is not one of them. The source term here is the estradiol E2, which is
+//      Isabella's reading of the `Es` that the typed transcription introduced
+//      (2026-10-11: "e o E2, foi erro de digitacao"). It is her decision, not
+//      something to attribute to the note, and Ana Clara Verly still has to say
+//      what the equation of Cb was. With no source at all the equation is
+//      homogeneous in Cb, so Cb and Mb stay identically zero; with any positive
+//      source Cb settles at the non-zero fixed point of the logistic,
+//      k_lb * (1 - d_b / Ab), around 150,600, almost regardless of its size.
+//      The units do not work out: estradiol is a concentration around 0.056 and
+//      Cb is a cell count around 1e5.
 //   2. The equation of C1 follows the NOTE, without the E2 that multiplies the
 //      degradation term in the original code. This is a difference between the
 //      note and the code, not a consequence of removing Cm and Mc.

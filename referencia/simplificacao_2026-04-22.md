@@ -83,8 +83,10 @@ Observações que já vinham no documento:
   código anterior).
 - Na imagem original, a equação de `c2` ainda aparece com `k3*Cm`; no texto ela já está sem
   esse termo, conforme a descrição da simplificação.
-- A equação de `Cb` **não aparecia** na lista do modelo simplificado (confira na imagem);
-  foi incluída a partir da equação original, sem o termo `F1*Cm`.
+- A equação de `Cb` **não aparecia** na lista do modelo simplificado (confira na imagem:
+  são oito equações, e `Cb` não é uma delas, com um espaço em branco onde ela entraria);
+  foi incluída a partir da equação original, sem o termo `F1*Cm`. **Logo, o termo `Es` não
+  vem deste documento — foi acrescentado na transcrição.** Ver a questão 34.
 - Em `Ab*Cb*(1 - Cb)/klb`, conferir no código original se `klb` divide todo o termo ou só
   `(1 - Cb)` (ex.: logística `Ab*Cb*(1 - Cb/klb)`).
 
@@ -99,7 +101,10 @@ a mesma configuração (parâmetros e condições iniciais):
 ## Segunda simplificação — remoção de `M1` e `M2`
 
 Modelo simplificado (variáveis: `D`, `M`, `c1`, `c2`, `Cb`, `mb`, `E2`) — **equações ainda
-a definir**. É o que bloqueia `modelos/verly_simp2.ant` (issue #16).
+a definir**. É só isto que o documento traz sobre ela: um título e uma lista de variáveis.
+A Isabella decidiu em 11/10/2026 **tirar a simplificação 2 do estudo de caso** (issue #16),
+porque escrevê-la seria projetar uma simplificação nova, não transcrever a de alguém. Ver a
+questão 36.
 
 ## Exemplo: cálculo da Jacobiana com SymPy
 

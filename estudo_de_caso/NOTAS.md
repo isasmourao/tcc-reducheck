@@ -8,7 +8,7 @@ Verly et al. (2024).
 | --- | --- |
 | Modelo original | `modelos/verly_original.xml` (11 variáveis, conferido na issue #4) |
 | Simplificação 1 | `modelos/verly_simp1.xml` (9 variáveis) — configuração em `simp1.yaml` |
-| Simplificação 2 | **não existe ainda**: as equações não foram definidas (ver o fim desta nota) |
+| Simplificação 2 | **fora do escopo** por decisão de 11/10/2026 (ver o fim desta nota) |
 | Fonte das equações | `referencia/simplificacao_2026-04-22.md` |
 | Condições | 720 dias, 1000 pontos, CVODE, tol. relativa 1e-8 e absoluta 1e-10, iguais nos dois modelos |
 | Ruído numérico de referência | 8,95e-07 (NRMSE máximo do original contra ele mesmo com tolerâncias 100× mais frouxas) |
@@ -145,7 +145,7 @@ a favor de declarar as variáveis core antes de comparar.
 | | TCC I | reducheck |
 | --- | --- | --- |
 | Simplificação 1 | tratada como a redução viável | **REPROVADO**, 20% dos critérios |
-| Simplificação 2 | "caso de falha esperada" | **não avaliada** (equações indefinidas) |
+| Simplificação 2 | "caso de falha esperada" | **não avaliada**: nunca foi especificada por ninguém |
 
 **Os vereditos não batem, e o motivo mais provável não é a biblioteca.** O TCC I declara
 (seção 4.2) que "um modelo simplificado é considerado válido quando o MAPE global não
@@ -170,27 +170,45 @@ Três hipóteses para a divergência, em ordem de plausibilidade:
 
 Nenhum limite foi afrouxado e nenhuma equação foi ajustada para mudar este resultado.
 
-## Simplificação 2 — bloqueada
+## Simplificação 2 — fora do escopo deste estudo de caso
 
-A simplificação 2 (`D`, `M`, `C1`, `C2`, `Cb`, `Mb`, `E2`, 7 variáveis) **não foi
-implementada**, porque as equações não existem. O documento de 22/04/2026 traz o título
-"Segunda simplificação — remoção de M1 e M2" e nada abaixo dele; o `docs/tcc1.pdf` só diz
-"agregando a dinâmica dos macrófagos na variável única M".
+**Decisão da Isabella em 11/10/2026: a simplificação 2 sai, e o estudo de caso fica só
+com a simplificação da Ana Clara (remoção de `Cm` e `Mc`).**
 
-Somar as três equações não resolve sozinho. O que cancela, cancela:
+O motivo é de procedência: **a simplificação 2 nunca foi escrita por ninguém.** Ela
+aparece em três lugares do material, e nenhum deles tem equação:
+
+| Onde | O que há |
+| --- | --- |
+| `referencia/simplificacao_2026-04-22.md` | O título "Segunda Simplificação — Remoção de M1 e M2" e a lista de variáveis (`D, M, c1, c2, Cb, mb, E2`). Nada abaixo. |
+| `docs/tcc1.pdf`, seção 4.1 | Uma frase em prosa: "eliminar M1 e M2, agregando a dinâmica dos macrófagos na variável única M... atua como um caso de falha esperada". |
+| Issue #16 e `planejamento/tarefas.yaml` | Só a referência a ela. |
+
+O contraste com a simplificação 1 é grande: a 1 tem os parâmetros removidos listados um
+a um, os termos removidos nomeados e as equações escritas; a 2 tem um título e uma lista
+de variáveis. A leitura é que ela foi **combinada e não feita**.
+
+Escrevê-la agora não seria transcrever o trabalho de alguém, e sim **projetar uma
+simplificação nova**, porque quatro decisões de modelagem estão em aberto. Somar as três
+equações dos macrófagos não resolve: o que cancela dá
 
 ```
 Mo' + M1' + M2' = RM − (d_o·Mo + d_1·M1 + d_2·M2)
 ```
 
-mas o resto ainda pede `Mo`, `M1` e `M2` separados, e cada um decai num ritmo diferente
-(`d_o = 0,156`, `d_1 = 0,121`, `d_2 = 0,163`). Faltam **quatro** decisões que não são da
-biblioteca nem podem ser inventadas aqui:
+e o resto ainda pede `Mo`, `M1` e `M2` separados. As quatro decisões:
 
-1. qual `d_M` usar no decaimento de `M`;
-2. `D' = −RD·(ke_1·M1 + ke_2·M2)` → `−RD·ke·M`, com qual `ke`;
-3. `C1' = H1·(k_o·D + k_1·M1)` → `k_1·M`?
-4. `C2' = H2·(k_2·M2)·E2` → `k_2·M`?
+1. qual `d_M` usar no decaimento de `M`, já que os três decaem a ritmos diferentes
+   (`d_o = 0,156`, `d_1 = 0,121`, `d_2 = 0,163`);
+2. `D' = −RD·(ke_1·M1 + ke_2·M2)` → `−RD·ke·M`? Note que `Mo` **não** fagocita no
+   original, e `M` o incluiria;
+3. `C1' = H1·(k_o·D + k_1·M1)` → `k_1·M`? Só `M1` produz `C1` no original;
+4. `C2' = H2·(k_2·M2)·E2` → `k_2·M`? Só `M2` produz `C2` no original.
 
-Registrado como questão 36 em `docs/questoes-em-aberto.md`. Falta confirmar com a
-Ana Clara Verly.
+Isso fica para depois, se houver tempo. Registrado como questão 36 em
+`docs/questoes-em-aberto.md`.
+
+> Observação que vale para o texto, independente de a simplificação 2 ser feita ou não:
+> **dá para explicar por que ela seria o caso de falha esperada antes de rodá-la.** Ela
+> joga fora exatamente a informação — qual tipo de macrófago — de que três das equações
+> restantes dependem. É um argumento estrutural, não um número de métrica.

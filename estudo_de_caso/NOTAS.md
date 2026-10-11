@@ -71,8 +71,10 @@ remove exatamente esse termo, e o documento de 22/04/2026 põe no lugar um termo
 `Cb ≡ 0`, `Mb ≡ 0`, e a simplificação apagaria a formação óssea inteira. Está travado em
 `tests/test_verly_simp1.py::test_without_any_source_the_osteoblasts_stay_at_zero`.
 
-Aqui `Es` é lido como o estradiol `E2` (Isabella, 29/09/2026; falta a confirmação da
-Ana Clara — questão 34). Com isso `Cb` sai do zero e chega a 150.504, contra 166.934 do
+O documento escreve a equação original de `Cb` como
+`dCb/dt = Es + Ab·Cb·(1 − Cb)/klb − F1·Cm − db·Cb`, e a simplificação tira dela o
+`F1·Cm`. O `Es` é `E2`, erro de digitação (confirmado pela Isabella em 11/10/2026 —
+questão 34). Com isso `Cb` sai do zero e chega a 150.504, contra 166.934 do
 original: **9,8% de diferença no valor final**, o que é um resultado bem diferente do
 colapso total. O que sobra de erro é a forma da trajetória:
 
@@ -108,10 +110,11 @@ entra só como semente. Nenhum valor leva `Cb` abaixo do limite de 0,05 — o me
 0,199, em `Es = 2.500`, quatro vezes o limite. **O veredito não depende da resposta da
 Ana Clara**, só os números do texto dependem.
 
-Uma ressalva para o texto: **as unidades não fecham.** `E2` é uma concentração na casa de
-0,056 e `Cb` é uma contagem de células na casa de 1e5. Somar um no outro funciona como
-semente numérica, mas não tem leitura biológica. Vale perguntar à Ana Clara se `Es` é
-mesmo `E2` ou se é um termo de fonte com unidade própria que ficou sem valor.
+Uma ressalva para o texto: esse termo de fonte **não existe em
+`referencia/bone_estradiol.py`**. Ele aparece na equação que o documento apresenta como
+sendo a do modelo **original**, o que é uma pergunta sobre o original e não sobre a
+simplificação — questão 38. Não muda o veredito, mas precisa de resposta antes de o texto
+afirmar qual é o modelo de referência.
 
 ### Por que falha: `C2` perde sua fonte dominante
 

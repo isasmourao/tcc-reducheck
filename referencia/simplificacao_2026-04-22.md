@@ -83,10 +83,18 @@ Observações que já vinham no documento:
   código anterior).
 - Na imagem original, a equação de `c2` ainda aparece com `k3*Cm`; no texto ela já está sem
   esse termo, conforme a descrição da simplificação.
-- A equação de `Cb` **não aparecia** na lista do modelo simplificado (confira na imagem:
-  são oito equações, e `Cb` não é uma delas, com um espaço em branco onde ela entraria);
-  foi incluída a partir da equação original, sem o termo `F1*Cm`. **Logo, o termo `Es` não
-  vem deste documento — foi acrescentado na transcrição.** Ver a questão 34.
+- A equação de `Cb` **não aparece no quadro-resumo** acima (são oito equações, e `Cb` não
+  é uma delas, embora o título do quadro liste `Cb` entre as variáveis). Ela está na seção
+  "Termos removidos de outras equações", logo acima, onde o documento apresenta a equação
+  original de `Cb` e diz qual termo sai:
+
+  ```
+  dCb/dt = Es + Ab*Cb*(1 - Cb)/klb - F1*Cm - db*Cb     (original, segundo o documento)
+  ```
+
+  `Es` é `E2`, erro de digitação (confirmado pela Isabella em 11/10/2026 — questão 34).
+  Removendo `F1*Cm` fica a equação de `modelos/verly_simp1.ant`. Note que essa equação
+  original **não é a do código**: ver a questão 38.
 - Em `Ab*Cb*(1 - Cb)/klb`, conferir no código original se `klb` divide todo o termo ou só
   `(1 - Cb)` (ex.: logística `Ab*Cb*(1 - Cb/klb)`).
 
@@ -133,7 +141,8 @@ resolvida por conta própria.** O detalhamento e o impacto numérico estão na s
 
 | # | Ponto | Documento | `bone_estradiol.py` | Situação |
 | --- | --- | --- | --- | --- |
-| 1 | Fonte de `Cb` | `Es + ...` | `F1*Cm + ...` | `Es` **não existe no código original e não tem valor**. É o único termo de `Cb` que não é proporcional a `Cb`: sem substituto, `Cb ≡ 0` e `Mb ≡ 0`. Lido como o estradiol `E2` (Isabella, 29/09/2026), **ainda sem confirmação da Ana Clara**; as unidades não fecham. Ver a questão 34. |
+| 1 | Fonte de `Cb` | `Es + ...` | sem termo de fonte | `Es` é `E2`, erro de digitação (Isabella, 11/10/2026 — questão 34), e é assim que o simplificado está. O termo **não existe no código**, o que levanta a questão 38: a equação original do documento não é a do código. |
 | 2 | Degradação de `c1` | `- dc1*c1` | `- (d_c1*C1)*E2` | O documento não tem o `E2`. **Decidido em 29/09: seguir o documento.** Muda o NRMSE de `C1` de 3,03 para 0,68, então parte da diferença medida em `C1` não é efeito da simplificação. Mesmo ponto da questão 3 de `referencia/duvidas.md`. |
-| 3 | Logística de `Cb` | `Ab*Cb*(1 - Cb)/klb` | `Ab*Cb*(1 - Cb/k_lb)` | O próprio documento manda conferir no código. Foi adotada a forma do código. |
-| 4 | `dE2/dt` | `a*E2*(1 - E2/E2max) - d*E2` | `((E2max - E2)/E2max)*ae2*E2 - de2*E2` | **Equivalentes**: `(E2max - E2)/E2max == 1 - E2/E2max`. Não é divergência. |
+| 3 | Logística de `Cb` | `Ab*Cb*(1 - Cb)/klb` | `Ab*Cb*(1 - Cb/k_lb)` | O próprio documento manda conferir no código. Foi adotada a forma do código. Ver a questão 38. |
+| 4 | Sinal de `F1*Cm` em `Cb` | `- F1*Cm` | `+ F1*Cm` | O positivo é o que fecha o balanço: o que sai de `Cm` entra em `Cb`. Irrelevante para a simplificação 1, que remove o termo. Ver a questão 38. |
+| 5 | `dE2/dt` | `a*E2*(1 - E2/E2max) - d*E2` | `((E2max - E2)/E2max)*ae2*E2 - de2*E2` | **Equivalentes**: `(E2max - E2)/E2max == 1 - E2/E2max`. Não é divergência. |

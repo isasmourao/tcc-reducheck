@@ -15,27 +15,26 @@
 //   * the term k_3 * Cm in C2 (and the parameter k_3);
 //   * the term F1 * Cm in Cb, replaced by the constant source Es.
 //
-// TWO POINTS OF THIS FILE DID NOT COME FROM THE NOTE. Both are written up in
+// Two points of this file are worth knowing, both written up in
 // `docs/questoes-em-aberto.md` ("Encontrado durante o desenvolvimento", items
-// 34 and 35) and in the table at the end of
+// 34, 35 and 38) and in the table at the end of
 // `referencia/simplificacao_2026-04-22.md`:
 //
-//   1. The note has NO equation for Cb: its image lists eight equations and Cb
-//      is not one of them. The source term here is the estradiol E2, which is
-//      Isabella's reading of the `Es` that the typed transcription introduced
-//      (2026-10-11: "e o E2, foi erro de digitacao"). It is her decision, not
-//      something to attribute to the note, and Ana Clara Verly still has to say
-//      what the equation of Cb was. With no source at all the equation is
-//      homogeneous in Cb, so Cb and Mb stay identically zero; with any positive
-//      source Cb settles at the non-zero fixed point of the logistic,
-//      k_lb * (1 - d_b / Ab), around 150,600, almost regardless of its size.
-//      The units do not work out: estradiol is a concentration around 0.056 and
-//      Cb is a cell count around 1e5.
+//   1. The note writes the original equation of Cb as
+//      `dCb/dt = Es + Ab*Cb*(1 - Cb)/klb - F1*Cm - db*Cb`, and the
+//      simplification drops `F1*Cm` from it. `Es` is `E2`, a typo (confirmed by
+//      Isabella, 2026-10-11), hence the `E2` below. That source term does not
+//      exist in `referencia/bone_estradiol.py`, which is a question about the
+//      ORIGINAL model, not about this file (item 38). What matters here is that
+//      `F1*Cm` was the only term of `dCb/dt` without a factor of `Cb`: with no
+//      source at all, Cb and Mb would stay identically zero. Its magnitude
+//      barely matters, since Cb settles at the non-zero fixed point of the
+//      logistic, k_lb * (1 - d_b / Ab), around 150,600.
 //   2. The equation of C1 follows the NOTE, without the E2 that multiplies the
 //      degradation term in the original code. This is a difference between the
 //      note and the code, not a consequence of removing Cm and Mc.
 //
-// Neither was decided here, and no threshold was touched because of them.
+// No threshold was touched because of either.
 
 model verly_simp1
 
@@ -90,7 +89,7 @@ model verly_simp1
   M2' = G2 * Mo + (k_12 * M1) - (k_21 * M2) - (d_2 * M2);
   C1' = H1 * (k_o * D + k_1 * M1) - (d_c1 * C1);       // note: no E2 (open question 35)
   C2' = H2 * (k_2 * M2) * E2 - (d_c2 * C2);            // without k_3 * Cm
-  Cb' = E2 + Ab * Cb * (1 - (Cb / k_lb)) - (d_b * Cb); // F1 * Cm -> Es, read as E2
+  Cb' = E2 + Ab * Cb * (1 - (Cb / k_lb)) - (d_b * Cb); // note's Cb, minus F1 * Cm
   Mb' = (p_bs - (q_bd * Mb)) * Cb;
   E2' = ((E2max - E2) / E2max) * ae2 * E2 - de2 * E2;
 

@@ -8,7 +8,8 @@ O que faz, em ordem:
 
 1. refaz as duas verificações do estudo de caso (`simp1.yaml` e `simp1_qualitativo.yaml`)
    com a versão atual da biblioteca, regravando `estudo_de_caso/resultados/`;
-2. desenha as figuras do texto em `texto/figuras/` (PDF vetorial, um estilo só);
+2. desenha as figuras do texto em `texto/figuras/`, cada uma em PDF vetorial e em PNG de
+   300 dpi, num estilo só;
 3. escreve as tabelas em LaTeX em `texto/tabelas/`: critérios × resultado, equilíbrios,
    autovalores e tempo de execução;
 4. mede o tempo de simulação de cada modelo (10 execuções, média e desvio).
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import math
 import statistics
+import textwrap
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -36,7 +38,7 @@ import roadrunner  # noqa: E402
 from matplotlib.ticker import ScalarFormatter  # noqa: E402
 
 import reducheck  # noqa: E402
-from reducheck import mapping, qualitative, simulation  # noqa: E402
+from reducheck import mapping, plots, qualitative, simulation  # noqa: E402
 from reducheck.config import Simulacao  # noqa: E402
 from reducheck.mapping import SerieComparada  # noqa: E402
 from reducheck.verdict import ItemAvaliado  # noqa: E402
@@ -59,6 +61,7 @@ UNIDADE = "dias"
 LARGURA_CM = 16.0
 ESTILO: dict[str, object] = {
     "font.family": "serif",
+    "mathtext.fontset": "dejavuserif",
     "font.size": 9,
     "axes.titlesize": 9,
     "axes.labelsize": 9,
@@ -71,6 +74,8 @@ ESTILO: dict[str, object] = {
     "pdf.fonttype": 42,
     "savefig.bbox": "tight",
 }
+#: Em que formatos cada figura é gravada, com o mesmo nome.
+FORMATOS_DE_FIGURA = ("pdf", "png")
 COR_ORIGINAL = "#222222"
 COR_SIMPLIFICADO = "#d1495b"
 
@@ -282,6 +287,70 @@ def tabela_tempo(tempos: Mapping[str, Tempos], legenda: str, rotulo: str) -> str
     )
 
 
+def ler_tabela(latex: str) -> tuple[str, list[str], list[list[str]]]:
+    """Separa uma tabela escrita por :func:`_tabela` em legenda, cabeçalho e linhas."""
+    linhas = latex.splitlines()
+    legenda = next(linha for linha in linhas if linha.startswith("\\caption{"))
+    topo, meio, fim = (linhas.index(marca) for marca in ("\\toprule", "\\midrule", "\\bottomrule"))
+
+    def celulas(linha: str) -> list[str]:
+        return [celula.strip() for celula in linha.strip().removesuffix("\\\\").split("&")]
+
+    return (
+        legenda.removeprefix("\\caption{").removesuffix("}"),
+        celulas(linhas[topo + 1]),
+        [celulas(linha) for linha in linhas[meio + 1 : fim]],
+    )
+
+
+def para_mathtext(celula: str) -> str:
+    r"""Escreve uma célula em LaTeX como o texto que o matplotlib desenha.
+
+    Só os trechos fora de ``$...$`` mudam; dentro, o mathtext do matplotlib entende o que
+    este script escreve (``{,}``, ``\times``, ``10^{-10}``, ``\pm``, ``\lambda_{1}``).
+    """
+    partes = celula.split("$")
+    for indice in range(0, len(partes), 2):
+        texto = partes[indice]
+        while "\\texttt{" in texto:
+            inicio = texto.index("\\texttt{")
+            fim = texto.index("}", inicio)
+            texto = texto[:inicio] + texto[inicio + len("\\texttt{") : fim] + texto[fim + 1 :]
+        partes[indice] = (
+            texto.replace("{,}", ",").replace("\\_", "_").replace("\\%", "%").replace("---", "—")
+        )
+    return "$".join(partes)
+
+
+def tabela_png(latex: str, caminho: Path) -> Path:
+    """Desenha a tabela em PNG de 300 dpi, com os três filetes do ``booktabs``."""
+    legenda, cabecalho, linhas = ler_tabela(latex)
+    largura = LARGURA_CM / 2.54
+    with plt.rc_context(ESTILO):
+        figura, eixo = plt.subplots(figsize=(largura, 0.25 * (len(linhas) + 1) + 0.4))
+        eixo.axis("off")
+        tabela = eixo.table(
+            cellText=[[para_mathtext(celula) for celula in linha] for linha in linhas],
+            colLabels=[para_mathtext(celula) for celula in cabecalho],
+            loc="upper center",
+            cellLoc="center",
+        )
+        tabela.auto_set_font_size(False)
+        tabela.set_fontsize(9)
+        tabela.auto_set_column_width(list(range(len(cabecalho))))
+        for (linha, _coluna), celula in tabela.get_celld().items():
+            if linha == 0:
+                celula.visible_edges = "TB"
+                celula.get_text().set_fontweight("bold")
+            else:
+                celula.visible_edges = "B" if linha == len(linhas) else ""
+        eixo.set_title(textwrap.fill(para_mathtext(legenda), 100), loc="left")
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        figura.savefig(caminho, dpi=plots.DPI)
+        plt.close(figura)
+    return caminho
+
+
 # --- Tempo de execução ---------------------------------------------------------------
 
 
@@ -345,8 +414,13 @@ def figura_trajetorias(
     nomes: Sequence[str],
     caminho: Path,
     colunas: int = 3,
-) -> Path:
-    """Um painel por variável, com o original em linha cheia e a simplificação tracejada."""
+) -> tuple[Path, ...]:
+    """Um painel por variável, com o original em linha cheia e a simplificação tracejada.
+
+    ``caminho`` é o nome sem extensão: a mesma figura é gravada em cada um de
+    :data:`FORMATOS_DE_FIGURA`, o PDF para o LaTeX e o PNG para slides e para quem só quer
+    olhar. O PNG usa os mesmos 300 dpi dos gráficos do relatório (:data:`plots.DPI`).
+    """
     linhas = math.ceil(len(nomes) / colunas)
     largura = LARGURA_CM / 2.54
     with plt.rc_context(ESTILO):
@@ -380,9 +454,11 @@ def figura_trajetorias(
             )
         figura.tight_layout()
         caminho.parent.mkdir(parents=True, exist_ok=True)
-        figura.savefig(caminho)
+        gravados = tuple(caminho.with_suffix(f".{formato}") for formato in FORMATOS_DE_FIGURA)
+        for gravado in gravados:
+            figura.savefig(gravado, dpi=plots.DPI)
         plt.close(figura)
-    return caminho
+    return gravados
 
 
 # --- Execução ------------------------------------------------------------------------
@@ -400,10 +476,11 @@ def _resumo_do_veredito(resultado: reducheck.Resultado) -> str:
     )
 
 
-def _escrever(caminho: Path, conteudo: str) -> Path:
+def _escrever(caminho: Path, conteudo: str) -> tuple[Path, Path]:
+    """Grava a tabela em ``.tex`` e, desenhada a partir dele, em ``.png`` com o mesmo nome."""
     caminho.parent.mkdir(parents=True, exist_ok=True)
     caminho.write_text(conteudo, encoding="utf-8")
-    return caminho
+    return caminho, tabela_png(conteudo, caminho.with_suffix(".png"))
 
 
 def main() -> None:
@@ -421,11 +498,11 @@ def main() -> None:
         if variavel.simplificado is not None and variavel.nome not in core
     ]
     gerados = [
-        figura_trajetorias(trajetorias.series, core, FIGURAS / "simp1_core.pdf"),
-        figura_trajetorias(
-            trajetorias.series, comparadas, FIGURAS / "simp1_nao_core.pdf", colunas=2
+        *figura_trajetorias(trajetorias.series, core, FIGURAS / "simp1_core"),
+        *figura_trajetorias(
+            trajetorias.series, comparadas, FIGURAS / "simp1_nao_core", colunas=2
         ),
-        _escrever(
+        *_escrever(
             TABELAS / "simp1_criterios.tex",
             tabela_criterios(
                 trajetorias.criterios,
@@ -434,7 +511,7 @@ def main() -> None:
                 "tab:simp1-criterios",
             ),
         ),
-        _escrever(
+        *_escrever(
             TABELAS / "simp1_criterios_qualitativos.tex",
             tabela_criterios(
                 qualitativo.criterios,
@@ -443,7 +520,7 @@ def main() -> None:
                 "tab:simp1-qualitativos",
             ),
         ),
-        _escrever(
+        *_escrever(
             TABELAS / "simp1_equilibrios.tex",
             tabela_equilibrios(
                 qualitativo.criterios,
@@ -453,7 +530,7 @@ def main() -> None:
         ),
     ]
     assert qualitativo.comparacao is not None
-    gerados.append(
+    gerados.extend(
         _escrever(
             TABELAS / "simp1_autovalores.tex",
             tabela_autovalores(
@@ -476,7 +553,7 @@ def main() -> None:
             _variaveis_do_modelo(trajetorias, "simplificado"),
         ),
     }
-    gerados.append(
+    gerados.extend(
         _escrever(
             TABELAS / "tempo_execucao.tex",
             tabela_tempo(

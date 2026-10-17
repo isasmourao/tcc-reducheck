@@ -1,11 +1,22 @@
 # ReduCheck
 
-Biblioteca Python que verifica se um modelo de EDOs simplificado é fiel ao original: recebe os dois
-modelos em SBML mais um arquivo YAML de configuração e emite um veredito (aprovado / aprovado com
-ressalvas / reprovado) com a porcentagem de critérios atendidos e as razões de cada falha.
+Biblioteca Python que verifica se um modelo de EDOs simplificado é fiel ao original. Você entrega
+os dois modelos em SBML e um arquivo YAML que diz como casar as variáveis e quais critérios
+aplicar. A biblioteca simula os dois modelos nas mesmas condições e mede cada critério. No fim,
+emite um **veredito** (APROVADO, APROVADO COM RESSALVAS ou REPROVADO) com a porcentagem de
+critérios atendidos e a razão de cada falha.
 
-> Nome provisório. TCC II de Ciência da Computação (UFJF) — Isabella Mourão. Em desenvolvimento:
-> este repositório ainda é o esqueleto do projeto, sem a lógica de verificação.
+> Nome provisório. TCC II de Ciência da Computação (UFJF), Isabella Mourão. Versão `0.1.0.dev0`.
+> O estudo de caso é o modelo de remodelação óssea na menopausa de Verly et al. (2024).
+
+O que a biblioteca faz, em ordem:
+
+1. lê e valida o YAML (nomes errados, campos faltando e variáveis inexistentes param a execução
+   com uma mensagem que diz o campo, antes de simular qualquer coisa);
+2. simula os dois modelos com o **mesmo** vetor de tempo, solver e tolerâncias (libRoadRunner);
+3. casa as variáveis (1:1, soma ou soma ponderada);
+4. mede as métricas e, se pedido, o equilíbrio e a estabilidade local;
+5. decide o veredito e escreve o relatório.
 
 ## Instalação
 
@@ -19,15 +30,469 @@ source .venv/bin/activate        # Windows (PowerShell): .venv\Scripts\Activate.
 pip install -e .[dev]
 ```
 
+Para conferir: `reducheck --versao` deve imprimir `reducheck 0.1.0.dev0`.
+
+No Git Bash do Windows, se os acentos aparecerem trocados (`Crit�rios`), rode antes
+`export PYTHONIOENCODING=utf-8`. No PowerShell eles saem certos.
+
+## Exemplo de 5 minutos
+
+O par de brinquedo `aggregation`, em [tests/fixtures/](tests/fixtures/), tem dois compartimentos
+`X1` e `X2` com entrada constante e decaimento de primeira ordem, com taxas parecidas (`0,20` e
+`0,22`). O simplificado junta os dois num único `X = X1 + X2`, com a taxa média. A pergunta é se
+`X` do simplificado acompanha `X1 + X2` do original.
+
+A configuração está em [exemplos/minimo.yaml](exemplos/minimo.yaml):
+
+```yaml
+versao: 1
+
+modelos:
+  original: ../tests/fixtures/aggregation_original.xml
+  simplificado: ../tests/fixtures/aggregation_simplified.xml
+
+simulacao:
+  t_fim: 50
+  pontos: 501
+
+variaveis:
+  - nome: X
+    original: [X1, X2]
+    simplificado: X
+
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: [X]
+
+relatorio:
+  formatos: [html, json]
+```
+
+Em palavras: simular os dois modelos de `t = 0` a `t = 50` com 501 pontos, comparar a soma
+`X1 + X2` do original com o `X` do simplificado, e aceitar se o NRMSE for no máximo 5%. Os
+caminhos são relativos ao próprio YAML.
+
+Da raiz do repositório:
+
+```bash
+reducheck verificar exemplos/minimo.yaml
+```
+
+```text
+Veredito: APROVADO
+Critérios atendidos: 1 de 1 (100,0%) — obrigatórios 1/1, desejáveis 0/0
+Falhas obrigatórias: nenhuma.
+Relatório: C:\...\exemplos\resultados\relatorio.html
+Avisos: 1 (no relatório)
+```
+
+O NRMSE medido em `X` é 0,00523 (0,5%), dez vezes abaixo do limite: a agregação não é exata
+(`0,20 ≠ 0,22`), mas as escalas são próximas. Abra o `relatorio.html` para ver a tabela, o gráfico
+das duas trajetórias e o aviso (o ruído numérico de referência, explicado abaixo).
+
+Para começar o seu: copie [exemplos/config_exemplo.yaml](exemplos/config_exemplo.yaml), que tem
+todos os campos comentados, e troque os modelos e as variáveis.
+
+### Pelo Python
+
+```python
+import reducheck
+
+resultado = reducheck.verificar("exemplos/minimo.yaml")
+resultado.nivel        # 'APROVADO'
+resultado.aprovado     # True só no APROVADO sem ressalvas
+resultado.porcentagem  # 100.0
+for item in resultado.criterios:
+    print(item.metrica, item.variavel, item.valor, item.limite, item.passou)
+resultado.series["X"]  # as duas séries de X, já na mesma malha, para plotar
+```
+
+`reducheck.verificar(caminho, pasta_de_saida=...)` faz o mesmo que `--saida` na linha de comando.
+
+## Como ler o relatório
+
+### O veredito
+
+Cada par (critério, variável) é um **item**. Dois critérios aplicados a três variáveis são seis
+itens, e a porcentagem conta itens.
+
+| Veredito | Regra |
+| --- | --- |
+| APROVADO | todos os itens passaram |
+| APROVADO COM RESSALVAS | todos os obrigatórios passaram, mas algum desejável (`obrigatorio: false`) falhou |
+| REPROVADO | pelo menos um item obrigatório falhou, **qualquer que seja a porcentagem** |
+
+Com `relatorio.niveis: 2`, APROVADO COM RESSALVAS vira APROVADO; nenhuma medida muda.
+
+Um **erro** nunca é veredito. Configuração inválida, simulação que falhou, valor `NaN` ou variável
+negativa param a execução com uma mensagem que diz o campo, a variável ou o instante.
+
+### No terminal
+
+`reducheck verificar` imprime de 3 a 5 linhas e sai com um código que pode ser usado em scripts:
+
+| Código | Significado |
+| --- | --- |
+| 0 | APROVADO |
+| 1 | APROVADO COM RESSALVAS |
+| 2 | REPROVADO |
+| 3 | erro (configuração, mapeamento, métrica ou simulação); a mensagem vai para o stderr |
+
+Um exemplo de reprovação, com o par `qssa_fail` (uma QSSA aplicada sem separação de escalas de
+tempo):
+
+```bash
+reducheck verificar tests/fixtures/config_qssa_fail.yaml
+```
+
+```text
+Veredito: REPROVADO
+Critérios atendidos: 1 de 2 (50,0%) — obrigatórios 1/2, desejáveis 0/0
+Falhas obrigatórias (1 de 2): nrmse em C falhou: 52% (limite 5%, 940% acima do limite), erro concentrado entre t = 4,9 e t = 28,8 (ao longo da simulação); no transiente o erro é 40,1% e no estado estacionário, 37,2%.
+Relatório: C:\...\tests\fixtures\resultados\resultado.json
+Avisos: 1 (no relatório)
+```
+
+### A razão de cada falha
+
+A razão diz **quanto** o item errou (valor, limite e quanto acima do limite) e **onde** no tempo.
+"Onde" é a menor janela que concentra 80% do erro acumulado. Ela é chamada de **transiente** se
+cabe nos primeiros 20% do tempo simulado, de **estado estacionário** se cabe nos últimos 20%, e
+de **ao longo da simulação** nos outros casos. Depois vem o valor da mesma métrica em cada ponta.
+Os 20% são uma convenção, não uma detecção de equilíbrio. `erro_estacionario` não tem janela,
+porque não é uma soma ponto a ponto.
+
+### Os avisos
+
+Um aviso não muda o veredito: ele diz quando um número merece desconfiança.
+
+- **Ruído numérico de referência**, sempre presente. O original é simulado uma segunda vez com
+  tolerâncias 100× mais frouxas, e o NRMSE entre as duas execuções é o erro que o solver produz
+  sozinho. Se um limite estiver a menos de 10× desse ruído, há um aviso a mais: o critério estaria
+  medindo o solver, não a simplificação.
+- **Métrica inadequada.** O MAPE avisa quando descartou pontos perto de zero ou quando mais de 5%
+  dos pontos usados estão abaixo de 1% do pico. O NRMSE avisa quando um único ponto responde por
+  mais de 50% do erro quadrático.
+- **Análise qualitativa.** Ela avisa que só um equilíbrio foi analisado e em que instante ele foi
+  alcançado (ver [`equilibrio`](#equilibrio)).
+
+### Os arquivos
+
+Tudo vai para `relatorio.pasta` (padrão `resultados/`, ao lado do YAML), ou para a pasta de
+`--saida`.
+
+| Arquivo | Quando | Para quê |
+| --- | --- | --- |
+| `relatorio.html` | `html` em `formatos` | leitura: veredito, tabela (falhas primeiro), razões, avisos, gráficos e dados da execução, num arquivo só |
+| `relatorio.md` | `md` em `formatos` | o mesmo relatório em Markdown, com os gráficos ligados aos PNG |
+| `graficos/<variável>.png` | `html` ou `md` | original (contínua) e simplificado (tracejada) em cima, erro absoluto embaixo; 300 dpi |
+| `resultado.json` | `json` em `formatos` (é o padrão) | para código: `veredito`, `porcentagem`, `obrigatorios`, `desejaveis`, `razoes`, `avisos`, `ruido_numerico`, `qualitativo`, `criterios[]` (valor, limite, razão, diagnóstico) e `execucao` (data, versões, SHA-256 dos dois SBML) |
+| `series.csv` | sempre | tempo e as duas séries de cada variável **mapeada** (a soma, não `X1` e `X2` separados), com todos os dígitos |
+| `config_usada.yaml` | sempre | a configuração efetiva, com os padrões preenchidos e os caminhos absolutos |
+
+`config_usada.yaml` refaz a análise **na mesma máquina**:
+
+```bash
+reducheck verificar resultados/config_usada.yaml --saida resultados/repeticao
+```
+
+Use sempre `--saida`. Sem ela, a nova execução escreve na pasta da execução original e sobrescreve
+os arquivos, inclusive o próprio `config_usada.yaml`. Em outra máquina, troque os dois caminhos de
+`modelos`. O SHA-256 no bloco `execucao` do `resultado.json` confirma que os arquivos são os
+mesmos.
+
+## Referência da configuração
+
+Regras gerais:
+
+- uma chave desconhecida é erro, com sugestão do nome mais parecido (`simulaco` → `simulacao`);
+- caminhos são relativos ao YAML;
+- números aceitam notação científica (`1e-8`);
+- toda mensagem de erro diz o caminho do campo, como `variaveis[2].original`.
+
+A tabela abaixo é gerada do esquema da biblioteca. Para regenerá-la depois de mudar um campo em
+[src/reducheck/config.py](src/reducheck/config.py), rode `python docs/atualizar_referencia.py`.
+Um teste falha se ela ficar desatualizada.
+
+<!-- referencia:inicio -->
+| Campo | Tipo | Padrão | Descrição | Exemplo |
+| --- | --- | --- | --- | --- |
+| `versao` | `1` | **obrigatório** | Versão do formato do arquivo. Hoje só existe a 1. | `1` |
+| `modelos` | bloco | **obrigatório** | Os dois modelos comparados. | — |
+| `modelos.original` | caminho | **obrigatório** | Arquivo SBML do modelo original, relativo ao YAML. | `modelos/original.xml` |
+| `modelos.simplificado` | caminho | **obrigatório** | Arquivo SBML do modelo simplificado, relativo ao YAML. | `modelos/simplificado.xml` |
+| `simulacao` | bloco | **obrigatório** | Condições de simulação, iguais para os dois modelos. | — |
+| `simulacao.t_inicio` | número | `0` | Instante inicial, na unidade de tempo dos modelos. | `0` |
+| `simulacao.t_fim` | número | **obrigatório** | Instante final; tem que ser maior que `t_inicio`. | `720` |
+| `simulacao.pontos` | inteiro (≥ 2) | **obrigatório** | Pontos de saída, contando as duas pontas. Os dois modelos usam a mesma malha. | `1000` |
+| `simulacao.solver` | texto | `cvode` | Integrador. Só `cvode` está disponível. | `cvode` |
+| `simulacao.tol_relativa` | número (> 0) | `1e-08` | Tolerância relativa do solver. | `1e-8` |
+| `simulacao.tol_absoluta` | número (> 0) | `1e-10` | Tolerância absoluta do solver. | `1e-10` |
+| `simulacao.sobrescrever` | bloco | — | Valores que substituem os do SBML. O que está direto aqui vale para os dois modelos. | — |
+| `simulacao.sobrescrever.parametros` | mapa texto → número | `{}` | Parâmetros do SBML trocados antes de simular (nome → valor). | `{k1: 0.5}` |
+| `simulacao.sobrescrever.condicoes_iniciais` | mapa texto → número | `{}` | Condições iniciais de espécies trocadas antes de simular (nome → valor). | `{A: 2.0}` |
+| `simulacao.sobrescrever.original` | bloco | — | Trocas só no modelo original; vencem as comuns. | — |
+| `simulacao.sobrescrever.original.parametros` | mapa texto → número | `{}` | Parâmetros do SBML trocados antes de simular (nome → valor). | `{k1: 0.5}` |
+| `simulacao.sobrescrever.original.condicoes_iniciais` | mapa texto → número | `{}` | Condições iniciais de espécies trocadas antes de simular (nome → valor). | `{A: 2.0}` |
+| `simulacao.sobrescrever.simplificado` | bloco | — | Trocas só no modelo simplificado; vencem as comuns. | — |
+| `simulacao.sobrescrever.simplificado.parametros` | mapa texto → número | `{}` | Parâmetros do SBML trocados antes de simular (nome → valor). | `{k1: 0.5}` |
+| `simulacao.sobrescrever.simplificado.condicoes_iniciais` | mapa texto → número | `{}` | Condições iniciais de espécies trocadas antes de simular (nome → valor). | `{A: 2.0}` |
+| `simulacao.nao_negativas` | booleano | `true` | Se `true`, uma variável negativa (além da precisão do solver) interrompe a verificação com erro. | `false` |
+| `variaveis` | lista de blocos (pelo menos 1 item) | **obrigatório** | Como casar as variáveis dos dois modelos, uma por item. | — |
+| `variaveis[].nome` | texto | **obrigatório** | Nome usado no relatório; pode ser diferente dos nomes nos modelos. | `M` |
+| `variaveis[].original` | texto ou lista de texto ou mapa texto → número | **obrigatório** | Variável do original: um nome, uma lista (soma) ou um mapa nome → peso (soma ponderada). | `Mo`, `[Mo, M1, M2]`, `{C1: 1.0, C2: 0.5}` |
+| `variaveis[].simplificado` | texto ou lista de texto ou mapa texto → número ou `null` | `null` | Contrapartida no simplificado, nas mesmas formas. `null` quando a simplificação eliminou a variável (exige `core: false`). | `M`, `null` |
+| `variaveis[].core` | booleano | `true` | Se a variável é essencial ao propósito do modelo; `variaveis: core` nos critérios seleciona estas. | `false` |
+| `criterios` | lista de blocos (pelo menos 1 item) | **obrigatório** | Critérios de aceitação. Cada par (critério, variável) é um item do veredito. | — |
+| `criterios[].metrica` | texto | **obrigatório** | Nome de uma métrica registrada ou de uma análise qualitativa. | `nrmse`, `estabilidade_local` |
+| `criterios[].limite` | número ou `null` (> 0) | `null` | Maior erro aceito, inclusivo (passa com valor igual ao limite). Obrigatório, exceto em `estabilidade_local`, que não o aceita. | `0.05` |
+| `criterios[].variaveis` | lista de texto ou `core` ou `null` | `null` | Nomes declarados em `variaveis`, ou `core` para todas as core. Obrigatório, exceto em `estabilidade_local`, que não o aceita. | `[D, M]`, `core` |
+| `criterios[].obrigatorio` | booleano | `true` | Se a falha reprova o modelo (`true`) ou só gera ressalva (`false`, desejável). | `false` |
+| `criterios[].parametros` | mapa texto → número | `{}` | Opções da própria métrica (ver a seção de métricas). | `{epsilon: 1e-6}`, `{fracao_final: 0.1}` |
+| `relatorio` | bloco | — | O que escrever, e onde. | — |
+| `relatorio.formatos` | lista de texto | `[json]` | Quais relatórios escrever: `json`, `html` e `md`, em qualquer combinação. | `[html, json]` |
+| `relatorio.pasta` | caminho | `resultados` | Pasta de saída, relativa ao YAML. `--saida` na linha de comando a substitui. | `resultados/simp1` |
+| `relatorio.niveis` | `2` ou `3` | `3` | Níveis do veredito; `2` junta APROVADO COM RESSALVAS em APROVADO. | `2` |
+<!-- referencia:fim -->
+
+### Mapeamento das variáveis
+
+| Forma | YAML | Compara |
+| --- | --- | --- |
+| 1:1 | `original: A` | `A` |
+| soma | `original: [Mo, M1, M2]` | `Mo + M1 + M2` |
+| soma ponderada | `original: {C1: 1.0, C2: 0.5}` | `1,0·C1 + 0,5·C2` |
+| eliminada | `simplificado: null` e `core: false` | nada (fica registrada, sem critério) |
+
+As três primeiras valem dos dois lados. Uma variável eliminada por QSSA que continua no
+simplificado como regra de atribuição (`B := k1·A/k2`) é comparada normalmente, pelo nome.
+Expressões (`C1 + C2`, razões, funções) são recusadas na validação.
+
+## Métricas e critérios
+
+Todas as métricas comparam a série original `o` com a simplificada `s` nos mesmos `n` pontos. Em
+todas, **menor é melhor** e 0 é idêntico. Os valores em fração leem-se como porcentagem:
+`0.05` = 5%.
+
+| Nome | Mede | Unidade | Parâmetros |
+| --- | --- | --- | --- |
+| `nrmse` | erro quadrático médio da trajetória | fração | — |
+| `mape` | erro relativo médio | fração | `epsilon` |
+| `erro_max_abs` | pior ponto, em valor absoluto | unidade da variável | — |
+| `erro_max_rel` | pior ponto, em valor relativo | fração | `epsilon` |
+| `erro_estacionario` | erro relativo no fim | fração | `fracao_final` |
+| `equilibrio` | erro relativo no equilíbrio | fração | — |
+| `estabilidade_local` | classificação da estabilidade | estável / instável / marginal | — |
+
+### `nrmse`
+
+$$\mathrm{NRMSE} = \frac{\sqrt{\frac{1}{n}\sum_i (o_i - s_i)^2}}{\max_i o_i - \min_i o_i}$$
+
+RMSE normalizado pela **amplitude** do original. É a métrica de trajetória padrão, adequada a
+variáveis que passam por zero porque não divide ponto a ponto. Recusa uma série original constante,
+porque a amplitude seria zero. A normalização pela amplitude (e não pela média) ainda é uma decisão
+em aberto com a orientadora.
+
+### `mape`
+
+$$\mathrm{MAPE} = \frac{1}{|I|}\sum_{i \in I}\frac{|o_i - s_i|}{|o_i|},\qquad I = \{\, i : |o_i| \ge \varepsilon \,\}$$
+
+Erro relativo médio. Use quando a pergunta for "quantos por cento erra, em média" e a variável
+ficar longe de zero. Os pontos com `|o| < epsilon` ficam de fora, e o relatório diz quantos.
+`epsilon` padrão: `10⁻⁶ · max|o|`; `parametros: {epsilon: ...}` dá um valor absoluto. Perto de
+zero, uma diferença pequena vira um erro relativo enorme. Nesse caso prefira `nrmse` ou
+`erro_max_abs`.
+
+### `erro_max_abs`
+
+$$E_{\max} = \max_i |o_i - s_i|$$
+
+O pior ponto, na unidade da variável, e em que instante ele acontece. Use quando existe um erro
+aceitável em unidades físicas, ou quando a variável passa por zero e nenhuma métrica relativa se
+aplica.
+
+### `erro_max_rel`
+
+$$E^{\mathrm{rel}}_{\max} = \max_{i \in I}\frac{|o_i - s_i|}{|o_i|},\qquad I = \{\, i : |o_i| \ge \varepsilon \,\}$$
+
+O pior ponto em valor relativo, com a mesma proteção e o mesmo `epsilon` do MAPE. Responde "quanto
+erra no pior momento". Um transiente curto e ruim aparece aqui e se dilui no MAPE. É exigente: no
+par `qssa_ok`, aprovado por NRMSE (0,00072), ele vale 0,247 por causa dos primeiros instantes.
+
+### `erro_estacionario`
+
+$$E_{\mathrm{ee}} = \frac{|\bar o - \bar s|}{|\bar o|}$$
+
+Erro relativo no fim da simulação. `bar o` e `bar s` são as médias na fração final `fracao_final`
+do **tempo** (padrão `0`: só o último ponto). Use quando o que importa é onde o sistema chega,
+independentemente do caminho. Um `fracao_final` como `0.1` estabiliza o número se a trajetória
+ainda oscila. Recusa um valor final zero; nesse caso use `erro_max_abs`.
+
+### `equilibrio`
+
+Para cada variável mapeada, o erro relativo entre o **ponto de equilíbrio** dos dois modelos, com
+`limite` e `variaveis` como numa métrica. O equilíbrio é o que o sistema alcança a partir das
+condições iniciais da configuração, e só esse: a biblioteca não procura todos os equilíbrios.
+Encontrá-lo pode exigir integrar muito além de `t_fim` (no modelo da Verly, cerca de um milhão de
+vezes), e o relatório diz em que instante ele foi alcançado. Leia o critério como uma afirmação
+sobre o longo prazo, não sobre a janela simulada. Numa variável que vai a zero nos dois modelos, o
+erro relativo depende de onde a integração parou e pouco informa (questão 42 de
+[docs/questoes-em-aberto.md](docs/questoes-em-aberto.md)).
+
+### `estabilidade_local`
+
+Um item único sobre o modelo inteiro, **sem** `limite` e **sem** `variaveis`. Calcula os
+autovalores da Jacobiana no equilíbrio acima e classifica cada modelo como **estável** (toda
+parte real negativa), **instável** (alguma positiva) ou **marginal** (nenhuma positiva, mas
+alguma indistinguível de zero: abaixo de `10⁻⁶` vezes a maior parte real em módulo, onde a
+linearização não decide). Passa quando os dois modelos recebem a mesma classificação. Compara a
+classificação, e não os autovalores, porque o simplificado tem menos variáveis.
+
+Declarar `equilibrio` ou `estabilidade_local` é o que liga a análise qualitativa; sem eles, nada de
+equilíbrio é calculado. Exemplo com os dois:
+[tests/fixtures/config_qualitativo.yaml](tests/fixtures/config_qualitativo.yaml).
+
+### Qual usar
+
+- Comece com `nrmse` nas variáveis core: é robusto e funciona com variáveis que começam em zero.
+- Acrescente `erro_estacionario` se o estado final importa para o propósito do modelo.
+- Use `mape` ou `erro_max_rel` só em variáveis longe de zero e leia os avisos.
+- Use `erro_max_abs` quando houver uma tolerância em unidades físicas.
+- Marque como desejável (`obrigatorio: false`) o que é bom ter, mas não reprova a simplificação.
+- Declare os critérios **antes** de ver os resultados. Ajustar o limite até passar invalida a
+  verificação.
+
+## Como adicionar uma métrica
+
+Uma métrica é uma função `(tempo, original, simplificado, **opções)` que devolve um
+`ResultadoDeMetrica`, registrada com `@registrar("nome")`. As opções são argumentos com valor
+padrão, e o YAML passa a aceitá-las em `parametros` sem mais nada. Ela pode morar fora da
+biblioteca, num arquivo seu.
+
+Exemplo: o erro absoluto médio, multiplicado por uma escala opcional. Rode da raiz do repositório:
+
+```python
+import numpy as np
+
+import reducheck
+from reducheck.metrics import ResultadoDeMetrica, registrar
+
+
+@registrar("erro_medio_abs")
+def erro_medio_abs(tempo, original, simplificado, escala: float = 1.0):
+    """Erro absoluto médio entre as duas séries, multiplicado por 'escala'."""
+    diferenca = escala * np.abs(np.asarray(original) - np.asarray(simplificado))
+    return ResultadoDeMetrica(
+        valor=float(np.mean(diferenca)),
+        descricao="erro absoluto médio (na unidade da variável)",
+        # Opcionais: o erro ponto a ponto e como ele se soma permitem que a razão de uma
+        # falha diga em que janela de tempo o erro se concentra.
+        erro_pontual=diferenca,
+        agregacao="media",
+    )
+
+
+resultado = reducheck.verificar("exemplos/metrica_propria.yaml")
+print(resultado.nivel)
+for item in resultado.criterios:
+    print(item.metrica, item.variavel, item.valor, item.passou)
+```
+
+E no YAML ([exemplos/metrica_propria.yaml](exemplos/metrica_propria.yaml)), ela é citada como
+qualquer outra:
+
+```yaml
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: [X]
+  - metrica: erro_medio_abs
+    limite: 0.1
+    variaveis: [X]
+    parametros:
+      escala: 1.0
+```
+
+Saída: `APROVADO`, com `erro_medio_abs` em `X` valendo 0,0241.
+
+Regras que o registro confere (e recusa com mensagem):
+
+- os três primeiros parâmetros se chamam `tempo`, `original` e `simplificado`;
+- todo parâmetro depois deles tem valor padrão, porque o YAML pode omiti-lo;
+- o nome não pode repetir o de uma métrica existente;
+- se `erro_pontual` for dado, `agregacao` é `"media"`, `"raiz_da_media"` ou `"maximo"`.
+
+E uma que fica por sua conta, porque nada a confere: agregar `erro_pontual` em todos os pontos
+tem que devolver `valor`. Senão, os números da razão de uma falha não batem com o valor da tabela.
+
+Para dizer que um número merece desconfiança sem parar a execução, devolva `avisos=("...",)`. Para
+recusar uma série em que a métrica não se aplica, levante `reducheck.metrics.ErroDeMetrica`.
+
+**Limitação:** uma métrica sua só é usável pelo Python, como acima. A linha de comando não carrega
+código de fora da biblioteca, então `reducheck verificar` com `erro_medio_abs` no YAML para com
+"a métrica 'erro_medio_abs' não está no registro".
+
+## Limitações
+
+O que a biblioteca **não** faz, por decisão de escopo:
+
+- **Só SBML.** CellML e outros formatos não são lidos. O caminho é converter para SBML antes
+  (Antimony ajuda: veja [modelos/](modelos/)).
+- **Só CVODE** como solver.
+- **Mapeamentos só por nome, soma ou soma ponderada.** Expressões arbitrárias (`C1/C2`,
+  `log(X)`) são recusadas.
+- **Um equilíbrio só**, o alcançado a partir das condições iniciais. Não há busca de todos os
+  equilíbrios nem análise de bifurcação.
+- **Estabilidade local**, pela linearização no equilíbrio. Nada de estabilidade global.
+- **Sem incerteza de parâmetros.** Cada verificação é um cenário. Para outro cenário, use
+  `simulacao.sobrescrever` e rode de novo.
+- **Sem interface gráfica** e sem gerar simplificações: a biblioteca verifica uma simplificação
+  que você já fez.
+- **Métricas próprias só pelo Python** (ver acima).
+
+E o que ainda está em aberto, com efeito nos números (detalhes em
+[docs/questoes-em-aberto.md](docs/questoes-em-aberto.md)):
+
+- o NRMSE normaliza pela amplitude; a escolha entre amplitude e média não está fechada;
+- os limiares dos avisos (1%, 5%, 50%) e a fronteira de 20% entre transiente e estado
+  estacionário são convenções, não valores medidos;
+- o número de níveis do veredito (três ou dois) depende da decisão D01 (issue #1).
+
+## Estudo de caso
+
+[estudo_de_caso/simp1.yaml](estudo_de_caso/simp1.yaml) verifica a simplificação 1 do modelo de
+Verly et al. (2024), que vai de 11 para 9 variáveis. Os modelos em SBML estão em
+[modelos/](modelos/), e o resultado e as notas, em
+[estudo_de_caso/NOTAS.md](estudo_de_caso/NOTAS.md). Os critérios desse arquivo ainda são
+provisórios.
+
 ## Desenvolvimento
 
 ```bash
-pytest              # testes
+pytest              # testes, inclusive os que rodam os exemplos deste README
 ruff check .        # lint
 ```
 
-## Documentação
+- [docs/produto.md](docs/produto.md): escopo, formato da entrada e da saída, regra do veredito
+- [docs/questoes-em-aberto.md](docs/questoes-em-aberto.md): decisões tomadas e pendentes
+- [CLAUDE.md](CLAUDE.md): estrutura de pastas e convenções do código
 
-- `docs/produto.md` — escopo, formato do input (YAML), formato do output e regra do veredito
-- `docs/questoes-em-aberto.md` — decisões tomadas e pendentes, trabalhos relacionados
-- `CLAUDE.md` — contexto do projeto, estrutura de pastas e convenções
+## Como citar
+
+Enquanto o TCC não é publicado, cite o software:
+
+```bibtex
+@misc{reducheck,
+  author = {Isabella Mourão Dias},
+  title  = {ReduCheck: verificação de modelos de EDOs simplificados},
+  year   = {2026},
+  note   = {Trabalho de Conclusão de Curso, Ciência da Computação, UFJF. Versão 0.1.0.dev0},
+  url    = {https://github.com/isasmourao/tcc-reducheck}
+}
+```
+
+Se usar o estudo de caso, cite também o modelo original: Verly et al. (2024)
+[CITAR: referência completa de Verly et al. (2024), conferida no TCC I].
+
+Licença: MIT.

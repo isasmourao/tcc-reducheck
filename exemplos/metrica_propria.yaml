@@ -1,0 +1,24 @@
+versao: 1
+
+modelos:
+  original: ../tests/fixtures/aggregation_original.xml
+  simplificado: ../tests/fixtures/aggregation_simplified.xml
+
+simulacao:
+  t_fim: 50
+  pontos: 501
+
+variaveis:
+  - nome: X
+    original: [X1, X2]
+    simplificado: X
+
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: [X]
+  - metrica: erro_medio_abs
+    limite: 0.1
+    variaveis: [X]
+    parametros:
+      escala: 1.0

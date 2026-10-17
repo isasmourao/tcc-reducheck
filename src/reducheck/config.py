@@ -31,6 +31,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic.fields import FieldInfo
 
 from reducheck import metrics
 
@@ -48,9 +49,11 @@ __all__ = [
     "Sobrescrita",
     "Valores",
     "Variavel",
+    "campos_do_esquema",
     "carregar",
     "ler_yaml",
     "normalizar_alvo",
+    "referencia_dos_campos",
     "validar_esquema",
 ]
 
@@ -93,15 +96,31 @@ class _Base(BaseModel):
 class Modelos(_Base):
     """Paths of the two SBML files being compared."""
 
-    original: Path
-    simplificado: Path
+    original: Path = Field(
+        description="Arquivo SBML do modelo original, relativo ao YAML.",
+        examples=["modelos/original.xml"],
+    )
+    simplificado: Path = Field(
+        description="Arquivo SBML do modelo simplificado, relativo ao YAML.",
+        examples=["modelos/simplificado.xml"],
+    )
 
 
 class Valores(_Base):
     """Values that replace what the SBML files say, for one model or for both."""
 
-    parametros: dict[str, float] = Field(default_factory=dict)
-    condicoes_iniciais: dict[str, float] = Field(default_factory=dict)
+    parametros: dict[str, float] = Field(
+        default_factory=dict,
+        description="Parâmetros do SBML trocados antes de simular (nome → valor).",
+        examples=["{k1: 0.5}"],
+    )
+    condicoes_iniciais: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Condições iniciais de espécies trocadas antes de simular (nome → valor)."
+        ),
+        examples=["{A: 2.0}"],
+    )
 
     def vazio(self) -> bool:
         """Whether there is nothing to override."""
@@ -118,8 +137,14 @@ class Sobrescrita(Valores):
     model carries -- and win over the common value for that model.
     """
 
-    original: Valores = Field(default_factory=Valores)
-    simplificado: Valores = Field(default_factory=Valores)
+    original: Valores = Field(
+        default_factory=Valores,
+        description="Trocas só no modelo original; vencem as comuns.",
+    )
+    simplificado: Valores = Field(
+        default_factory=Valores,
+        description="Trocas só no modelo simplificado; vencem as comuns.",
+    )
 
     def para(self, papel: str) -> Valores:
         """Return what is applied to the model of ``papel``: the common values, then its own."""
@@ -136,65 +161,169 @@ class Sobrescrita(Valores):
 class Simulacao(_Base):
     """Conditions shared by both simulations."""
 
-    t_inicio: float = 0.0
-    t_fim: float
-    pontos: int = Field(ge=2)
-    solver: str = "cvode"
-    tol_relativa: float = Field(default=1e-8, gt=0.0)
-    tol_absoluta: float = Field(default=1e-10, gt=0.0)
-    sobrescrever: Sobrescrita = Field(default_factory=Sobrescrita)
+    t_inicio: float = Field(
+        default=0.0,
+        description="Instante inicial, na unidade de tempo dos modelos.",
+        examples=["0"],
+    )
+    t_fim: float = Field(
+        description="Instante final; tem que ser maior que `t_inicio`.",
+        examples=["720"],
+    )
+    pontos: int = Field(
+        ge=2,
+        description="Pontos de saída, contando as duas pontas. Os dois modelos usam a mesma malha.",
+        examples=["1000"],
+    )
+    solver: str = Field(
+        default="cvode",
+        description="Integrador. Só `cvode` está disponível.",
+        examples=["cvode"],
+    )
+    tol_relativa: float = Field(
+        default=1e-8, gt=0.0, description="Tolerância relativa do solver.", examples=["1e-8"]
+    )
+    tol_absoluta: float = Field(
+        default=1e-10, gt=0.0, description="Tolerância absoluta do solver.", examples=["1e-10"]
+    )
+    sobrescrever: Sobrescrita = Field(
+        default_factory=Sobrescrita,
+        description=(
+            "Valores que substituem os do SBML. O que está direto aqui vale para os dois "
+            "modelos."
+        ),
+    )
     #: Whether every simulated variable is expected to stay non-negative. True by default
     #: because the variables of a biological model are concentrations and cell counts; a
     #: negative value there means the integration went wrong, not that the model says so.
-    nao_negativas: bool = True
+    nao_negativas: bool = Field(
+        default=True,
+        description=(
+            "Se `true`, uma variável negativa (além da precisão do solver) interrompe a "
+            "verificação com erro."
+        ),
+        examples=["false"],
+    )
 
 
 class Variavel(_Base):
     """One correspondence between the two models, under the name used in the report."""
 
-    nome: str
-    original: Alvo
+    nome: str = Field(
+        description="Nome usado no relatório; pode ser diferente dos nomes nos modelos.",
+        examples=["M"],
+    )
+    original: Alvo = Field(
+        description=(
+            "Variável do original: um nome, uma lista (soma) ou um mapa nome → peso "
+            "(soma ponderada)."
+        ),
+        examples=["Mo", "[Mo, M1, M2]", "{C1: 1.0, C2: 0.5}"],
+    )
     #: ``None`` means the reduction dropped this variable: there is nothing to compare.
-    simplificado: Alvo | None = None
+    simplificado: Alvo | None = Field(
+        default=None,
+        description=(
+            "Contrapartida no simplificado, nas mesmas formas. `null` quando a "
+            "simplificação eliminou a variável (exige `core: false`)."
+        ),
+        examples=["M", "null"],
+    )
     #: Whether the variable is essential to the purpose of the model. A criterion written
     #: with ``variaveis: core`` is applied to exactly these (capability M4).
-    core: bool = True
+    core: bool = Field(
+        default=True,
+        description="Se a variável é essencial ao propósito do modelo; `variaveis: core` "
+        "nos critérios seleciona estas.",
+        examples=["false"],
+    )
 
 
 class Criterio(_Base):
     """One metric applied to a list of variables under a single threshold."""
 
-    metrica: str
+    metrica: str = Field(
+        description="Nome de uma métrica registrada ou de uma análise qualitativa.",
+        examples=["nrmse", "estabilidade_local"],
+    )
     #: Largest accepted error. Absent for a qualitative criterion.
-    limite: float | None = Field(default=None, gt=0.0)
+    limite: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Maior erro aceito, inclusivo (passa com valor igual ao limite). Obrigatório, "
+            "exceto em `estabilidade_local`, que não o aceita."
+        ),
+        examples=["0.05"],
+    )
     #: Report names of the variables, or ``core`` to select every core variable at once.
-    variaveis: list[str] | Literal["core"] | None = None
-    obrigatorio: bool = True
+    variaveis: list[str] | Literal["core"] | None = Field(
+        default=None,
+        description=(
+            "Nomes declarados em `variaveis`, ou `core` para todas as core. Obrigatório, "
+            "exceto em `estabilidade_local`, que não o aceita."
+        ),
+        examples=["[D, M]", "core"],
+    )
+    obrigatorio: bool = Field(
+        default=True,
+        description=(
+            "Se a falha reprova o modelo (`true`) ou só gera ressalva (`false`, desejável)."
+        ),
+        examples=["false"],
+    )
     #: Options of the metric itself, such as the ``epsilon`` of ``mape``. The accepted names
     #: are the keyword arguments of the registered function (``metrics.parametros_de``).
-    parametros: dict[str, float] = Field(default_factory=dict)
+    parametros: dict[str, float] = Field(
+        default_factory=dict,
+        description="Opções da própria métrica (ver a seção de métricas).",
+        examples=["{epsilon: 1e-6}", "{fracao_final: 0.1}"],
+    )
 
 
 class Relatorio(_Base):
     """What is written, and where."""
 
-    formatos: list[str] = Field(default_factory=lambda: ["json"])
-    pasta: Path = Path("resultados")
+    formatos: list[str] = Field(
+        default_factory=lambda: ["json"],
+        description="Quais relatórios escrever: `json`, `html` e `md`, em qualquer combinação.",
+        examples=["[html, json]"],
+    )
+    pasta: Path = Field(
+        default=Path("resultados"),
+        description="Pasta de saída, relativa ao YAML. `--saida` na linha de comando a substitui.",
+        examples=["resultados/simp1"],
+    )
     #: How many verdict levels to use: 3 (the rule of ``docs/produto.md``) or 2, which
     #: turns "aprovado com ressalvas" into "aprovado". The default is 3 while decision D01
     #: (issue #1) is open, because that is what the product document describes.
-    niveis: Literal[2, 3] = 3
+    niveis: Literal[2, 3] = Field(
+        default=3,
+        description="Níveis do veredito; `2` junta APROVADO COM RESSALVAS em APROVADO.",
+        examples=["2"],
+    )
 
 
 class Configuracao(_Base):
     """The whole configuration file, with every path already resolved."""
 
-    versao: Literal[1]
-    modelos: Modelos
-    simulacao: Simulacao
-    variaveis: list[Variavel] = Field(min_length=1)
-    criterios: list[Criterio] = Field(min_length=1)
-    relatorio: Relatorio = Field(default_factory=Relatorio)
+    versao: Literal[1] = Field(
+        description="Versão do formato do arquivo. Hoje só existe a 1.", examples=["1"]
+    )
+    modelos: Modelos = Field(description="Os dois modelos comparados.")
+    simulacao: Simulacao = Field(
+        description="Condições de simulação, iguais para os dois modelos."
+    )
+    variaveis: list[Variavel] = Field(
+        min_length=1, description="Como casar as variáveis dos dois modelos, uma por item."
+    )
+    criterios: list[Criterio] = Field(
+        min_length=1,
+        description="Critérios de aceitação. Cada par (critério, variável) é um item do veredito.",
+    )
+    relatorio: Relatorio = Field(
+        default_factory=Relatorio, description="O que escrever, e onde."
+    )
 
     def nomes_core(self) -> list[str]:
         """Return the report names of the core variables, in declaration order."""
@@ -222,6 +351,105 @@ def normalizar_alvo(alvo: Alvo) -> dict[str, float]:
     if isinstance(alvo, dict):
         return {nome: float(peso) for nome, peso in alvo.items()}
     return dict.fromkeys(alvo, 1.0)
+
+
+# --- reference ---------------------------------------------------------------
+
+
+def campos_do_esquema(
+    modelo: type[BaseModel] = Configuracao, prefixo: str = ""
+) -> list[tuple[str, FieldInfo]]:
+    """Return every field of the schema as ``(path, field)``, parents before children.
+
+    Paths are written the way the README and the error messages write them, with ``[]``
+    marking a list of blocks: ``variaveis[].original``.
+    """
+    campos: list[tuple[str, FieldInfo]] = []
+    for nome, campo in modelo.model_fields.items():
+        caminho = f"{prefixo}{nome}"
+        campos.append((caminho, campo))
+        filho = _modelo_de(campo.annotation)
+        if filho is not None:
+            lista = get_origin(campo.annotation) is list
+            campos.extend(campos_do_esquema(filho, f"{caminho}{'[]' if lista else ''}."))
+    return campos
+
+
+def referencia_dos_campos() -> str:
+    """Return the Markdown table of every configuration field, for the README.
+
+    Generated from the schema itself -- types, defaults, constraints, descriptions and
+    examples -- so that the reference cannot drift from what :func:`carregar` accepts;
+    ``tests/test_readme.py`` fails when the README holds an older copy.
+    """
+    linhas = [
+        "| Campo | Tipo | Padrão | Descrição | Exemplo |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for caminho, campo in campos_do_esquema():
+        tipo = _nome_do_tipo(campo.annotation) + _restricoes(campo)
+        exemplos = ", ".join(f"`{exemplo}`" for exemplo in campo.examples or []) or "—"
+        linhas.append(
+            f"| `{caminho}` | {tipo} | {_padrao(campo)} | {campo.description or ''} "
+            f"| {exemplos} |"
+        )
+    return "\n".join(linhas)
+
+
+#: How each Python type of the schema reads in the reference.
+_NOMES_DE_TIPO: dict[Any, str] = {
+    str: "texto",
+    float: "número",
+    int: "inteiro",
+    bool: "booleano",
+    Path: "caminho",
+    type(None): "`null`",
+}
+
+
+def _nome_do_tipo(anotacao: Any) -> str:
+    if anotacao in _NOMES_DE_TIPO:
+        return _NOMES_DE_TIPO[anotacao]
+    if isinstance(anotacao, type) and issubclass(anotacao, BaseModel):
+        return "bloco"
+    origem, argumentos = get_origin(anotacao), get_args(anotacao)
+    if origem is Literal:
+        return " ou ".join(f"`{valor}`" for valor in argumentos)
+    if origem is list:
+        interno = _nome_do_tipo(argumentos[0])
+        return "lista de blocos" if interno == "bloco" else f"lista de {interno}"
+    if origem is dict:
+        return f"mapa {_nome_do_tipo(argumentos[0])} → {_nome_do_tipo(argumentos[1])}"
+    if origem in {Union, UnionType}:
+        return " ou ".join(_nome_do_tipo(argumento) for argumento in argumentos)
+    return str(anotacao)  # pragma: no cover - every type of the schema is listed above
+
+
+def _restricoes(campo: FieldInfo) -> str:
+    partes: list[str] = []
+    for restricao in campo.metadata:
+        if getattr(restricao, "gt", None) is not None:
+            partes.append(f"> {restricao.gt:g}")
+        elif getattr(restricao, "ge", None) is not None:
+            partes.append(f"≥ {restricao.ge:g}")
+        elif getattr(restricao, "min_length", None) is not None:
+            partes.append(f"pelo menos {restricao.min_length} item")
+    return f" ({', '.join(partes)})" if partes else ""
+
+
+def _padrao(campo: FieldInfo) -> str:
+    if campo.is_required():
+        return "**obrigatório**"
+    valor = campo.get_default(call_default_factory=True)
+    if isinstance(valor, BaseModel):
+        return "—"
+    if isinstance(valor, bool) or valor is None or isinstance(valor, list | dict):
+        # As YAML writes it (true, null, [json], {}), which is how the reader will type it.
+        texto = yaml.safe_dump(valor, default_flow_style=True).removesuffix("...\n")
+        return f"`{texto.strip()}`"
+    if isinstance(valor, float):
+        return f"`{valor:g}`"
+    return f"`{valor}`"
 
 
 # --- loading -----------------------------------------------------------------

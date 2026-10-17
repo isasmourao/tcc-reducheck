@@ -29,9 +29,11 @@ from typing import Any, Protocol
 import numpy as np
 
 __all__ = [
+    "AGREGACOES",
     "ErroDeMetrica",
     "Metrica",
     "ResultadoDeMetrica",
+    "agregar",
     "calcular",
     "disponiveis",
     "erro_estacionario",
@@ -50,6 +52,25 @@ __all__ = [
 #: concentration in mol/L and the same concentration in µmol/L exclude the same points.
 EPSILON_RELATIVO = 1e-6
 
+#: A point is "close to zero", for the warning about MAPE, when the original is below this
+#: fraction of its own peak. Much larger than :data:`EPSILON_RELATIVO` on purpose: the points
+#: under the epsilon are already left out, and what misleads the MAPE are the ones just above
+#: it, divided by a number small enough to blow the relative error up. Relative for the same
+#: reason as the epsilon. Arbitrary, and registered as such in ``docs/questoes-em-aberto.md``.
+PERTO_DE_ZERO = 0.01
+
+#: MAPE warns when more than this fraction of the points is close to zero (issue #19).
+FRACAO_PERTO_DE_ZERO = 0.05
+
+#: NRMSE warns when a single point holds more than this share of the squared error: the
+#: number then describes one spike, not the trajectory (issue #19).
+FRACAO_DO_PICO = 0.5
+
+#: How the pointwise error of a metric adds up to its value: the mean, the square root of
+#: the mean, or the maximum. What lets the verdict compute the same metric on a window of
+#: time without knowing its formula.
+AGREGACOES = frozenset({"media", "raiz_da_media", "maximo"})
+
 
 class ErroDeMetrica(Exception):
     """A métrica não existe, não aceita esse parâmetro, ou não se aplica a estas séries."""
@@ -67,6 +88,46 @@ class ResultadoDeMetrica:
     avisos: tuple[str, ...] = ()
     #: Anything the metric wants the report to state, such as how many points it dropped.
     detalhes: Mapping[str, Any] = field(default_factory=dict)
+    #: Whether the value is a fraction (0,05 = 5%), so the reasons print it as a
+    #: percentage, or a number in the unit of the variable.
+    fracao: bool = False
+    #: One non-negative number per time point, ``NaN`` where the point was left out, such
+    #: that :func:`agregar` over every point gives back :attr:`valor`. Optional: a metric
+    #: that is not a sum over points (``erro_estacionario``) leaves it out, and its failure
+    #: then has no window of time in the reason.
+    erro_pontual: np.ndarray | None = field(default=None, compare=False, repr=False)
+    #: One of :data:`AGREGACOES`; required when :attr:`erro_pontual` is given.
+    agregacao: str | None = None
+
+    def __post_init__(self) -> None:
+        """Refuse a pointwise error that the verdict would not know how to add up."""
+        if self.erro_pontual is not None and self.agregacao not in AGREGACOES:
+            raise ErroDeMetrica(
+                "Uma métrica com erro ponto a ponto precisa dizer como ele se agrega "
+                f"({', '.join(sorted(AGREGACOES))}); recebido {self.agregacao!r}."
+            )
+
+
+def agregar(
+    erro_pontual: np.ndarray, agregacao: str | None, mascara: np.ndarray
+) -> float | None:
+    """Return the metric computed on the points of ``mascara`` alone.
+
+    The normalization stays the one of the whole series -- the range of the original in
+    NRMSE, each point's own value in MAPE -- so the number on a window can be read against
+    the number on the whole run. ``None`` when no valid point falls in the mask.
+    """
+    erro = np.asarray(erro_pontual, dtype=float)[mascara]
+    erro = erro[~np.isnan(erro)]
+    if erro.size == 0:
+        return None
+    if agregacao == "media":
+        return float(np.mean(erro))
+    if agregacao == "raiz_da_media":
+        return float(np.sqrt(np.mean(erro)))
+    if agregacao == "maximo":
+        return float(np.max(erro))
+    raise ErroDeMetrica(f"Agregação desconhecida: {agregacao!r}.")
 
 
 class Metrica(Protocol):
@@ -196,10 +257,26 @@ def nrmse(
             "nrmse: a série do original é constante, então a amplitude usada para normalizar "
             "é zero. Use outra métrica para esta variável."
         )
-    rmse = float(np.sqrt(np.mean((original - simplificado) ** 2)))
+    quadrado = ((original - simplificado) / amplitude) ** 2
+    total = float(np.sum(quadrado))
+    indice = int(np.argmax(quadrado))
+    fracao_do_pico = float(quadrado[indice]) / total if total > 0.0 else 0.0
+    avisos: tuple[str, ...] = ()
+    if fracao_do_pico > FRACAO_DO_PICO:
+        instante = float(np.asarray(tempo, dtype=float)[indice])
+        avisos = (
+            f"nrmse: um único ponto (t = {instante:g}) responde por "
+            f"{100 * fracao_do_pico:.0f}% do erro quadrático, então o valor descreve esse "
+            "pico e não a trajetória. 'erro_max_abs' mede o pico diretamente.",
+        )
     return ResultadoDeMetrica(
-        valor=rmse / amplitude,
+        valor=float(np.sqrt(np.mean(quadrado))),
         descricao="RMSE normalizado pela amplitude do original (fração: 0,05 = 5%)",
+        avisos=avisos,
+        detalhes={"fracao_do_maior_ponto": fracao_do_pico},
+        fracao=True,
+        erro_pontual=quadrado,
+        agregacao="raiz_da_media",
     )
 
 
@@ -229,15 +306,25 @@ def mape(
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     relativo, validos, limiar = _erros_relativos(original, simplificado, epsilon, "mape")
     excluidos = int(original.size - relativo.size)
+    pico = float(np.max(np.abs(original)))
+    # Only the points that are divided by: the ones under the epsilon are already out.
+    perto = int(np.count_nonzero(validos & (np.abs(original) < PERTO_DE_ZERO * pico)))
     return ResultadoDeMetrica(
         valor=float(np.mean(relativo)),
         descricao="erro relativo médio (fração: 0,05 = 5%)",
-        avisos=_aviso_de_exclusao("mape", excluidos, original.size, limiar),
+        avisos=(
+            *_aviso_de_exclusao("mape", excluidos, original.size, limiar),
+            *_aviso_perto_de_zero(perto, original.size, pico),
+        ),
         detalhes={
             "pontos_excluidos": excluidos,
             "pontos_usados": int(relativo.size),
             "epsilon": limiar,
+            "pontos_perto_de_zero": perto,
         },
+        fracao=True,
+        erro_pontual=_espalhar(relativo, validos),
+        agregacao="media",
     )
 
 
@@ -261,6 +348,8 @@ def erro_max_abs(
         valor=float(diferenca[indice]),
         descricao="maior erro absoluto (na unidade da variável)",
         detalhes={"instante": float(np.asarray(tempo, dtype=float)[indice])},
+        erro_pontual=diferenca,
+        agregacao="maximo",
     )
 
 
@@ -295,6 +384,9 @@ def erro_max_rel(
             "epsilon": limiar,
             "instante": float(np.asarray(tempo, dtype=float)[posicao]),
         },
+        fracao=True,
+        erro_pontual=_espalhar(relativo, validos),
+        agregacao="maximo",
     )
 
 
@@ -351,6 +443,7 @@ def erro_estacionario(
             "original": media_original,
             "simplificado": media_simplificado,
         },
+        fracao=True,
     )
 
 
@@ -423,3 +516,23 @@ def _aviso_de_exclusao(
         f"{limiar:g} (divisão por valor perto de zero). O valor foi calculado com os "
         f"{total - excluidos} pontos restantes.",
     )
+
+
+def _aviso_perto_de_zero(perto: int, total: int, pico: float) -> tuple[str, ...]:
+    """Return the warning that the MAPE divides by too many small numbers to be trusted."""
+    if perto <= FRACAO_PERTO_DE_ZERO * total:
+        return ()
+    return (
+        f"mape: {perto} de {total} pontos ({100 * perto / total:.0f}%) entram no cálculo "
+        f"perto de zero (|original| < {100 * PERTO_DE_ZERO:g}% do máximo, "
+        f"{PERTO_DE_ZERO * pico:.3g}); "
+        "nesses pontos uma diferença pequena vira um erro relativo grande, e o MAPE pode "
+        "reprovar uma trajetória boa. 'nrmse' ou 'erro_max_abs' não dividem pelo valor.",
+    )
+
+
+def _espalhar(relativo: np.ndarray, validos: np.ndarray) -> np.ndarray:
+    """Put the errors of the valid points back on the full grid, ``NaN`` elsewhere."""
+    erro = np.full(validos.shape, np.nan)
+    erro[validos] = relativo
+    return erro

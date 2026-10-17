@@ -133,10 +133,10 @@ def test_every_failure_has_a_reason_next_to_it(tmp_path: Path) -> None:
 
     linhas = report.razoes(resultado.veredito)
     assert len(linhas) == 1
-    assert linhas[0].startswith("nrmse em C falhou: 0,52006 contra o limite 0,05")
+    # Value, threshold and relative excess first; where in time the error is after (T15).
+    assert linhas[0].startswith("nrmse em C falhou: 52% (limite 5%, 940% acima do limite)")
+    assert "erro concentrado entre t = " in linhas[0]
     assert linhas[0] in html
-    # The section says what it still cannot say, instead of looking complete (T15).
-    assert report.NOTA_DAS_RAZOES in html
 
 
 def test_an_approved_run_says_so_in_the_reasons_section(tmp_path: Path) -> None:

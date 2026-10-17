@@ -191,9 +191,7 @@ def _linha_das_falhas(resultado: reducheck.Resultado) -> str:
             return f"Falhas obrigatórias: nenhuma. Desejáveis que falharam: {nomes}."
         return "Falhas obrigatórias: nenhuma."
 
-    razoes = report.razoes(resultado.veredito)
-    nomes = {f"{item.metrica} em {item.variavel}" for item in falhas}
-    das_obrigatorias = [razao for razao in razoes if any(nome in razao for nome in nomes)]
+    das_obrigatorias = [razao for item in falhas if (razao := report.razao(item))]
     mostradas = das_obrigatorias[:_MAXIMO_DE_RAZOES]
     restantes = len(das_obrigatorias) - len(mostradas)
     texto = " ".join(mostradas)

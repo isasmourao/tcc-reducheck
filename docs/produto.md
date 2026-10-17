@@ -271,6 +271,8 @@ esse aviso um critério sobre esse estado seria lido como uma afirmação sobre 
 
 Cada razão diz **qual critério falhou, por quanto e onde** no tempo. Um veredito sem explicação não é aceito como saída.
 
+**Como a razão é montada** (acrescentado na issue #19). Cada razão traz o valor, o limite e o excesso relativo. Depois vem a menor janela de tempo que concentra 80% do erro acumulado, com o erro somado ponto a ponto do jeito que a métrica soma (quadrático no NRMSE, relativo no MAPE). Essa janela é classificada como **transiente** se cabe nos primeiros 20% do tempo, **estado estacionário** se cabe nos últimos 20%, e **ao longo da simulação** nos outros casos. Por fim, a razão dá o valor da mesma métrica na outra ponta, com a normalização da série inteira. Uma métrica que não é soma de pontos (`erro_estacionario`) fica sem janela. No `resultado.json`, a frase vai em `razoes`, no topo, e em `criterios[].razao`; a janela vai em `criterios[].diagnostico`. Os avisos de métrica inadequada também saem por item: o MAPE avisa quando mais de 5% dos pontos usados estão abaixo de 1% do pico da variável, e o NRMSE avisa quando um único ponto responde por mais de 50% do erro quadrático. Os limiares estão na questão 43 de `docs/questoes-em-aberto.md`.
+
 ## Como funciona
 
 A verificação é um pipeline de seis etapas; cada etapa é um módulo independente, o que permite testar e trocar partes sem mexer no resto.

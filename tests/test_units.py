@@ -795,8 +795,11 @@ def test_report_writes_the_json(tmp_path: Path) -> None:
             "resultado": "passou",
             "tipo": "obrigatório",
             "descricao": "RMSE normalizado pela amplitude do original (fração: 0,05 = 5%)",
+            # Only a failure has a reason and a window of time (issue #19).
+            "razao": None,
+            "diagnostico": None,
             "avisos": [],
-            "detalhes": {},
+            "detalhes": {"fracao_do_maior_ponto": 0.0},
         }
     ]
     assert dados["avisos"] == []

@@ -232,7 +232,9 @@ relatório:
 - `texto/figuras/simp1_core` e `simp1_nao_core`, cada uma em `.pdf` (vetorial, para o LaTeX) e
   `.png` (300 dpi): trajetórias, original × simplificação 1;
 - `texto/tabelas/simp1_criterios.tex`, `simp1_criterios_qualitativos.tex`,
-  `simp1_equilibrios.tex`, `simp1_autovalores.tex` e `tempo_execucao.tex` (pacote `booktabs`).
+  `simp1_equilibrios.tex`, `simp1_autovalores.tex` e `tempo_execucao.tex` (pacote `booktabs`),
+  cada uma também em `.png` com o mesmo nome, desenhada a partir do próprio `.tex` para os
+  dois não poderem mostrar números diferentes.
 
 O autovalor dominante da tabela é o do ponto onde a biblioteca para (t = 7,2×10⁸), e não o
 −2,05×10⁻¹⁰ citado antes, que é de t = 10¹⁰ (questão 49).

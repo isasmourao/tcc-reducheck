@@ -185,3 +185,62 @@ def test_figura_sai_em_pdf_vetorial_e_em_png_de_300_dpi(tmp_path: Path) -> None:
     # 16 cm a 300 dpi dão perto de 1890 pixels; o recorte justo tira um pouco da margem
     largura_em_pixels = image.imread(png).shape[1]
     assert 1700 < largura_em_pixels < 2000
+
+
+def test_a_tabela_em_latex_e_lida_de_volta_com_legenda_cabecalho_e_linhas() -> None:
+    itens = [
+        _item("nrmse", "Cb", 0.45, 0.05, False),
+        _item("mape", "E2", 5.1e-12, 0.05, True, obrigatorio=False),
+    ]
+    latex = gr.tabela_criterios(itens, legenda=r"Critérios (20,0\%).", rotulo="tab:x")
+
+    legenda, cabecalho, linhas = gr.ler_tabela(latex)
+
+    assert legenda == r"Critérios (20,0\%)."
+    assert cabecalho == ["Critério", "Variável", "Valor", "Limite", "Nível", "Resultado"]
+    assert linhas[0] == [
+        r"\texttt{nrmse}", r"\texttt{Cb}", "0{,}450", "0{,}0500", "obrigatório", "falhou",
+    ]
+    assert len(linhas) == 2
+
+
+def test_a_leitura_mantem_uma_celula_vazia_no_inicio_do_cabecalho() -> None:
+    # A tabela de autovalores começa o cabeçalho com uma célula vazia.
+    comparacao = qualitative.Comparacao(
+        original=_analise("original", {"Cb": 1.0}, (-1.0,)),
+        simplificado=_analise("simplificado", {"Cb": 1.0}, (-1.0,)),
+    )
+    latex = gr.tabela_autovalores(comparacao, legenda="L", rotulo="tab:a", quantos=1)
+
+    _, cabecalho, linhas = gr.ler_tabela(latex)
+
+    assert cabecalho == ["", "Original", "Simplificação 1"]
+    assert all(len(linha) == 3 for linha in linhas)
+
+
+@pytest.mark.parametrize(
+    ("celula", "esperado"),
+    [
+        ("0{,}450", "0,450"),
+        (r"\texttt{erro\_estacionario}", "erro_estacionario"),
+        ("---", "—"),
+        (r"REPROVADO (20,0\%).", "REPROVADO (20,0%)."),
+        # dentro de $...$ fica como está: o mathtext do matplotlib entende {,} e \times
+        (r"$7{,}40 \times 10^{-10}$", r"$7{,}40 \times 10^{-10}$"),
+        (r"6{,}07 $\pm$ 0{,}439", r"6,07 $\pm$ 0,439"),
+    ],
+)
+def test_a_celula_em_latex_vira_texto_do_matplotlib(celula: str, esperado: str) -> None:
+    assert gr.para_mathtext(celula) == esperado
+
+
+def test_a_tabela_sai_tambem_em_png(tmp_path: Path) -> None:
+    tempos = {
+        "Original": gr.Tempos(carga=[0.09, 0.1], integracao=[0.006, 0.0062]),
+        "Simplificação 1": gr.Tempos(carga=[0.08, 0.09], integracao=[0.0061, 0.0063]),
+    }
+    latex = gr.tabela_tempo(tempos, legenda=r"Tempo (média $\pm$ desvio).", rotulo="tab:t")
+
+    caminho = gr.tabela_png(latex, tmp_path / "t.png")
+
+    assert caminho.read_bytes().startswith(b"\x89PNG")

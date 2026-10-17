@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import math
 import statistics
+import textwrap
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -60,6 +61,8 @@ UNIDADE = "dias"
 LARGURA_CM = 16.0
 ESTILO: dict[str, object] = {
     "font.family": "serif",
+    # Os trechos em $...$ (10⁻¹⁰, λ₁, ±) na mesma família serifada do resto do texto.
+    "mathtext.fontset": "dejavuserif",
     "font.size": 9,
     "axes.titlesize": 9,
     "axes.labelsize": 9,
@@ -285,6 +288,80 @@ def tabela_tempo(tempos: Mapping[str, Tempos], legenda: str, rotulo: str) -> str
     )
 
 
+# --- Tabelas em PNG ------------------------------------------------------------------
+#
+# O PNG é desenhado a partir do próprio LaTeX que este script escreve, e não dos dados de
+# novo: assim a imagem não tem como mostrar um número diferente do `.tex` que vai para o
+# texto. O formato lido é só o que `_tabela` produz.
+
+
+def ler_tabela(latex: str) -> tuple[str, list[str], list[list[str]]]:
+    """Separa uma tabela escrita por :func:`_tabela` em legenda, cabeçalho e linhas."""
+    linhas = latex.splitlines()
+    legenda = next(linha for linha in linhas if linha.startswith("\\caption{"))
+    topo, meio, fim = (linhas.index(marca) for marca in ("\\toprule", "\\midrule", "\\bottomrule"))
+
+    def celulas(linha: str) -> list[str]:
+        # Dividir antes de tirar os espaços: uma primeira célula vazia começa a linha com " & ".
+        return [celula.strip() for celula in linha.strip().removesuffix("\\\\").split("&")]
+
+    return (
+        legenda.removeprefix("\\caption{").removesuffix("}"),
+        celulas(linhas[topo + 1]),
+        [celulas(linha) for linha in linhas[meio + 1 : fim]],
+    )
+
+
+def para_mathtext(celula: str) -> str:
+    r"""Escreve uma célula em LaTeX como o texto que o matplotlib desenha.
+
+    Só os trechos fora de ``$...$`` mudam; dentro, o mathtext do matplotlib entende o que
+    este script escreve (``{,}``, ``\times``, ``10^{-10}``, ``\pm``, ``\lambda_{1}``).
+    """
+    partes = celula.split("$")
+    for indice in range(0, len(partes), 2):
+        texto = partes[indice]
+        while "\\texttt{" in texto:
+            inicio = texto.index("\\texttt{")
+            fim = texto.index("}", inicio)
+            texto = texto[:inicio] + texto[inicio + len("\\texttt{") : fim] + texto[fim + 1 :]
+        partes[indice] = (
+            texto.replace("{,}", ",").replace("\\_", "_").replace("\\%", "%").replace("---", "—")
+        )
+    return "$".join(partes)
+
+
+def tabela_png(latex: str, caminho: Path) -> Path:
+    """Desenha a tabela em PNG de 300 dpi, com os três filetes do ``booktabs``."""
+    legenda, cabecalho, linhas = ler_tabela(latex)
+    largura = LARGURA_CM / 2.54
+    with plt.rc_context(ESTILO):
+        figura, eixo = plt.subplots(figsize=(largura, 0.25 * (len(linhas) + 1) + 0.4))
+        eixo.axis("off")
+        tabela = eixo.table(
+            cellText=[[para_mathtext(celula) for celula in linha] for linha in linhas],
+            colLabels=[para_mathtext(celula) for celula in cabecalho],
+            # Logo abaixo da legenda, e não no meio do eixo, para não abrir um vão entre as duas.
+            loc="upper center",
+            cellLoc="center",
+        )
+        tabela.auto_set_font_size(False)
+        tabela.set_fontsize(9)
+        tabela.auto_set_column_width(list(range(len(cabecalho))))
+        for (linha, _coluna), celula in tabela.get_celld().items():
+            # Cabeçalho entre o filete de cima e o do meio; o de baixo fecha a última linha.
+            if linha == 0:
+                celula.visible_edges = "TB"
+                celula.get_text().set_fontweight("bold")
+            else:
+                celula.visible_edges = "B" if linha == len(linhas) else ""
+        eixo.set_title(textwrap.fill(para_mathtext(legenda), 100), loc="left")
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        figura.savefig(caminho, dpi=plots.DPI)
+        plt.close(figura)
+    return caminho
+
+
 # --- Tempo de execução ---------------------------------------------------------------
 
 
@@ -410,10 +487,11 @@ def _resumo_do_veredito(resultado: reducheck.Resultado) -> str:
     )
 
 
-def _escrever(caminho: Path, conteudo: str) -> Path:
+def _escrever(caminho: Path, conteudo: str) -> tuple[Path, Path]:
+    """Grava a tabela em ``.tex`` e, desenhada a partir dele, em ``.png`` com o mesmo nome."""
     caminho.parent.mkdir(parents=True, exist_ok=True)
     caminho.write_text(conteudo, encoding="utf-8")
-    return caminho
+    return caminho, tabela_png(conteudo, caminho.with_suffix(".png"))
 
 
 def main() -> None:
@@ -435,7 +513,7 @@ def main() -> None:
         *figura_trajetorias(
             trajetorias.series, comparadas, FIGURAS / "simp1_nao_core", colunas=2
         ),
-        _escrever(
+        *_escrever(
             TABELAS / "simp1_criterios.tex",
             tabela_criterios(
                 trajetorias.criterios,
@@ -444,7 +522,7 @@ def main() -> None:
                 "tab:simp1-criterios",
             ),
         ),
-        _escrever(
+        *_escrever(
             TABELAS / "simp1_criterios_qualitativos.tex",
             tabela_criterios(
                 qualitativo.criterios,
@@ -453,7 +531,7 @@ def main() -> None:
                 "tab:simp1-qualitativos",
             ),
         ),
-        _escrever(
+        *_escrever(
             TABELAS / "simp1_equilibrios.tex",
             tabela_equilibrios(
                 qualitativo.criterios,
@@ -463,7 +541,7 @@ def main() -> None:
         ),
     ]
     assert qualitativo.comparacao is not None
-    gerados.append(
+    gerados.extend(
         _escrever(
             TABELAS / "simp1_autovalores.tex",
             tabela_autovalores(
@@ -486,7 +564,7 @@ def main() -> None:
             _variaveis_do_modelo(trajetorias, "simplificado"),
         ),
     }
-    gerados.append(
+    gerados.extend(
         _escrever(
             TABELAS / "tempo_execucao.tex",
             tabela_tempo(

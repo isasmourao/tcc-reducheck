@@ -61,7 +61,6 @@ UNIDADE = "dias"
 LARGURA_CM = 16.0
 ESTILO: dict[str, object] = {
     "font.family": "serif",
-    # Os trechos em $...$ (10⁻¹⁰, λ₁, ±) na mesma família serifada do resto do texto.
     "mathtext.fontset": "dejavuserif",
     "font.size": 9,
     "axes.titlesize": 9,
@@ -288,13 +287,6 @@ def tabela_tempo(tempos: Mapping[str, Tempos], legenda: str, rotulo: str) -> str
     )
 
 
-# --- Tabelas em PNG ------------------------------------------------------------------
-#
-# O PNG é desenhado a partir do próprio LaTeX que este script escreve, e não dos dados de
-# novo: assim a imagem não tem como mostrar um número diferente do `.tex` que vai para o
-# texto. O formato lido é só o que `_tabela` produz.
-
-
 def ler_tabela(latex: str) -> tuple[str, list[str], list[list[str]]]:
     """Separa uma tabela escrita por :func:`_tabela` em legenda, cabeçalho e linhas."""
     linhas = latex.splitlines()
@@ -302,7 +294,6 @@ def ler_tabela(latex: str) -> tuple[str, list[str], list[list[str]]]:
     topo, meio, fim = (linhas.index(marca) for marca in ("\\toprule", "\\midrule", "\\bottomrule"))
 
     def celulas(linha: str) -> list[str]:
-        # Dividir antes de tirar os espaços: uma primeira célula vazia começa a linha com " & ".
         return [celula.strip() for celula in linha.strip().removesuffix("\\\\").split("&")]
 
     return (
@@ -341,7 +332,6 @@ def tabela_png(latex: str, caminho: Path) -> Path:
         tabela = eixo.table(
             cellText=[[para_mathtext(celula) for celula in linha] for linha in linhas],
             colLabels=[para_mathtext(celula) for celula in cabecalho],
-            # Logo abaixo da legenda, e não no meio do eixo, para não abrir um vão entre as duas.
             loc="upper center",
             cellLoc="center",
         )
@@ -349,7 +339,6 @@ def tabela_png(latex: str, caminho: Path) -> Path:
         tabela.set_fontsize(9)
         tabela.auto_set_column_width(list(range(len(cabecalho))))
         for (linha, _coluna), celula in tabela.get_celld().items():
-            # Cabeçalho entre o filete de cima e o do meio; o de baixo fecha a última linha.
             if linha == 0:
                 celula.visible_edges = "TB"
                 celula.get_text().set_fontweight("bold")

@@ -100,6 +100,57 @@
 <p>Nenhum aviso.</p>
 {% endif %}
 
+{% if qualitativo %}
+<h2>Análise qualitativa</h2>
+{% if qualitativo.equilibrio %}
+<table>
+  <thead>
+    <tr>
+      <th>Variável</th><th>Original</th><th>Simplificado</th>
+      <th>Erro relativo</th><th>Limite</th><th>Resultado</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for linha in qualitativo.equilibrio %}
+    <tr class="{{ linha.resultado }}">
+      <td>{{ linha.variavel }}</td>
+      <td class="numero">{{ linha.original }}</td>
+      <td class="numero">{{ linha.simplificado }}</td>
+      <td class="numero">{{ linha.erro }}</td>
+      <td class="numero">{{ linha.limite }}</td>
+      <td class="{{ linha.resultado }}">{{ linha.resultado }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="nota">Equilíbrio das variáveis mapeadas, na combinação declarada em cada modelo.</p>
+{% endif %}
+<table>
+  <thead>
+    <tr>
+      <th>Modelo</th><th>Classificação</th><th>Autovalores dominantes</th>
+      <th>Equilíbrio alcançado em</th><th>Resíduo relativo</th><th>Jacobiana</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for modelo in qualitativo.modelos %}
+    <tr>
+      <td>{{ modelo.papel }}</td>
+      <td>{{ modelo.classificacao }}</td>
+      <td class="numero">{{ modelo.autovalores | join(", ") }}</td>
+      <td class="numero">{{ modelo.instante }}</td>
+      <td class="numero">{{ modelo.residuo }}</td>
+      <td>{{ modelo.metodo_da_jacobiana }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="nota">Os três autovalores de maior parte real da Jacobiana no equilíbrio. {{ qualitativo.aviso }}</p>
+{% if qualitativo.nota %}
+<p class="nota">{{ qualitativo.nota }}</p>
+{% endif %}
+
+{% endif %}
 <h2>Gráficos</h2>
 {% if graficos %}
   {% for grafico in graficos %}

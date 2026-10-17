@@ -29,6 +29,7 @@ Os três pares têm uma configuração YAML ao lado, usada pelos testes de ponta
 | `config_qssa_ok.yaml` | `qssa_ok` | 1:1 | aprovado |
 | `config_qssa_fail.yaml` | `qssa_fail` | 1:1 | reprovado |
 | `config_aggregation.yaml` | `aggregation` | soma (`[X1, X2]`) | aprovado |
+| `config_qualitativo.yaml` | `aggregation` | soma (`[X1, X2]`) | aprovado (com os dois critérios qualitativos) |
 | `config_negativa.yaml` | `negativa` com ele mesmo | 1:1 | erro de simulação (valor negativo) |
 
 Os caminhos dentro do YAML são relativos ao próprio arquivo, então os testes copiam a
@@ -130,6 +131,31 @@ Mapeamento por soma (`X1 + X2 → X`), horizonte `t ∈ [0, 50]`, 501 pontos.
 
 A agregação não é exata (`d1 ≠ d2`, então a soma de duas exponenciais não é uma exponencial), mas
 como as duas escalas são próximas o erro fica uma ordem de grandeza abaixo do limite.
+
+## Equilíbrio e estabilidade local
+
+Acrescentado na issue #18. O par `aggregation` é o que tem equilíbrio resolvível à mão, e é
+por isso que `config_qualitativo.yaml` usa ele: duas poças com entrada constante e decaimento
+de primeira ordem têm equilíbrio `s/d` e Jacobiana diagonal.
+
+| | Equilíbrio | Autovalores | Classificação |
+| --- | --- | --- | --- |
+| `aggregation_original` | `X1* = s1/d1 = 5`, `X2* = s2/d2 = 2,27273` | −0,20 e −0,22 | estável |
+| `aggregation_simplified` | `X* = s/d = 1,5/0,207 = 7,24638` | −0,207 | estável |
+
+A soma dos equilíbrios do original é 7,27273, então a agregação **erra o equilíbrio em
+0,362%** — uma ordem de grandeza abaixo do limite de 5%, como o erro de trajetória (0,00523).
+As duas classificações coincidem, então `estabilidade_local` passa. Note que os dois modelos
+têm dimensões diferentes (2 autovalores contra 1): é exatamente por isso que o critério compara
+a classificação, e não os vetores de autovalores.
+
+Nos pares `qssa`, `C` não tem saída, então o total é conservado e a Jacobiana tem um autovalor
+**exatamente nulo**: os dois modelos são classificados como **marginais** (o original com
+autovalores 0, −0,1 e −50; o simplificado com 0 e −0,1). Marginal nos dois é um *passa*, porque
+o critério compara classificações. O equilíbrio é `A* = B* = 0` e `C* = A(0) = 10`.
+
+Os valores são conferidos por `tests/test_qualitative.py` e, ponta a ponta, por
+`tests/test_pipeline.py`.
 
 ## Ruído numérico de referência
 

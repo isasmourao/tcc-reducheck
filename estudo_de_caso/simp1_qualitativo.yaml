@@ -1,0 +1,76 @@
+# Estudo de caso — análise qualitativa da simplificação 1 de Verly et al. (2024).
+#
+# Rodar a partir da raiz do repositório:
+#     reducheck verificar estudo_de_caso/simp1_qualitativo.yaml
+#
+# Por que um arquivo separado de `simp1.yaml`: os critérios qualitativos acrescentam itens
+# à porcentagem, e `estudo_de_caso/NOTAS.md` registra o veredito das trajetórias em 3 de 15
+# itens (20%). Misturar os dois mudaria aquele número e a nota deixaria de corresponder à
+# execução. Aqui ficam só as duas análises qualitativas, para o resultado de longo prazo
+# poder ser lido ao lado do de trajetória, e não em vez dele.
+#
+# ATENÇÃO — o equilíbrio deste modelo só é alcançado em t ≈ 7×10⁸ dias, cerca de um milhão
+# de vezes os 720 dias simulados. O relatório avisa; a leitura disso está na questão 39 de
+# `docs/questoes-em-aberto.md`. O resultado é que a simplificação 1 **preserva** o
+# equilíbrio e a estabilidade, enquanto reprova nas trajetórias: ela erra o caminho e
+# acerta o destino.
+
+versao: 1
+
+modelos:
+  original: ../modelos/verly_original.xml
+  simplificado: ../modelos/verly_simp1.xml
+
+# As mesmas condições de `simp1.yaml`, para as duas análises falarem da mesma execução.
+simulacao:
+  t_inicio: 0
+  t_fim: 720
+  pontos: 1000
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+  nao_negativas: true
+
+variaveis:
+  # As mesmas core de `simp1.yaml`: Cb e Mb são a saída do modelo; C1, C2 e E2 são o
+  # mecanismo hormonal/inflamatório.
+  - nome: Cb
+    original: Cb
+    simplificado: Cb
+    core: true
+  - nome: Mb
+    original: Mb
+    simplificado: Mb
+    core: true
+  - nome: C1
+    original: C1
+    simplificado: C1
+    core: true
+  - nome: C2
+    original: C2
+    simplificado: C2
+    core: true
+  - nome: E2
+    original: E2
+    simplificado: E2
+    core: true
+
+  # D fica fora dos critérios: é a variável do modo lento (o esvaziamento dos debris), e
+  # no equilíbrio os dois modelos ainda estão descendo por ela.
+  - nome: D
+    original: D
+    simplificado: D
+    core: false
+
+criterios:
+  - metrica: equilibrio
+    limite: 0.05
+    variaveis: core
+    obrigatorio: true
+  - metrica: estabilidade_local
+    obrigatorio: true
+
+relatorio:
+  formatos: [html, md, json]
+  pasta: resultados/simp1_qualitativo/
+  niveis: 3

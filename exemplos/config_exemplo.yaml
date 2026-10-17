@@ -102,7 +102,18 @@ criterios:
   # - metrica: nrmse
   #   limite: 0.05
   #   variaveis: core
-  # - metrica: estabilidade_local   # (ainda não suportado) análise qualitativa, sem limite
+  # As duas análises qualitativas (issue #18). Declarar o critério é o que as liga; sem
+  # eles, nada de equilíbrio é calculado. 'equilibrio' compara cada variável mapeada no
+  # equilíbrio e precisa de limite e de variáveis, como uma métrica; 'estabilidade_local' é
+  # um item único sobre o modelo inteiro, sem limite e sem variáveis, e passa quando os dois
+  # modelos recebem a mesma classificação (estável, instável ou marginal).
+  # Atenção: achar o equilíbrio pode exigir integrar muito além de 't_fim' — no modelo da
+  # Verly, um milhão de vezes mais —, e nesse caso o relatório diz em que instante ele foi
+  # alcançado. Um critério qualitativo fala do longo prazo, não da janela simulada.
+  # - metrica: equilibrio
+  #   limite: 0.05        # erro relativo entre os dois equilíbrios, por variável
+  #   variaveis: core
+  # - metrica: estabilidade_local
   #   obrigatorio: true
 
 # Onde escrever o resultado.

@@ -1,0 +1,40 @@
+# Configuração do par aggregation com os dois critérios qualitativos (veredito esperado:
+# aprovado). É o par cujo equilíbrio se resolve à mão: X1* = s1/d1 = 5 e X2* = s2/d2 =
+# 2,2727 no original, soma 7,2727; X* = s/d = 7,2464 no simplificado, 0,36% de diferença.
+# Os dois modelos são estáveis (autovalores −0,20 e −0,22 contra −0,207).
+# Os caminhos são relativos a este arquivo.
+versao: 1
+
+modelos:
+  original: aggregation_original.xml
+  simplificado: aggregation_simplified.xml
+
+simulacao:
+  t_inicio: 0
+  t_fim: 50
+  pontos: 501
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+
+variaveis:
+  - nome: X
+    original: [X1, X2]
+    simplificado: X
+    core: true
+
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: core
+  # Equilíbrio: erro relativo por variável mapeada, com limite, como uma métrica.
+  - metrica: equilibrio
+    limite: 0.05
+    variaveis: core
+  # Estabilidade local: um item único sobre o modelo inteiro, sem limite e sem variáveis.
+  # Passa quando os dois modelos recebem a mesma classificação.
+  - metrica: estabilidade_local
+
+relatorio:
+  formatos: [html, md, json]
+  pasta: resultados/

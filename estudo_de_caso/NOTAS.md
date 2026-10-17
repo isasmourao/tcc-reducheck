@@ -202,6 +202,40 @@ decidida com a orientadora, esta reprovação não deve ser citada no texto como
 sobre o modelo**; o que vale como resultado é o acordo em `Cb`, `Mb` e `E2` e a igualdade
 das classificações.
 
+## Tempo de execução
+
+Escrito em 17/10/2026 (issue #22). Medido por `gerar_resultados.py`: 10 execuções de cada
+modelo, uma de aquecimento descartada, nas condições de `simp1.yaml`. Os números são desta
+máquina (Windows 10, Python 3.13, libRoadRunner 2.10.0).
+
+| Modelo | Carga do SBML (ms) | Integração (ms) | Integração / original |
+| --- | --- | --- | --- |
+| Original (11 variáveis) | 96 ± 5 | 6,07 ± 0,44 | 1,00 |
+| Simplificação 1 (9 variáveis) | 103 ± 36 | 6,50 ± 0,92 | 1,07 |
+
+Essa é a execução gravada em `texto/tabelas/tempo_execucao.tex`. Em três execuções do script
+no mesmo dia, a razão da integração ficou entre **0,997 e 1,07**, sempre dentro de um desvio
+padrão: a diferença entre os dois modelos é menor que a variação de uma rodada para outra.
+
+**A simplificação 1 não deixa a integração mais rápida**, e o custo dominante é compilar o
+modelo, não integrá-lo. Leitura e ressalvas na questão 50 de `docs/questoes-em-aberto.md`.
+
+## Material para o texto
+
+```bash
+python estudo_de_caso/gerar_resultados.py
+```
+
+Refaz as duas verificações e grava, a partir do mesmo `reducheck.Resultado` que gera o
+relatório:
+
+- `texto/figuras/simp1_core.pdf` e `simp1_nao_core.pdf`: trajetórias, original × simplificação 1;
+- `texto/tabelas/simp1_criterios.tex`, `simp1_criterios_qualitativos.tex`,
+  `simp1_equilibrios.tex`, `simp1_autovalores.tex` e `tempo_execucao.tex` (pacote `booktabs`).
+
+O autovalor dominante da tabela é o do ponto onde a biblioteca para (t = 7,2×10⁸), e não o
+−2,05×10⁻¹⁰ citado antes, que é de t = 10¹⁰ (questão 49).
+
 ## Comparação com o TCC I
 
 | | TCC I | reducheck |

@@ -19,7 +19,7 @@ from reducheck.verdict import ItemAvaliado, Veredito
 
 __all__ = ["Resultado", "RuidoNumerico", "__version__", "verificar"]
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.3.0"
 
 
 @dataclass(frozen=True)

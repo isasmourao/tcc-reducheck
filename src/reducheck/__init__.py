@@ -41,6 +41,9 @@ class Resultado:
     #: The equilibrium and the local stability of each model, or ``None`` when no
     #: qualitative criterion was declared and the analysis was therefore not run.
     comparacao: qualitative.Comparacao | None = None
+    #: Where ``series.csv`` and ``config_usada.yaml`` went, keyed ``series`` and ``config``.
+    #: Apart from :attr:`caminhos` because they are written on every run, not on request.
+    reproducao: Mapping[str, Path] = field(default_factory=dict)
 
     @property
     def caminho_json(self) -> Path | None:
@@ -127,6 +130,7 @@ def verificar(
     avisos = (ruido.resumo(), *simulation.avisos_de_ruido(ruido, configuracao))
     if comparacao is not None:
         avisos += qualitative.avisos(comparacao, configuracao.simulacao.t_fim)
+    registro = report.execucao(configuracao, caminho_config)
     caminhos = report.salvar(
         veredito,
         configuracao,
@@ -135,7 +139,9 @@ def verificar(
         avisos=avisos,
         caminho_config=caminho_config,
         comparacao=comparacao,
+        registro=registro,
     )
+    reproducao = report.salvar_reproducao(configuracao, series, registro)
 
     return Resultado(
         configuracao=configuracao,
@@ -145,6 +151,7 @@ def verificar(
         avisos=avisos,
         series=series,
         comparacao=comparacao,
+        reproducao=reproducao,
     )
 
 

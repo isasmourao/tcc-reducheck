@@ -376,15 +376,15 @@ As versões são incrementais e **cada uma já pode ser mostrada à orientadora*
 
 O MVP está pronto quando uma pessoa do grupo, só com o README, consegue verificar uma simplificação sem pedir ajuda.
 
-- [ ] Instala com um comando e roda o exemplo do README sem erro.
-- [ ] O modelo da Verly em SBML reproduz as trajetórias do código atual dentro do ruído numérico.
-- [ ] Os modelos de brinquedo têm veredito esperado conhecido e a biblioteca acerta todos.
-- [ ] As simplificações 1 e 2 geram relatórios, com vereditos coerentes com a análise feita à mão no TCC I.
-- [ ] Toda falha no relatório vem com razão: critério, valor, limite e onde no tempo.
-- [ ] Configuração inválida gera mensagem que diz o que está errado e onde.
-- [ ] Adicionar uma métrica nova não exige mudar o núcleo (demonstrado com um exemplo).
-- [ ] Rodar duas vezes a mesma configuração dá o mesmo `resultado.json`, exceto por `execucao.data`.
-- [ ] Testes automatizados passando no CI.
+- [x] Instala com um comando e roda o exemplo do README sem erro. *(17/10, issue #22: clone limpo + venv novo, `pip install -e .[dev]`, `reducheck verificar exemplos/minimo.yaml` → APROVADO; `tests/test_readme.py`.)*
+- [x] O modelo da Verly em SBML reproduz as trajetórias do código atual dentro do ruído numérico. *(`referencia/comparar_sbml.py`: erro relativo máximo 3,67e-08 contra 1e-4. É script, não teste: ver a questão 52.)*
+- [x] Os modelos de brinquedo têm veredito esperado conhecido e a biblioteca acerta todos. *(`tests/test_fixtures.py`.)*
+- [ ] As simplificações 1 e 2 geram relatórios, com vereditos coerentes com a análise feita à mão no TCC I. *(**Não atendido como escrito** — 17/10, issue #22: a simplificação 2 saiu do escopo em 11/10, e o veredito da 1 diverge do TCC I por causa dos critérios. Ver as questões 36, 37 e 51.)*
+- [x] Toda falha no relatório vem com razão: critério, valor, limite e onde no tempo. *(`tests/test_razoes.py`.)*
+- [x] Configuração inválida gera mensagem que diz o que está errado e onde. *(`tests/test_config.py`.)*
+- [x] Adicionar uma métrica nova não exige mudar o núcleo (demonstrado com um exemplo). *(`exemplos/metrica_propria.yaml`, `tests/test_readme.py::test_the_add_a_metric_example_works`; só pelo Python, questão 46.)*
+- [x] Rodar duas vezes a mesma configuração dá o mesmo `resultado.json`, exceto por `execucao.data`. *(`tests/test_reprodutibilidade.py`; refeito em 17/10 com `estudo_de_caso/simp1.yaml`: JSON igual fora a data, `series.csv` idêntico byte a byte.)*
+- [x] Testes automatizados passando no CI. *(Workflow CI verde na `main` em 5c84096.)*
 
 ## Decisões pendentes para a orientadora
 

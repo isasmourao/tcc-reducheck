@@ -6,7 +6,7 @@ aplicar. A biblioteca simula os dois modelos nas mesmas condições e mede cada 
 emite um **veredito** (APROVADO, APROVADO COM RESSALVAS ou REPROVADO) com a porcentagem de
 critérios atendidos e a razão de cada falha.
 
-> Nome provisório. TCC II de Ciência da Computação (UFJF), Isabella Mourão. Versão `0.1.0.dev0`.
+> Nome provisório. TCC II de Ciência da Computação (UFJF), Isabella Mourão. Versão `0.3.0`.
 > O estudo de caso é o modelo de remodelação óssea na menopausa de Verly et al. (2024).
 
 O que a biblioteca faz, em ordem:
@@ -30,7 +30,7 @@ source .venv/bin/activate        # Windows (PowerShell): .venv\Scripts\Activate.
 pip install -e .[dev]
 ```
 
-Para conferir: `reducheck --versao` deve imprimir `reducheck 0.1.0.dev0`.
+Para conferir: `reducheck --versao` deve imprimir `reducheck 0.3.0`.
 
 No Git Bash do Windows, se os acentos aparecerem trocados (`Crit�rios`), rode antes
 `export PYTHONIOENCODING=utf-8`. No PowerShell eles saem certos.
@@ -487,7 +487,7 @@ Enquanto o TCC não é publicado, cite o software:
   author = {Isabella Mourão Dias},
   title  = {ReduCheck: verificação de modelos de EDOs simplificados},
   year   = {2026},
-  note   = {Trabalho de Conclusão de Curso, Ciência da Computação, UFJF. Versão 0.1.0.dev0},
+  note   = {Trabalho de Conclusão de Curso, Ciência da Computação, UFJF. Versão 0.3.0},
   url    = {https://github.com/isasmourao/tcc-reducheck}
 }
 ```

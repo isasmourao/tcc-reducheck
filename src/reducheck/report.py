@@ -13,6 +13,8 @@ since Markdown readers do not handle embedded images well.
 
 from __future__ import annotations
 
+import csv
+import hashlib
 import json
 import sys
 from collections.abc import Mapping, Sequence
@@ -24,6 +26,8 @@ from typing import Any
 import matplotlib
 import numpy
 import roadrunner
+import scipy
+import yaml
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 import reducheck
@@ -35,13 +39,20 @@ from reducheck.verdict import AO_LONGO, ESTACIONARIO, TRANSIENTE, Contagem, Item
 
 __all__ = [
     "ARQUIVOS",
+    "ARQUIVOS_DE_REPRODUCAO",
     "NOME_DO_JSON",
     "MODELOS_DE_RAZAO",
     "como_dicionario",
+    "data_legivel",
+    "execucao",
     "razao",
     "razoes",
     "salvar",
+    "salvar_config_usada",
     "salvar_json",
+    "salvar_reproducao",
+    "salvar_series",
+    "versoes",
 ]
 
 #: File name used for the machine-readable result, as in ``docs/produto.md``.
@@ -49,6 +60,9 @@ NOME_DO_JSON = "resultado.json"
 
 #: File written for each requested format, as in ``docs/produto.md``.
 ARQUIVOS = {"json": NOME_DO_JSON, "html": "relatorio.html", "md": "relatorio.md"}
+
+#: Files written on every run, whatever the formats, so the run can be redone or audited.
+ARQUIVOS_DE_REPRODUCAO = {"series": "series.csv", "config": "config_usada.yaml"}
 
 #: Every sentence of a reason, in one place, so the wording is changed here and nowhere
 #: else. :func:`razao` joins them: the head, then the window when there is one, then what
@@ -72,12 +86,14 @@ def como_dicionario(
     avisos: Sequence[str] = (),
     comparacao: qualitative.Comparacao | None = None,
     t_fim: float | None = None,
+    registro: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return the verdict as the structure written to ``resultado.json``.
 
     ``avisos`` are the warnings that do not belong to a single metric -- the reference
     numerical noise and the thresholds too close to it -- and come first, because they say
-    how much of the numbers below is worth reading.
+    how much of the numbers below is worth reading. ``registro`` is the ``execucao`` block
+    built by :func:`execucao`, which goes last: it says how the numbers were obtained.
     """
     return {
         "veredito": veredito.nivel,
@@ -111,6 +127,7 @@ def como_dicionario(
             }
             for item in veredito.criterios
         ],
+        "execucao": None if registro is None else dict(registro),
     }
 
 
@@ -173,13 +190,14 @@ def salvar_json(
     avisos: Sequence[str] = (),
     comparacao: qualitative.Comparacao | None = None,
     t_fim: float | None = None,
+    registro: Mapping[str, Any] | None = None,
 ) -> Path:
     """Write ``resultado.json`` into ``pasta``, creating the folder if needed."""
     pasta = Path(pasta)
     pasta.mkdir(parents=True, exist_ok=True)
     caminho = pasta / NOME_DO_JSON
     conteudo = json.dumps(
-        como_dicionario(veredito, ruido, avisos, comparacao, t_fim),
+        como_dicionario(veredito, ruido, avisos, comparacao, t_fim, registro),
         ensure_ascii=False,
         indent=2,
     )
@@ -255,12 +273,17 @@ def salvar(
     avisos: Sequence[str] = (),
     caminho_config: Path | str | None = None,
     comparacao: qualitative.Comparacao | None = None,
+    registro: Mapping[str, Any] | None = None,
 ) -> dict[str, Path]:
     """Write every format asked for in ``relatorio.formatos`` and return where each went.
 
     The plots are drawn once and reused by both readable formats, so asking for HTML and
-    Markdown together does not simulate or draw anything twice.
+    Markdown together does not simulate or draw anything twice. ``registro`` is the
+    :func:`execucao` block; passing the one the caller already built keeps a single date
+    across the JSON, the report and ``config_usada.yaml``.
     """
+    if registro is None:
+        registro = execucao(configuracao, caminho_config)
     pasta = Path(configuracao.relatorio.pasta)
     pasta.mkdir(parents=True, exist_ok=True)
     formatos = list(dict.fromkeys(configuracao.relatorio.formatos))
@@ -268,7 +291,13 @@ def salvar(
 
     if "json" in formatos:
         caminhos["json"] = salvar_json(
-            veredito, pasta, ruido, avisos, comparacao, configuracao.simulacao.t_fim
+            veredito,
+            pasta,
+            ruido,
+            avisos,
+            comparacao,
+            configuracao.simulacao.t_fim,
+            registro,
         )
 
     legiveis = [formato for formato in formatos if formato in ("html", "md")]
@@ -281,7 +310,7 @@ def salvar(
         unidade_de_tempo=_unidade_de_tempo(configuracao),
     )
     contexto = _contexto(
-        veredito, configuracao, graficos, ruido, avisos, caminho_config, comparacao
+        veredito, configuracao, graficos, ruido, avisos, caminho_config, comparacao, registro
     )
     for formato in legiveis:
         caminho = pasta / ARQUIVOS[formato]
@@ -324,7 +353,10 @@ def _contexto(
     avisos: Sequence[str],
     caminho_config: Path | str | None,
     comparacao: qualitative.Comparacao | None = None,
+    registro: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if registro is None:
+        registro = execucao(configuracao, caminho_config)
     passados = sum(1 for item in veredito.criterios if item.passou)
     return {
         "titulo": _titulo(configuracao),
@@ -343,7 +375,7 @@ def _contexto(
         "avisos": [*avisos, *veredito.avisos],
         "qualitativo": _secao_qualitativa(comparacao, configuracao, veredito),
         "graficos": [_grafico(grafico) for grafico in graficos],
-        "execucao": _execucao(configuracao, ruido, caminho_config, avisos),
+        "execucao": _execucao(configuracao, ruido, caminho_config, registro, avisos),
     }
 
 
@@ -483,12 +515,13 @@ def _execucao(
     configuracao: Configuracao,
     ruido: RuidoNumerico | None,
     caminho_config: Path | str | None,
+    registro: Mapping[str, Any],
     avisos: Sequence[str] = (),
 ) -> list[tuple[str, str]]:
     """Return what is needed to tell two runs apart, as label/value pairs."""
     simulacao = configuracao.simulacao
     itens = [
-        ("Data", datetime.now().strftime("%d/%m/%Y %H:%M")),
+        ("Data", data_legivel(registro["data"])),
         ("Modelo original", str(configuracao.modelos.original)),
         ("Modelo simplificado", str(configuracao.modelos.simplificado)),
     ]
@@ -507,19 +540,144 @@ def _execucao(
     if ruido is not None and ruido.resumo() not in avisos:
         itens.append(("Ruído numérico", ruido.resumo()))
     itens.append(("Níveis do veredito", str(configuracao.relatorio.niveis)))
-    itens.append(
-        (
-            "Versões",
-            f"reducheck {reducheck.__version__}, Python {_versao_do_python()}, "
-            f"libRoadRunner {roadrunner.__version__}, numpy {numpy.__version__}, "
-            f"matplotlib {matplotlib.__version__}",
-        )
-    )
+    itens.append(("Versões", _versoes_em_texto(registro["versoes"])))
     return itens
 
 
-def _versao_do_python() -> str:
-    return ".".join(str(parte) for parte in sys.version_info[:3])
+# --- reproducibility ---------------------------------------------------------
+
+#: How each library is named in a sentence, in the order the versions are listed.
+_NOMES_DAS_BIBLIOTECAS = {
+    "reducheck": "reducheck",
+    "python": "Python",
+    "libroadrunner": "libRoadRunner",
+    "numpy": "numpy",
+    "scipy": "scipy",
+    "matplotlib": "matplotlib",
+}
+
+
+def versoes() -> dict[str, str]:
+    """Return the version of everything that can change a number of the run.
+
+    matplotlib does not change a number, but it draws the plots, which are part of the
+    output too.
+    """
+    return {
+        "reducheck": reducheck.__version__,
+        "python": ".".join(str(parte) for parte in sys.version_info[:3]),
+        "libroadrunner": roadrunner.__version__,
+        "numpy": numpy.__version__,
+        "scipy": scipy.__version__,
+        "matplotlib": matplotlib.__version__,
+    }
+
+
+def execucao(
+    configuracao: Configuracao, caminho_config: Path | str | None = None
+) -> dict[str, Any]:
+    """Return the ``execucao`` block: when the run happened, with what, on which models.
+
+    The SHA-256 of each SBML is what lets an auditor tell that a report was produced from
+    *this* file and not from an older copy with the same name. The date is the only field
+    that differs between two runs of the same configuration on the same machine.
+    """
+    return {
+        "data": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "configuracao": None if caminho_config is None else str(caminho_config),
+        "versoes": versoes(),
+        "modelos": {
+            papel: {"arquivo": str(arquivo), "sha256": _sha256(Path(arquivo))}
+            for papel, arquivo in (
+                ("original", configuracao.modelos.original),
+                ("simplificado", configuracao.modelos.simplificado),
+            )
+        },
+    }
+
+
+def data_legivel(data: str) -> str:
+    """Format the ISO date of :func:`execucao` the way the report shows it."""
+    return datetime.fromisoformat(data).strftime("%d/%m/%Y %H:%M")
+
+
+def _sha256(caminho: Path) -> str:
+    return hashlib.sha256(caminho.read_bytes()).hexdigest()
+
+
+def _versoes_em_texto(versoes_: Mapping[str, str]) -> str:
+    return ", ".join(
+        f"{_NOMES_DAS_BIBLIOTECAS.get(nome, nome)} {versao}" for nome, versao in versoes_.items()
+    )
+
+
+def salvar_reproducao(
+    configuracao: Configuracao,
+    series: Mapping[str, SerieComparada],
+    registro: Mapping[str, Any],
+) -> dict[str, Path]:
+    """Write ``series.csv`` and ``config_usada.yaml`` and return where each went.
+
+    Both are written on every run, whatever ``relatorio.formatos`` asks for: the formats
+    choose how the result is read, and these two are what lets someone redo it.
+    """
+    pasta = Path(configuracao.relatorio.pasta)
+    pasta.mkdir(parents=True, exist_ok=True)
+    return {
+        "series": salvar_series(series, pasta),
+        "config": salvar_config_usada(configuracao, pasta, registro),
+    }
+
+
+def salvar_series(series: Mapping[str, SerieComparada], pasta: Path | str) -> Path:
+    """Write the time and the two series of every mapped variable to ``series.csv``.
+
+    The series are the mapped ones -- a lumped variable is already summed --, because those
+    are what the metrics compared. Every number is written with ``repr``, the shortest text
+    that reads back as the same float, so the CSV redoes the analysis to the last digit.
+    """
+    caminho = Path(pasta) / ARQUIVOS_DE_REPRODUCAO["series"]
+    comparadas = list(series.values())
+    cabecalho = ["tempo"]
+    colunas: list[numpy.ndarray] = []
+    for serie in comparadas:
+        cabecalho += [f"{serie.nome}_original", f"{serie.nome}_simplificado"]
+        colunas += [serie.original, serie.simplificado]
+    tempo = comparadas[0].tempo if comparadas else numpy.empty(0)
+    with caminho.open("w", encoding="utf-8", newline="") as arquivo:
+        escritor = csv.writer(arquivo, lineterminator="\n")
+        escritor.writerow(cabecalho)
+        for indice, instante in enumerate(tempo):
+            escritor.writerow(
+                [repr(float(instante)), *(repr(float(coluna[indice])) for coluna in colunas)]
+            )
+    return caminho
+
+
+def salvar_config_usada(
+    configuracao: Configuracao, pasta: Path | str, registro: Mapping[str, Any]
+) -> Path:
+    """Write the effective configuration to ``config_usada.yaml``.
+
+    Effective means after the defaults were filled in and the paths resolved, so the file
+    states every choice the run made, including the ones nobody wrote. It is a valid
+    configuration -- :func:`reducheck.config.carregar` reads it back into the same object --
+    and the date and the versions go in a comment on top, because the schema accepts no
+    key it does not know.
+    """
+    caminho = Path(pasta) / ARQUIVOS_DE_REPRODUCAO["config"]
+    dados = configuracao.model_dump(mode="json")
+    cabecalho = [
+        "# Configuração efetiva usada pelo reducheck: valores padrão preenchidos e",
+        "# caminhos resolvidos. Pode ser passada de novo para 'reducheck verificar'.",
+        f"# Data: {registro['data']}",
+        f"# Versões: {_versoes_em_texto(registro['versoes'])}",
+    ]
+    if registro.get("configuracao"):
+        cabecalho.append(f"# Configuração de origem: {registro['configuracao']}")
+    corpo = yaml.safe_dump(dados, allow_unicode=True, sort_keys=False)
+    caminho.write_text("\n".join(cabecalho) + "\n" + corpo, encoding="utf-8")
+    return caminho
 
 
 def _numero(valor: float | None) -> str:

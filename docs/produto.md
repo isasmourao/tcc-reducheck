@@ -212,10 +212,10 @@ corresponde ao código de saída 0 da linha de comando.
 | Arquivo | Para quê |
 | --- | --- |
 | relatorio.html (ou .md) | Leitura humana: veredito, tabela de critérios, gráficos, avisos |
-| resultado.json | Uso em código e em testes automatizados |
+| resultado.json | Uso em código e em testes automatizados; o bloco `execucao` traz data, versões (Python, reducheck, libRoadRunner, numpy, scipy, matplotlib) e o SHA-256 dos dois SBML |
 | graficos/ | Trajetória original vs. simplificado por variável, e o erro ao longo do tempo |
-| series.csv | As séries simuladas, para quem quiser refazer a análise |
-| config_usada.yaml | Cópia da configuração e versões das bibliotecas, para reprodutibilidade |
+| series.csv | Tempo e as duas séries de cada variável mapeada, com todos os dígitos, para quem quiser refazer a análise |
+| config_usada.yaml | Sempre gerado, como o `series.csv`, qualquer que seja `relatorio.formatos`. Configuração efetiva (padrões preenchidos, caminhos resolvidos), que pode ser rodada de novo; data e versões num comentário no topo |
 
 `relatorio.formatos` escolhe o que é escrito: `html`, `md` e `json`, em qualquer combinação
 (padrão: `[json]`). O HTML é **um arquivo só** — os gráficos vão embutidos em base64 —, e o
@@ -383,7 +383,7 @@ O MVP está pronto quando uma pessoa do grupo, só com o README, consegue verifi
 - [ ] Toda falha no relatório vem com razão: critério, valor, limite e onde no tempo.
 - [ ] Configuração inválida gera mensagem que diz o que está errado e onde.
 - [ ] Adicionar uma métrica nova não exige mudar o núcleo (demonstrado com um exemplo).
-- [ ] Rodar duas vezes a mesma configuração dá o mesmo resultado.
+- [ ] Rodar duas vezes a mesma configuração dá o mesmo `resultado.json`, exceto por `execucao.data`.
 - [ ] Testes automatizados passando no CI.
 
 ## Decisões pendentes para a orientadora

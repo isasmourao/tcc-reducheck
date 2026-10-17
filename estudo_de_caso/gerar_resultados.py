@@ -8,7 +8,8 @@ O que faz, em ordem:
 
 1. refaz as duas verificações do estudo de caso (`simp1.yaml` e `simp1_qualitativo.yaml`)
    com a versão atual da biblioteca, regravando `estudo_de_caso/resultados/`;
-2. desenha as figuras do texto em `texto/figuras/` (PDF vetorial, um estilo só);
+2. desenha as figuras do texto em `texto/figuras/`, cada uma em PDF vetorial e em PNG de
+   300 dpi, num estilo só;
 3. escreve as tabelas em LaTeX em `texto/tabelas/`: critérios × resultado, equilíbrios,
    autovalores e tempo de execução;
 4. mede o tempo de simulação de cada modelo (10 execuções, média e desvio).
@@ -36,7 +37,7 @@ import roadrunner  # noqa: E402
 from matplotlib.ticker import ScalarFormatter  # noqa: E402
 
 import reducheck  # noqa: E402
-from reducheck import mapping, qualitative, simulation  # noqa: E402
+from reducheck import mapping, plots, qualitative, simulation  # noqa: E402
 from reducheck.config import Simulacao  # noqa: E402
 from reducheck.mapping import SerieComparada  # noqa: E402
 from reducheck.verdict import ItemAvaliado  # noqa: E402
@@ -71,6 +72,8 @@ ESTILO: dict[str, object] = {
     "pdf.fonttype": 42,
     "savefig.bbox": "tight",
 }
+#: Em que formatos cada figura é gravada, com o mesmo nome.
+FORMATOS_DE_FIGURA = ("pdf", "png")
 COR_ORIGINAL = "#222222"
 COR_SIMPLIFICADO = "#d1495b"
 
@@ -345,8 +348,13 @@ def figura_trajetorias(
     nomes: Sequence[str],
     caminho: Path,
     colunas: int = 3,
-) -> Path:
-    """Um painel por variável, com o original em linha cheia e a simplificação tracejada."""
+) -> tuple[Path, ...]:
+    """Um painel por variável, com o original em linha cheia e a simplificação tracejada.
+
+    ``caminho`` é o nome sem extensão: a mesma figura é gravada em cada um de
+    :data:`FORMATOS_DE_FIGURA`, o PDF para o LaTeX e o PNG para slides e para quem só quer
+    olhar. O PNG usa os mesmos 300 dpi dos gráficos do relatório (:data:`plots.DPI`).
+    """
     linhas = math.ceil(len(nomes) / colunas)
     largura = LARGURA_CM / 2.54
     with plt.rc_context(ESTILO):
@@ -380,9 +388,11 @@ def figura_trajetorias(
             )
         figura.tight_layout()
         caminho.parent.mkdir(parents=True, exist_ok=True)
-        figura.savefig(caminho)
+        gravados = tuple(caminho.with_suffix(f".{formato}") for formato in FORMATOS_DE_FIGURA)
+        for gravado in gravados:
+            figura.savefig(gravado, dpi=plots.DPI)
         plt.close(figura)
-    return caminho
+    return gravados
 
 
 # --- Execução ------------------------------------------------------------------------
@@ -421,9 +431,9 @@ def main() -> None:
         if variavel.simplificado is not None and variavel.nome not in core
     ]
     gerados = [
-        figura_trajetorias(trajetorias.series, core, FIGURAS / "simp1_core.pdf"),
-        figura_trajetorias(
-            trajetorias.series, comparadas, FIGURAS / "simp1_nao_core.pdf", colunas=2
+        *figura_trajetorias(trajetorias.series, core, FIGURAS / "simp1_core"),
+        *figura_trajetorias(
+            trajetorias.series, comparadas, FIGURAS / "simp1_nao_core", colunas=2
         ),
         _escrever(
             TABELAS / "simp1_criterios.tex",

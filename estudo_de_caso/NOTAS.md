@@ -229,7 +229,8 @@ python estudo_de_caso/gerar_resultados.py
 Refaz as duas verificações e grava, a partir do mesmo `reducheck.Resultado` que gera o
 relatório:
 
-- `texto/figuras/simp1_core.pdf` e `simp1_nao_core.pdf`: trajetórias, original × simplificação 1;
+- `texto/figuras/simp1_core` e `simp1_nao_core`, cada uma em `.pdf` (vetorial, para o LaTeX) e
+  `.png` (300 dpi): trajetórias, original × simplificação 1;
 - `texto/tabelas/simp1_criterios.tex`, `simp1_criterios_qualitativos.tex`,
   `simp1_equilibrios.tex`, `simp1_autovalores.tex` e `tempo_execucao.tex` (pacote `booktabs`).
 

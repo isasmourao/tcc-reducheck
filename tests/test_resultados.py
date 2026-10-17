@@ -165,8 +165,9 @@ def test_tabelas_qualitativas_tem_as_variaveis_e_os_autovalores() -> None:
     assert "marginal" in autovalores
 
 
-def test_figura_sai_em_pdf_vetorial(tmp_path: Path) -> None:
+def test_figura_sai_em_pdf_vetorial_e_em_png_de_300_dpi(tmp_path: Path) -> None:
     import numpy as np
+    from matplotlib import image
 
     from reducheck.mapping import SerieComparada
 
@@ -175,5 +176,12 @@ def test_figura_sai_em_pdf_vetorial(tmp_path: Path) -> None:
         nome: SerieComparada(nome=nome, tempo=tempo, original=tempo**2, simplificado=tempo)
         for nome in ["A", "B", "C"]
     }
-    caminho = gr.figura_trajetorias(series, ["A", "B", "C"], tmp_path / "f.pdf")
-    assert caminho.read_bytes().startswith(b"%PDF")
+    caminhos = gr.figura_trajetorias(series, ["A", "B", "C"], tmp_path / "f")
+
+    assert [caminho.name for caminho in caminhos] == ["f.pdf", "f.png"]
+    pdf, png = caminhos
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert png.read_bytes().startswith(b"\x89PNG")
+    # 16 cm a 300 dpi dão perto de 1890 pixels; o recorte justo tira um pouco da margem
+    largura_em_pixels = image.imread(png).shape[1]
+    assert 1700 < largura_em_pixels < 2000

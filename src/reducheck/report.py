@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -30,12 +31,14 @@ from reducheck import plots, qualitative
 from reducheck.config import Configuracao
 from reducheck.mapping import SerieComparada
 from reducheck.simulation import RuidoNumerico, unidade_de_tempo
-from reducheck.verdict import Contagem, ItemAvaliado, Veredito
+from reducheck.verdict import AO_LONGO, ESTACIONARIO, TRANSIENTE, Contagem, ItemAvaliado, Veredito
 
 __all__ = [
     "ARQUIVOS",
     "NOME_DO_JSON",
+    "MODELOS_DE_RAZAO",
     "como_dicionario",
+    "razao",
     "razoes",
     "salvar",
     "salvar_json",
@@ -47,11 +50,20 @@ NOME_DO_JSON = "resultado.json"
 #: File written for each requested format, as in ``docs/produto.md``.
 ARQUIVOS = {"json": NOME_DO_JSON, "html": "relatorio.html", "md": "relatorio.md"}
 
-#: What the reasons section cannot say yet, stated in the report instead of left implicit.
-NOTA_DAS_RAZOES = (
-    "Por ora a razão diz o critério, o valor e por quanto o limite foi ultrapassado; "
-    "onde no tempo o erro se concentra entra na issue #19 (T15)."
-)
+#: Every sentence of a reason, in one place, so the wording is changed here and nowhere
+#: else. :func:`razao` joins them: the head, then the window when there is one, then what
+#: the error is at the other end of the run, then the worst instant of a maximum.
+MODELOS_DE_RAZAO = {
+    "cabecalho": "{metrica} em {variavel} falhou: {valor} (limite {limite}{excesso})",
+    "excesso": ", {excesso} acima do limite",
+    "janela": ", erro concentrado entre t = {inicio} e t = {fim} ({fase})",
+    TRANSIENTE: "; no estado estacionário o erro é {estacionario}",
+    ESTACIONARIO: "; no transiente o erro é {transiente}",
+    AO_LONGO: "; no transiente o erro é {transiente} e no estado estacionário, {estacionario}",
+    "fim": ".",
+    "pior_ponto": " O pior ponto está em t = {instante}.",
+    "qualitativo": "{metrica} falhou: {descricao}.",
+}
 
 
 def como_dicionario(
@@ -73,6 +85,7 @@ def como_dicionario(
         "porcentagem": veredito.porcentagem,
         "obrigatorios": _contagem(veredito.obrigatorios),
         "desejaveis": _contagem(veredito.desejaveis),
+        "razoes": razoes(veredito),
         "avisos": [*avisos, *veredito.avisos],
         "ruido_numerico": None if ruido is None else _ruido(ruido),
         "qualitativo": (
@@ -89,6 +102,10 @@ def como_dicionario(
                 "resultado": "passou" if item.passou else "falhou",
                 "tipo": "obrigatório" if item.obrigatorio else "desejável",
                 "descricao": item.descricao,
+                "razao": razao(item),
+                "diagnostico": (
+                    None if item.diagnostico is None else asdict(item.diagnostico)
+                ),
                 "avisos": list(item.avisos),
                 "detalhes": dict(item.detalhes),
             }
@@ -171,33 +188,63 @@ def salvar_json(
 
 
 def razoes(veredito: Veredito) -> list[str]:
-    """Return one line per failed item, saying which criterion failed and by how much.
+    """Return one sentence per failed item, in the order the criteria were declared."""
+    return [texto for item in veredito.criterios if (texto := razao(item)) is not None]
 
-    Deliberately shallow: the detailed reason -- where in time the error concentrates --
-    is issue #19 (T15). What is here is what the metrics already measured, so that no
-    failure ever appears in the report without an explanation next to it.
+
+def razao(item: ItemAvaliado) -> str | None:
+    """Return why ``item`` failed -- by how much and where in time -- or ``None`` if it passed.
+
+    The sentence follows the model of issue #19: the value against the threshold and the
+    relative excess, the shortest window holding 80% of the error and the phase it falls
+    in, and the same metric at the other end of the run, so a failure confined to the
+    transient is told apart from one that never goes away. A metric that does not give its
+    pointwise error has no window, and its sentence stops at the excess.
     """
-    linhas = []
-    for item in veredito.criterios:
-        if item.passou:
-            continue
-        if item.valor is None:
-            # A qualitative item has no number and no threshold: what it failed on is the
-            # comparison of two labels, which the description already states.
-            linhas.append(f"{item.metrica} falhou: {item.descricao}.")
-            continue
-        excesso = "" if item.limite in (0, None) else f", {item.valor / item.limite:.3g}× o limite"
-        linha = (
-            f"{item.metrica} em {item.variavel} falhou: {_numero(item.valor)} contra o "
-            f"limite {_numero(item.limite)}{excesso}."
+    if item.passou:
+        return None
+    if item.valor is None:
+        # A qualitative item has no number and no threshold: what it failed on is the
+        # comparison of two labels, which the description already states.
+        return MODELOS_DE_RAZAO["qualitativo"].format(
+            metrica=item.metrica, descricao=item.descricao
         )
-        if item.descricao:
-            linha += f" O valor é {item.descricao}."
-        instante = item.detalhes.get("instante")
-        if instante is not None:
-            linha += f" O pior ponto está em t = {_numero(float(instante))}."
-        linhas.append(linha)
-    return linhas
+
+    def formatar(valor: float | None) -> str:
+        return _porcento(valor) if item.fracao else _numero(valor)
+
+    excesso = ""
+    if item.limite is not None and item.limite > 0:
+        relativo = (item.valor - item.limite) / item.limite
+        excesso = MODELOS_DE_RAZAO["excesso"].format(excesso=_porcento(relativo))
+    texto = MODELOS_DE_RAZAO["cabecalho"].format(
+        metrica=item.metrica,
+        variavel=item.variavel,
+        valor=formatar(item.valor),
+        limite=formatar(item.limite),
+        excesso=excesso,
+    )
+    diagnostico = item.diagnostico
+    if diagnostico is not None:
+        texto += MODELOS_DE_RAZAO["janela"].format(
+            inicio=_numero(diagnostico.inicio),
+            fim=_numero(diagnostico.fim),
+            fase=diagnostico.fase,
+        )
+        outra_ponta = (
+            diagnostico.valor_transiente,
+            diagnostico.valor_estacionario,
+        )
+        if None not in outra_ponta:
+            texto += MODELOS_DE_RAZAO[diagnostico.fase].format(
+                transiente=formatar(diagnostico.valor_transiente),
+                estacionario=formatar(diagnostico.valor_estacionario),
+            )
+    texto += MODELOS_DE_RAZAO["fim"]
+    instante = item.detalhes.get("instante")
+    if instante is not None:
+        texto += MODELOS_DE_RAZAO["pior_ponto"].format(instante=_numero(float(instante)))
+    return texto
 
 
 def salvar(
@@ -293,7 +340,6 @@ def _contexto(
         # inside each group the criteria stay in the order they were declared.
         "criterios": [_linha(item) for item in sorted(veredito.criterios, key=_falhou_primeiro)],
         "razoes": razoes(veredito),
-        "nota_das_razoes": NOTA_DAS_RAZOES,
         "avisos": [*avisos, *veredito.avisos],
         "qualitativo": _secao_qualitativa(comparacao, configuracao, veredito),
         "graficos": [_grafico(grafico) for grafico in graficos],
@@ -481,6 +527,15 @@ def _numero(valor: float | None) -> str:
     if valor is None:
         return "—"
     return f"{valor:.5g}".replace(".", ",")
+
+
+def _porcento(valor: float | None) -> str:
+    """Format a fraction as a percentage with three significant digits: 0,081 -> 8,1%."""
+    if valor is None:
+        return "—"
+    porcento = 100 * valor
+    texto = f"{porcento:.0f}" if abs(porcento) >= 1000 else f"{porcento:.3g}"
+    return texto.replace(".", ",") + "%"
 
 
 def _porcentagem(valor: float) -> str:

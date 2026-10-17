@@ -22,15 +22,22 @@ from reducheck.config import ANALISES_QUALITATIVAS, Criterio
 from reducheck.mapping import SerieComparada
 
 __all__ = [
+    "AO_LONGO",
     "APROVADO",
     "COM_RESSALVAS",
+    "ESTACIONARIO",
+    "FRACAO_CONCENTRADA",
+    "FRACAO_DA_FASE",
     "NIVEIS",
     "REPROVADO",
     "SEM_VARIAVEL",
+    "TRANSIENTE",
     "Contagem",
+    "Diagnostico",
     "ItemAvaliado",
     "Veredito",
     "avaliar",
+    "diagnosticar",
 ]
 
 #: The three levels, spelled as they are printed in the report.
@@ -44,6 +51,36 @@ NIVEIS = frozenset({2, 3})
 #: Printed in the "Variável" column of an item that is about the whole model, and not about
 #: one variable: ``estabilidade_local`` is one item, whatever the number of variables.
 SEM_VARIAVEL = "—"
+
+#: Share of the accumulated error the window of a failure has to hold (issue #19).
+FRACAO_CONCENTRADA = 0.8
+
+#: Fraction of the time span that counts as the transient, at the start, and as the steady
+#: state, at the end. A convention of the issue, not a detection of either: the last 20% of
+#: a run that never settles are still called "estado estacionário" here.
+FRACAO_DA_FASE = 0.2
+
+#: Where the error of a failure concentrates, spelled as the reasons print it.
+TRANSIENTE = "transiente"
+ESTACIONARIO = "estado estacionário"
+AO_LONGO = "ao longo da simulação"
+
+
+@dataclass(frozen=True)
+class Diagnostico:
+    """Where in time the error of a failed item is, and what it is at each end of the run."""
+
+    #: The shortest window of time holding :data:`FRACAO_CONCENTRADA` of the error.
+    inicio: float
+    fim: float
+    #: The share of the error the window actually holds, at least the target.
+    fracao_do_erro: float
+    #: One of :data:`TRANSIENTE`, :data:`ESTACIONARIO` or :data:`AO_LONGO`.
+    fase: str
+    #: The same metric on the first and on the last :data:`FRACAO_DA_FASE` of the time,
+    #: with the normalization of the whole series; ``None`` when no valid point is there.
+    valor_transiente: float | None
+    valor_estacionario: float | None
 
 
 class Contagem(NamedTuple):
@@ -82,6 +119,11 @@ class ItemAvaliado:
     avisos: tuple[str, ...] = ()
     #: Extra numbers the metric produced (when the maximum happened, points dropped).
     detalhes: Mapping[str, Any] = field(default_factory=dict)
+    #: Whether :attr:`valor` and :attr:`limite` are fractions, printed as percentages.
+    fracao: bool = False
+    #: Where in time the error is; only for a failed item of a metric that gives its
+    #: pointwise error, ``None`` otherwise.
+    diagnostico: Diagnostico | None = None
 
 
 @dataclass(frozen=True)
@@ -185,20 +227,82 @@ def avaliar(
                 serie.simplificado,
                 criterio.parametros,
             )
+            passou = resultado.valor <= criterio.limite
+            diagnostico = None
+            if not passou and resultado.erro_pontual is not None:
+                diagnostico = diagnosticar(
+                    serie.tempo, resultado.erro_pontual, resultado.agregacao
+                )
             itens.append(
                 ItemAvaliado(
                     metrica=criterio.metrica,
                     variavel=nome,
                     valor=resultado.valor,
                     limite=criterio.limite,
-                    passou=resultado.valor <= criterio.limite,
+                    passou=passou,
                     obrigatorio=criterio.obrigatorio,
                     descricao=resultado.descricao,
                     avisos=tuple(resultado.avisos),
                     detalhes=dict(resultado.detalhes),
+                    fracao=resultado.fracao,
+                    diagnostico=diagnostico,
                 )
             )
     return Veredito(nivel=_decidir(itens, niveis), criterios=tuple(itens))
+
+
+# --- where the error is (capability V3) --------------------------------------
+
+
+def diagnosticar(
+    tempo: np.ndarray, erro_pontual: np.ndarray, agregacao: str | None
+) -> Diagnostico | None:
+    """Find the window that holds most of the error and say which phase it is in.
+
+    The error is accumulated point by point, as the metric itself adds it up (squared in
+    NRMSE, relative in MAPE), and not weighted by time: the window is where 80% of what the
+    metric measured is, and the simulation grid is uniform anyway. Of the windows holding
+    that share, the shortest is taken, the first one on a tie, so an error confined to the
+    start gives a window that starts at the start. ``None`` when there is no error at all.
+    """
+    tempo = np.asarray(tempo, dtype=float)
+    erro = np.nan_to_num(np.asarray(erro_pontual, dtype=float), nan=0.0)
+    acumulado = np.cumsum(erro)
+    total = float(acumulado[-1])
+    if total <= 0.0:
+        return None
+
+    antes = np.r_[0.0, acumulado[:-1]]
+    # A relative slack, so a share that is 80% up to rounding is not missed by one point.
+    alvo = antes + FRACAO_CONCENTRADA * total * (1.0 - 1e-12)
+    fins = np.searchsorted(acumulado, alvo, side="left")
+    possiveis = fins < tempo.size
+    inicios = np.flatnonzero(possiveis)
+    fins = fins[possiveis]
+    melhor = int(np.argmin(tempo[fins] - tempo[inicios]))
+    i, j = int(inicios[melhor]), int(fins[melhor])
+
+    duracao = tempo[-1] - tempo[0]
+    fim_do_transiente = tempo[0] + FRACAO_DA_FASE * duracao
+    inicio_do_estacionario = tempo[-1] - FRACAO_DA_FASE * duracao
+    if tempo[j] <= fim_do_transiente:
+        fase = TRANSIENTE
+    elif tempo[i] >= inicio_do_estacionario:
+        fase = ESTACIONARIO
+    else:
+        fase = AO_LONGO
+    return Diagnostico(
+        inicio=float(tempo[i]),
+        fim=float(tempo[j]),
+        fracao_do_erro=float(acumulado[j] - antes[i]) / total,
+        fase=fase,
+        valor_transiente=metrics.agregar(
+            erro_pontual, agregacao, tempo <= fim_do_transiente
+        ),
+        valor_estacionario=metrics.agregar(
+            erro_pontual, agregacao, tempo >= inicio_do_estacionario
+        ),
+    )
 
 
 # --- qualitative criteria (capability L3) ------------------------------------
@@ -313,6 +417,7 @@ def _item_de_equilibrio(
         obrigatorio=criterio.obrigatorio,
         descricao="o erro relativo entre os dois equilíbrios (fração: 0,05 = 5%)",
         avisos=avisos,
+        fracao=True,
         detalhes={
             "equilibrio_original": original,
             "equilibrio_simplificado": simplificado,

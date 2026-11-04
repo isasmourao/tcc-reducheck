@@ -1,0 +1,101 @@
+// Simplified NLRP3 inflammasome model (Julia's test model).
+//
+// Faithful transcription of `edos` from
+// referencia/nlrp3/nlrp3_simplificado.ipynb (Google Colab notebook
+// 1tHLVyrbm1dvhyVXkAGQdVsugNZyz5eDl, downloaded on 2026-11-04).
+//
+// Names and values are exactly the ones used in the notebook, including the
+// renamed parameters (novodelta1, Gnovo). The original model is
+// modelos/nlrp3_original.ant. What the simplification does, as read from the
+// code (13 -> 8 variables):
+//
+//   * NLRP3i removed: NF-kB feeds NLRP3a directly, and the degradation of
+//     NLRP3a uses novodelta1 = 0.0025 instead of delta1 = 0.002;
+//   * ASCf, proC1 and proIL18 removed through their conservation laws
+//     (ASCf = 1 - ASCb, proC1 = 1 - C1, proIL18 = 1 - IL18c - IL18e);
+//   * IL1bc removed: a fraction j = 0.7 of the cleaved pro-IL-1b goes
+//     straight to IL1Be;
+//   * proIL1b is called proIL1B and IL1be is called IL1Be.
+//
+// Open questions about the simplification: referencia/nlrp3/duvidas.md.
+//
+// Time is in minutes. The state variables are plain ODE variables (rate
+// rules), not species in a compartment.
+
+function hill(x, K, n)
+  x^n / (K^n + x^n)
+end
+
+function sinal(NLRP3o, a, b, c)
+  1 / (1 + ((NLRP3o + a) / b)^(-c))
+end
+
+model nlrp3_simp
+
+  // --- Parameters (same names and values as in the notebook) ---------------
+  // NF-kB
+  nfkb0      = 0.25;
+  gammaNF    = 2;
+  NF_50      = 0.3;
+  h          = 0.55;
+  s          = 0.8;
+  tau        = 10;
+  S1         = 1;
+  // NLRP3
+  alpha1     = 0.07;
+  S2         = 1;        // declared in the notebook, not used by `edos`
+  k1         = 0.7;      // declared in the notebook, not used by `edos`
+  novodelta1 = 0.0025;
+  k2         = 1;
+  // ASC
+  k3         = 0.04;
+  a          = 1;
+  b          = 2;
+  c          = 1000;
+  // Caspase-1
+  k4         = 0.03;
+  C1_50      = 0.3;
+  gammaC1    = 2;
+  // Gasdermin
+  Gnovo      = 0.08;
+  // Cytokines
+  alpha3     = 0.06;
+  alpha4     = 1;
+  alpha5     = 1;
+  k5         = 1;        // declared in the notebook, not used by `edos`
+  delta2     = 0.004;
+  k6         = 1;        // declared in the notebook, not used by `edos`
+  // New in the simplification
+  j          = 0.7;      // fraction of cellular IL-1b that becomes extracellular
+
+  // --- Input: nuclear NF-kB, same as in the original ----------------------
+  // Written without piecewise for the same reason as in nlrp3_original.ant
+  // (referencia/nlrp3/duvidas.md, item 1); at t = 0 it is exactly 0.25.
+  nfkbn := S1 * h * exp(-(ln(time / tau))^2 / s) + nfkb0;
+
+  // --- Auxiliary terms (written inline in the notebook) -------------------
+  hNF  := hill(nfkbn - nfkb0, NF_50, gammaNF);
+  hC1  := hill(C1, C1_50, gammaC1);
+  sASC := sinal(NLRP3o, a, b, c);
+
+  // --- Equations (same order as the vector returned by `edos`) -----------
+  NLRP3a'  = alpha1 * hNF - (k2 * (NLRP3a)^2) - (novodelta1*NLRP3a);
+  NLRP3o'  = (k2 * (NLRP3a)^2);
+  ASCb'    = k3 * sASC * (1 - ASCb);
+  C1'      = k4 * ASCb * (1 - C1);
+  IL18c'   = alpha5 * hC1 * (1 - (IL18c + IL18e)) - Gnovo*IL18c;
+  IL18e'   = Gnovo*IL18c;
+  proIL1B' = (hNF*alpha3) - (hC1*alpha4*proIL1B) - (delta2*proIL1B);
+  IL1Be'   = j*(hC1*alpha4*proIL1B);
+
+  // --- Initial conditions (`valores_iniciais`: all zero) -------------------
+  NLRP3a  = 0.0;
+  NLRP3o  = 0.0;
+  ASCb    = 0.0;
+  C1      = 0.0;
+  IL18c   = 0.0;
+  IL18e   = 0.0;
+  proIL1B = 0.0;
+  IL1Be   = 0.0;
+
+end

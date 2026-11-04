@@ -123,6 +123,11 @@ afirmar qual é o modelo de referência.
 de quase sete ordens de grandeza. Remover `k_3·Cm` não remove um termo secundário: remove
 **a** fonte de `C2`, que cai de 0,0843 para 2,3e-08. Daí o NRMSE de 0,992.
 
+> **Pendente (questão 54 de `docs/questoes-em-aberto.md`):** o documento de 22/04 se
+> contradiz sobre esse termo. O texto manda removê-lo, e a imagem das equações o mantém.
+> O código segue o texto. A resposta tem que vir da Bárbara e da Ana Clara antes de o texto
+> do TCC atribuir a falha em `C2` à simplificação.
+
 ### Por que falha: `C1` sobe por tabela
 
 `C1` termina em 2,47 contra 10,01 do original (NRMSE 0,682). Parte disso é o efeito em

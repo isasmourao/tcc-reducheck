@@ -73,3 +73,28 @@ mas os limites dos critérios precisam ser escolhidos sabendo disso.
 - **`G` aparece com e sem `k5`:** `k5*G*IL1bc` para IL-1β e só `G*IL18c` para IL-18 (com
   `k5 = 1` dá no mesmo). Há um comentário no notebook, "G = G * k6 (k6 = 1/min)". Confirmar se
   a assimetria é proposital.
+
+## 5. Modelo simplificado (`nlrp3_simplificado.ipynb`)
+
+Também pendente com a Bárbara (questão 56 de `docs/questoes-em-aberto.md`). Os números estão em
+`estudo_de_caso/nlrp3/NOTAS.md`.
+
+- **De onde vem `j = 0.7`?** No original, a fração do IL-1β celular que chega ao meio
+  extracelular é `k5*G / (k5*G + delta2) = 0.08 / 0.084 ≈ 0.952`. Com `0.7`, `IL1be` termina
+  26 % abaixo do original, e essa é a principal reprovação. O valor foi ajustado aos dados do
+  artigo? O notebook compara o simplificado com CSVs do artigo (`b.csv` para `IL1Be`), que não
+  vieram junto.
+- **De onde vem `novodelta1 = 0.0025`?** O comentário diz "j * delta1 = 1.25 * 0.002 = 0.0025",
+  mas `j = 0.7` no mesmo notebook, então o `j` do comentário é outro número. Na exploração da
+  `NOTAS.md`, voltar ao `delta1 = 0.002` melhora `NLRP3a` e piora muito `IL18c` (erro final de
+  6 % para 56 %), o que sugere que `0.0025` foi calibrado para compensar a retirada de `NLRP3i`.
+- **O objetivo do simplificado é reproduzir o original ou os dados do artigo?** O notebook só o
+  compara com o artigo. A biblioteca compara com o original. Se o objetivo for o artigo, uma
+  reprovação contra o original não quer dizer que a simplificação é ruim, e o texto precisa
+  deixar isso claro.
+- **Parâmetros declarados e não usados:** `S2`, `k1`, `k5` e `k6`. Estão no SBML com o mesmo
+  valor, para manter a transcrição fiel.
+- **A fração `1 - j` do IL-1β clivado some** (não vai para nenhuma variável). No original, o
+  que não sai da célula é degradado por `delta2`. Confirmar se a perda é intencional.
+- **Quais variáveis importam e com quais limites?** A configuração usa, por ora, os critérios
+  do estudo de caso da Verly, com todas as variáveis como core.

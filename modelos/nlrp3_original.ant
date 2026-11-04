@@ -1,0 +1,108 @@
+// NLRP3 inflammasome activation driven by nuclear NF-kB.
+//
+// Faithful transcription of `dinamica_nlrp3` from
+// referencia/nlrp3/nlrp3_original.ipynb (Google Colab notebook
+// 1rWdxS2aI9BPARkIULzG4vDL5ztHCElSi, downloaded on 2026-11-04).
+//
+// The names of the parameters, of the state variables and of the auxiliary
+// functions are exactly the ones used in the notebook. Nothing was
+// simplified or "fixed" here: the open questions raised while reading the
+// code are listed in referencia/nlrp3/duvidas.md.
+//
+// Time is in minutes (the notebook plots label the axis "Minutos").
+//
+// The state variables are plain ODE variables (rate rules), not species in a
+// compartment, so that no compartment volume scales the equations.
+
+// Hill function, as `hill(x, K, n)` in the notebook.
+function hill(x, K, n)
+  x^n / (K^n + x^n)
+end
+
+// ASC signalling switch, as `sinal(NLRP3o, a, b, c)` in the notebook.
+function sinal(NLRP3o, a, b, c)
+  1 / (1 + ((NLRP3o + a) / b)^(-c))
+end
+
+model nlrp3_original
+
+  // --- Parameters (same names and values as in the notebook) ---------------
+  // NF-kB
+  nfkb0   = 0.25;
+  gammaNF = 2;
+  NF_50   = 0.3;
+  h       = 0.55;
+  s       = 0.8;
+  tau     = 10;
+  S1      = 1;
+  // NLRP3
+  alpha1  = 0.07;
+  S2      = 1;
+  k1      = 0.7;
+  delta1  = 0.002;
+  k2      = 1;
+  // ASC
+  k3      = 0.04;
+  a       = 1;
+  b       = 2;
+  c       = 1000;
+  // Caspase-1
+  k4      = 0.03;
+  C1_50   = 0.3;
+  gammaC1 = 2;
+  // Gasdermin
+  G       = 0.08;
+  // Cytokines
+  alpha3  = 0.06;
+  alpha4  = 1;
+  alpha5  = 1;
+  k5      = 1;
+  delta2  = 0.004;
+
+  // --- Input: nuclear NF-kB as an explicit function of time ---------------
+  // `nfkbn(t)` in the notebook: 0.25 at t = 0, the log-normal pulse otherwise.
+  // The notebook's t = 0 branch only avoids numpy's warning on log(0). It is
+  // not written as a piecewise here because libRoadRunner's CVODE refuses to
+  // start with that piecewise and c = 1000 ("Initial ewt has component(s)
+  // equal to zero"). Without it, at t = 0 IEEE arithmetic gives
+  // ln(0) = -inf, exp(-inf) = 0 and nfkbn = nfkb0 = 0.25, the same value as
+  // the notebook's branch (and its limit as t -> 0), so nothing changes.
+  // See referencia/nlrp3/duvidas.md, item 1.
+  nfkbn := S1 * h * exp(-(ln(time / tau))^2 / s) + nfkb0;
+
+  // --- Auxiliary terms (written inline in the notebook) -------------------
+  hNF  := hill(nfkbn - nfkb0, NF_50, gammaNF);   // NF-kB activation
+  hC1  := hill(C1, C1_50, gammaC1);              // caspase-1 cleavage
+  sASC := sinal(NLRP3o, a, b, c);                // ASC recruitment switch
+
+  // --- Equations (same order as the vector returned by `dinamica_nlrp3`) --
+  NLRP3i'  = alpha1 * hNF - S2*k1*NLRP3i - delta1*NLRP3i;
+  NLRP3a'  = S2*k1*NLRP3i - k2*(NLRP3a^2) - delta1*NLRP3a;
+  NLRP3o'  = k2*(NLRP3a^2);
+  ASCf'    = -k3 * sASC * ASCf;
+  ASCb'    = k3 * sASC * ASCf;
+  proC1'   = -k4 * ASCb * proC1;
+  C1'      = k4 * ASCb * proC1;
+  proIL1b' = (hNF*alpha3) - (hC1*alpha4*proIL1b) - (delta2*proIL1b);
+  IL1bc'   = (hC1*alpha4*proIL1b) - (k5 * G * IL1bc) - (delta2*IL1bc);
+  IL1be'   = (k5 * G * IL1bc);
+  proIL18' = -(alpha5 * hC1) * proIL18;
+  IL18c'   = (alpha5 * hC1 * proIL18) - (G * IL18c);
+  IL18e'   = G * IL18c;
+
+  // --- Initial conditions (`valores_iniciais` in the notebook) ------------
+  NLRP3i  = 0.0;
+  NLRP3a  = 0.0;
+  NLRP3o  = 0.0;
+  ASCf    = 1.0;
+  ASCb    = 0.0;
+  proC1   = 1.0;
+  C1      = 0.0;
+  proIL1b = 0.0;
+  IL1bc   = 0.0;
+  IL1be   = 0.0;
+  proIL18 = 1.0;
+  IL18c   = 0.0;
+  IL18e   = 0.0;
+
+end

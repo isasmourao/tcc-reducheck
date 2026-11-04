@@ -53,9 +53,9 @@ addopts = "-ra"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# Cópia intocada do código original da Verly (ver referencia/README.md):
-# não pode ser alterada, nem para satisfazer o lint.
-extend-exclude = ["referencia/bone_estradiol.py"]
+# Cópias intocadas dos códigos originais (ver referencia/README.md e
+# referencia/nlrp3/README.md): não podem ser alteradas, nem para satisfazer o lint.
+extend-exclude = ["referencia/bone_estradiol.py", "referencia/nlrp3/nlrp3_original.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "D"]

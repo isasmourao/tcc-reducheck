@@ -291,3 +291,68 @@ def test_the_time_unit_is_read_from_the_model_when_it_declares_one(tmp_path: Pat
     from test_pipeline import FIXTURES_DIR
 
     assert reducheck.simulation.unidade_de_tempo(FIXTURES_DIR / "qssa_ok_original.xml") is None
+
+
+# --- what each metric measures, and the filter by variable -------------------------
+
+
+def test_the_report_explains_only_the_metrics_it_uses(tmp_path: Path) -> None:
+    resultado = rodar(tmp_path, "config_qssa_ok.yaml", "[html, md]")
+    html = resultado.caminhos["html"].read_text(encoding="utf-8")
+    markdown = resultado.caminhos["md"].read_text(encoding="utf-8")
+
+    assert "O que cada métrica mede" in html and "O que cada métrica mede" in markdown
+    explicacao = report.EXPLICACOES_DAS_METRICAS["nrmse"]
+    assert explicacao in html
+    assert f"- **nrmse**: {explicacao}" in markdown
+    # qssa_ok declares nrmse only: the other metrics are not described.
+    assert report.EXPLICACOES_DAS_METRICAS["mape"] not in html
+
+
+def test_every_built_in_criterion_has_a_plain_explanation() -> None:
+    from reducheck.config import ANALISES_QUALITATIVAS
+
+    # Listed by hand: the registry may also hold metrics other tests registered from outside.
+    da_biblioteca = {"nrmse", "mape", "erro_max_abs", "erro_max_rel", "erro_estacionario"}
+    assert set(report.EXPLICACOES_DAS_METRICAS) == da_biblioteca | ANALISES_QUALITATIVAS
+
+
+def test_a_metric_without_an_explanation_falls_back_to_its_description() -> None:
+    from reducheck.verdict import ItemAvaliado, Veredito
+
+    item = ItemAvaliado(
+        metrica="erro_medio_abs",
+        variavel="X",
+        valor=0.1,
+        limite=0.2,
+        passou=True,
+        descricao="erro absoluto médio",
+    )
+
+    explicadas = report.explicar_metricas(Veredito(nivel="APROVADO", criterios=(item,)))
+
+    assert explicadas == [{"nome": "erro_medio_abs", "texto": "Erro absoluto médio."}]
+
+
+def test_the_html_tags_rows_reasons_and_plots_with_their_variable(tmp_path: Path) -> None:
+    resultado = rodar(tmp_path, "config_qssa_fail.yaml", "[html]")
+    html = resultado.caminhos["html"].read_text(encoding="utf-8")
+
+    nomes = list(resultado.series)
+    assert len(nomes) > 1
+    assert 'id="filtro"' in html
+    for nome in nomes:
+        assert f'data-filtro="{nome}"' in html
+        assert f'<figure data-variavel="{nome}">' in html
+    for item in resultado.criterios:
+        assert f'<td data-variavel="{item.variavel}">{item.variavel}</td>' in html
+    assert re.search(r'<li data-variavel="C">nrmse em C falhou', html)
+
+
+def test_a_criterion_about_the_whole_model_is_never_filtered_out(tmp_path: Path) -> None:
+    resultado = rodar(tmp_path, "config_qualitativo.yaml", "[html]")
+    html = resultado.caminhos["html"].read_text(encoding="utf-8")
+
+    assert any(item.metrica == "estabilidade_local" for item in resultado.criterios)
+    assert "<td>—</td>" in html
+    assert 'data-variavel="—"' not in html

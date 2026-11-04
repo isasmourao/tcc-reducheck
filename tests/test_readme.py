@@ -121,8 +121,8 @@ def roda_e_compara(
     impresso = capsys.readouterr().out.splitlines()
     (mostrado,) = [bloco for bloco in blocos(trecho, "text") if bloco.startswith("Veredito")]
     for linha in filter(None, mostrado.splitlines()):
-        if linha.startswith("Relatório:"):
-            assert any(saida.startswith("Relatório:") for saida in impresso)
+        if linha.startswith("Relatório "):
+            assert any(saida.startswith("Relatório ") for saida in impresso)
         else:
             assert linha in impresso
     return codigo

@@ -80,12 +80,22 @@ reducheck verificar exemplos/minimo.yaml
 ```
 
 ```text
-Veredito: APROVADO
-Critérios atendidos: 1 de 1 (100,0%) — obrigatórios 1/1, desejáveis 0/0
-Falhas obrigatórias: nenhuma.
-Relatório: C:\...\exemplos\resultados\relatorio.html
-Avisos: 1 (no relatório)
+Veredito   APROVADO
+Critérios  1 de 1 atendidos (100,0%) · obrigatórios 1/1 · desejáveis 0/0
+Falhas     nenhuma
+
+Relatório  C:\...\exemplos\resultados\relatorio.html
+Avisos     1 (no relatório)
 ```
+
+Para abrir o relatório no navegador assim que ele for gerado, acrescente `--abrir`:
+
+```bash
+reducheck verificar exemplos/minimo.yaml --abrir
+```
+
+Sem a opção, abra o `relatorio.html` com dois cliques no Explorador de Arquivos, ou pelo terminal
+(`start` no Windows, `open` no macOS, `xdg-open` no Linux).
 
 O NRMSE medido em `X` é 0,00523 (0,5%), dez vezes abaixo do limite: a agregação não é exata
 (`0,20 ≠ 0,22`), mas as escalas são próximas. Abra o `relatorio.html` para ver a tabela, o gráfico
@@ -112,6 +122,19 @@ resultado.series["X"]  # as duas séries de X, já na mesma malha, para plotar
 
 ## Como ler o relatório
 
+**O original é a referência de tudo.** Cada métrica mede quanto o simplificado se afasta do
+original: a faixa, o valor final e o equilíbrio usados para normalizar o erro são sempre os do
+original. A comparação não é simétrica (trocar os dois modelos de lugar no YAML muda os números),
+e o resultado só é tão bom quanto o modelo original: a biblioteca verifica a fidelidade ao
+original, não compara com dados experimentais. A única medida que não envolve o simplificado é o
+ruído numérico, que compara o original com ele mesmo.
+
+O `relatorio.html` tem uma seção "O que cada métrica mede", que explica em palavras simples cada
+métrica usada naquele relatório. No topo há uma barra de filtro por variável: por padrão tudo
+aparece; escolhendo uma ou mais variáveis, a tabela de critérios, as razões, os avisos de cada item
+e os gráficos passam a mostrar só essas. O que vale para o modelo inteiro (a estabilidade local e
+os avisos gerais) continua sempre visível.
+
 ### O veredito
 
 Cada par (critério, variável) é um **item**. Dois critérios aplicados a três variáveis são seis
@@ -130,7 +153,10 @@ negativa param a execução com uma mensagem que diz o campo, a variável ou o i
 
 ### No terminal
 
-`reducheck verificar` imprime de 3 a 5 linhas e sai com um código que pode ser usado em scripts:
+`reducheck verificar` imprime um resumo curto (o veredito, as contagens, até três falhas de cada
+tipo, uma por linha, e o caminho do relatório) e sai com um código que pode ser usado em scripts.
+Num terminal o resumo sai colorido; num arquivo, num pipe ou com a variável `NO_COLOR` definida,
+sai em texto puro.
 
 | Código | Significado |
 | --- | --- |
@@ -147,12 +173,18 @@ reducheck verificar tests/fixtures/config_qssa_fail.yaml
 ```
 
 ```text
-Veredito: REPROVADO
-Critérios atendidos: 1 de 2 (50,0%) — obrigatórios 1/2, desejáveis 0/0
-Falhas obrigatórias (1 de 2): nrmse em C falhou: 52% (limite 5%, 940% acima do limite), erro concentrado entre t = 4,9 e t = 28,8 (ao longo da simulação); no transiente o erro é 40,1% e no estado estacionário, 37,2%.
-Relatório: C:\...\tests\fixtures\resultados\resultado.json
-Avisos: 1 (no relatório)
+Veredito   REPROVADO
+Critérios  1 de 2 atendidos (50,0%) · obrigatórios 1/2 · desejáveis 0/0
+
+Falhas obrigatórias (1 de 2)
+  × nrmse  C  52%  limite 5%  erro em t = 4,9 a 28,8 (ao longo da simulação)
+
+Relatório  C:\...\tests\fixtures\resultados\resultado.json
+Avisos     1 (no relatório)
 ```
+
+A razão completa de cada falha (quanto acima do limite e o erro no transiente e no estado
+estacionário) está no relatório.
 
 ### A razão de cada falha
 

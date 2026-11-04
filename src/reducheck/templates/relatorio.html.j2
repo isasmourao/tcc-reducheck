@@ -43,6 +43,22 @@
        font-size: 0.9rem; }
   dt { color: var(--suave); }
   dd { margin: 0; }
+  [hidden] { display: none !important; }
+  .filtro { position: sticky; top: 0; z-index: 1; background: var(--fundo);
+            border-bottom: 1px solid var(--linha); padding: 0.6rem 0; margin-top: 1.5rem;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+  .filtro .rotulo { color: var(--suave); font-size: 0.85rem; margin-right: 0.3rem; }
+  .filtro button { font: inherit; font-size: 0.85rem; padding: 0.15rem 0.7rem;
+                   border: 1px solid var(--linha); border-radius: 1rem; background: var(--fundo);
+                   color: var(--tinta); cursor: pointer; }
+  .filtro button[aria-pressed="true"] { background: var(--tinta); border-color: var(--tinta);
+                                        color: var(--fundo); }
+  .filtro button:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }
+  .filtro .estado { flex-basis: 100%; color: var(--suave); font-size: 0.8rem; }
+  dl.metricas { display: block; }
+  dl.metricas dt { color: var(--tinta); font-weight: 600; margin-top: 0.8rem;
+                   font-family: ui-monospace, Consolas, monospace; }
+  dl.metricas dd { margin: 0.15rem 0 0; }
 </style>
 </head>
 <body>
@@ -58,6 +74,17 @@
 <p class="nota">{{ nota_dos_niveis }}</p>
 {% endif %}
 
+{% if variaveis_do_filtro | length > 1 %}
+<div class="filtro" id="filtro" role="group" aria-label="Filtrar por variável" hidden>
+  <span class="rotulo">Variáveis:</span>
+  <button type="button" data-filtro="" aria-pressed="true">Todas</button>
+  {% for nome in variaveis_do_filtro %}
+  <button type="button" data-filtro="{{ nome }}" aria-pressed="false">{{ nome }}</button>
+  {% endfor %}
+  <span class="estado" id="filtro-estado">Mostrando todas as variáveis.</span>
+</div>
+{% endif %}
+
 <h2>Critérios</h2>
 <table>
   <thead>
@@ -66,11 +93,11 @@
       <th>Tipo</th><th>Resultado</th>
     </tr>
   </thead>
-  <tbody>
+  <tbody data-filtravel>
   {% for item in criterios %}
     <tr class="{{ item.resultado }}">
       <td>{{ item.metrica }}{% if item.descricao %}<span class="descricao">{{ item.descricao }}</span>{% endif %}</td>
-      <td>{{ item.variavel }}</td>
+      <td{% if item.filtro %} data-variavel="{{ item.filtro }}"{% endif %}>{{ item.variavel }}</td>
       <td class="numero">{{ item.valor }}</td>
       <td class="numero">{{ item.limite }}</td>
       <td>{{ item.tipo }}</td>
@@ -79,22 +106,36 @@
   {% endfor %}
   </tbody>
 </table>
+<p class="nota vazio-filtro" hidden>Nenhum critério nas variáveis escolhidas.</p>
 <p class="nota">As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.</p>
 
+{% if metricas %}
+<h2>O que cada métrica mede</h2>
+<p class="nota">Os valores da tabela são erros: quanto menor, mais o simplificado se parece com
+o original. Um critério passa quando o valor fica abaixo do limite ou igual a ele.</p>
+<dl class="metricas">
+  {% for metrica in metricas %}
+  <dt>{{ metrica.nome }}</dt><dd>{{ metrica.texto }}</dd>
+  {% endfor %}
+</dl>
+{% endif %}
+
 <h2>Razões</h2>
-{% if razoes %}
-<ul>
-  {% for razao in razoes %}<li>{{ razao }}</li>{% endfor %}
+{% if razoes_por_variavel %}
+<ul data-filtravel>
+  {% for variavel, razao in razoes_por_variavel %}<li{% if variavel %} data-variavel="{{ variavel }}"{% endif %}>{{ razao }}</li>{% endfor %}
 </ul>
+<p class="vazio-filtro" hidden>Nenhum critério falhou nas variáveis escolhidas.</p>
 {% else %}
 <p>Nenhum critério falhou.</p>
 {% endif %}
 
 <h2>Avisos</h2>
-{% if avisos %}
-<ul>
-  {% for aviso in avisos %}<li>{{ aviso }}</li>{% endfor %}
+{% if avisos_por_variavel %}
+<ul data-filtravel>
+  {% for variavel, aviso in avisos_por_variavel %}<li{% if variavel %} data-variavel="{{ variavel }}"{% endif %}>{{ aviso }}</li>{% endfor %}
 </ul>
+<p class="vazio-filtro" hidden>Nenhum aviso nas variáveis escolhidas.</p>
 {% else %}
 <p>Nenhum aviso.</p>
 {% endif %}
@@ -112,7 +153,7 @@
   <tbody>
   {% for linha in qualitativo.equilibrio %}
     <tr class="{{ linha.resultado }}">
-      <td>{{ linha.variavel }}</td>
+      <td{% if linha.filtro %} data-variavel="{{ linha.filtro }}"{% endif %}>{{ linha.variavel }}</td>
       <td class="numero">{{ linha.original }}</td>
       <td class="numero">{{ linha.simplificado }}</td>
       <td class="numero">{{ linha.erro }}</td>
@@ -152,8 +193,9 @@
 {% endif %}
 <h2>Gráficos</h2>
 {% if graficos %}
+<div data-filtravel>
   {% for grafico in graficos %}
-  <figure>
+  <figure data-variavel="{{ grafico.variavel }}">
     <img alt="Trajetórias e erro da variável {{ grafico.variavel }}"
          src="data:image/png;base64,{{ grafico.base64 }}">
     <figcaption>
@@ -164,6 +206,8 @@
     </figcaption>
   </figure>
   {% endfor %}
+</div>
+<p class="vazio-filtro" hidden>Nenhum gráfico nas variáveis escolhidas.</p>
 {% else %}
 <p>Nenhuma variável mapeada para desenhar.</p>
 {% endif %}
@@ -174,5 +218,56 @@
   <dt>{{ rotulo }}</dt><dd>{{ valor }}</dd>
   {% endfor %}
 </dl>
+<script>
+/* Filtro por variável. Sem JavaScript a barra continua escondida e tudo fica visível. */
+(function () {
+  var barra = document.getElementById("filtro");
+  if (!barra) return;
+  barra.hidden = false;
+  var botoes = Array.prototype.slice.call(barra.querySelectorAll("button[data-filtro]"));
+  var estado = document.getElementById("filtro-estado");
+  var escolhidas = [];
+
+  function aplicar() {
+    var todas = escolhidas.length === 0;
+    document.querySelectorAll("[data-variavel]").forEach(function (el) {
+      var alvo = el.tagName === "TD" ? el.closest("tr") : el;
+      alvo.hidden = !(todas || escolhidas.indexOf(el.getAttribute("data-variavel")) >= 0);
+    });
+    document.querySelectorAll("[data-filtravel]").forEach(function (lista) {
+      var visiveis = Array.prototype.some.call(lista.children, function (filho) {
+        return !filho.hidden;
+      });
+      var aviso = lista.tagName === "TBODY"
+        ? lista.closest("table").nextElementSibling
+        : lista.nextElementSibling;
+      if (aviso && aviso.classList.contains("vazio-filtro")) aviso.hidden = visiveis;
+    });
+    botoes.forEach(function (botao) {
+      var nome = botao.getAttribute("data-filtro");
+      var ligado = nome === "" ? todas : escolhidas.indexOf(nome) >= 0;
+      botao.setAttribute("aria-pressed", String(ligado));
+    });
+    estado.textContent = todas
+      ? "Mostrando todas as variáveis."
+      : "Mostrando: " + escolhidas.join(", ") +
+        ". Itens que valem para o modelo inteiro continuam visíveis.";
+  }
+
+  botoes.forEach(function (botao) {
+    botao.addEventListener("click", function () {
+      var nome = botao.getAttribute("data-filtro");
+      if (nome === "") {
+        escolhidas = [];
+      } else if (escolhidas.indexOf(nome) >= 0) {
+        escolhidas = escolhidas.filter(function (outra) { return outra !== nome; });
+      } else {
+        escolhidas.push(nome);
+      }
+      aplicar();
+    });
+  });
+})();
+</script>
 </body>
 </html>

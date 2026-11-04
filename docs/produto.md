@@ -155,12 +155,15 @@ biblioteca: o YAML passa a aceitar o nome e os parâmetros dela sem que nada no 
 
 **Duas formas de usar:**
 
-- Linha de comando: `reducheck verificar config.yaml [--saida pasta]`, que imprime um resumo de
-  3 a 5 linhas (veredito, porcentagem, falhas obrigatórias, caminho do relatório) e sai com
+- Linha de comando: `reducheck verificar config.yaml [--saida pasta] [--abrir]`, que imprime um
+  resumo em bloco (veredito, porcentagem, até 3 falhas obrigatórias e até 3 desejáveis, uma por
+  linha, e o caminho do relatório), colorido só num terminal e sem cor com `NO_COLOR`, e sai com
   **0** aprovado, **1** aprovado com ressalvas, **2** reprovado e **3** erro de configuração,
   mapeamento, métrica ou simulação — um erro nunca vira veredito (acrescentado na issue #15).
   `--saida` substitui `relatorio.pasta`; os formatos escritos continuam sendo os de
-  `relatorio.formatos` (ver `docs/questoes-em-aberto.md`, item 32).
+  `relatorio.formatos` (ver `docs/questoes-em-aberto.md`, item 32). `--abrir` abre o
+  `relatorio.html` no navegador ao terminar, sem mudar o código de saída (acrescentado em
+  03/11/2026, a pedido da Isabella; até então o resumo tinha de 3 a 5 linhas).
 - Python: `resultado = reducheck.verificar("config.yaml")`, depois `resultado.aprovado` e `resultado.porcentagem`
 
 **Antes de simular, a biblioteca valida a entrada e para com uma mensagem clara quando:**

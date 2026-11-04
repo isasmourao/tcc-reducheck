@@ -18,6 +18,17 @@ Obrigatórios: {{ obrigatorios.passados }} de {{ obrigatorios.total }} | Desejá
 
 As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.
 
+{% if metricas %}
+## O que cada métrica mede
+
+Os valores da tabela são erros: quanto menor, mais o simplificado se parece com o original. Um
+critério passa quando o valor fica abaixo do limite ou igual a ele.
+
+{% for metrica in metricas %}
+- **{{ metrica.nome }}**: {{ metrica.texto }}
+{% endfor %}
+
+{% endif %}
 ## Razões
 
 {% if razoes %}

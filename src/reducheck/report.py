@@ -35,16 +35,26 @@ from reducheck import plots, qualitative
 from reducheck.config import Configuracao
 from reducheck.mapping import SerieComparada
 from reducheck.simulation import RuidoNumerico, unidade_de_tempo
-from reducheck.verdict import AO_LONGO, ESTACIONARIO, TRANSIENTE, Contagem, ItemAvaliado, Veredito
+from reducheck.verdict import (
+    AO_LONGO,
+    ESTACIONARIO,
+    SEM_VARIAVEL,
+    TRANSIENTE,
+    Contagem,
+    ItemAvaliado,
+    Veredito,
+)
 
 __all__ = [
     "ARQUIVOS",
     "ARQUIVOS_DE_REPRODUCAO",
+    "EXPLICACOES_DAS_METRICAS",
     "NOME_DO_JSON",
     "MODELOS_DE_RAZAO",
     "como_dicionario",
     "data_legivel",
     "execucao",
+    "explicar_metricas",
     "razao",
     "razoes",
     "salvar",
@@ -203,6 +213,68 @@ def salvar_json(
     )
     caminho.write_text(conteudo + "\n", encoding="utf-8")
     return caminho
+
+
+#: What each metric measures, in plain words, for the "O que cada métrica mede" section of
+#: the readable report. No formula: the formulas are in the docstrings of
+#: :mod:`reducheck.metrics` and in the text of the TCC. A metric registered from outside the
+#: library has no entry here, and the report falls back to its own ``descricao``.
+EXPLICACOES_DAS_METRICAS = {
+    "nrmse": (
+        "O erro médio ao longo de toda a simulação, comparado com a faixa que a variável "
+        "percorre no original (do menor ao maior valor). 5% quer dizer que, em média, o "
+        "simplificado fica afastado do original 5% dessa faixa. Olha a curva inteira, então "
+        "um erro só no começo ou só no fim pesa pouco."
+    ),
+    "mape": (
+        "O erro percentual médio: em cada instante, quanto o simplificado erra em relação ao "
+        "valor do original naquele instante, e depois a média desses erros. Os instantes em "
+        "que o original é praticamente zero ficam de fora, porque dividir por quase zero "
+        "faria um erro minúsculo parecer enorme; o relatório avisa quantos saíram."
+    ),
+    "erro_max_abs": (
+        "A maior distância entre as duas curvas em toda a simulação, na unidade da própria "
+        "variável, e o instante em que ela acontece. Mostra o pior momento, e não a média."
+    ),
+    "erro_max_rel": (
+        "O maior erro percentual em um único instante. Responde \"quanto o simplificado "
+        "chega a errar no pior momento\", mesmo que esse momento seja curto e se dilua na "
+        "média."
+    ),
+    "erro_estacionario": (
+        "A diferença percentual entre os dois modelos no fim da simulação (ou na média do "
+        "trecho final, quando configurado). Diz se o simplificado chega ao mesmo lugar, sem "
+        "olhar o caminho até lá."
+    ),
+    "equilibrio": (
+        "A diferença percentual entre os valores em que cada modelo para de mudar (o "
+        "equilíbrio). Atenção: esse ponto pode estar muito depois do tempo simulado, e o "
+        "relatório diz quando ele foi alcançado."
+    ),
+    "estabilidade_local": (
+        "Se os dois modelos têm o mesmo tipo de equilíbrio: estável (depois de um pequeno "
+        "empurrão, o sistema volta), instável (se afasta) ou marginal (fica no limite entre "
+        "os dois). Não é um número: passa quando a classificação dos dois é a mesma."
+    ),
+}
+
+
+def explicar_metricas(veredito: Veredito) -> list[dict[str, str]]:
+    """Return what each metric used in ``veredito`` measures, in the order they appear.
+
+    Only the metrics of this report, so the section stays short and every entry is one the
+    reader is looking at in the table.
+    """
+    vistas: dict[str, str] = {}
+    for item in veredito.criterios:
+        if item.metrica in vistas:
+            continue
+        texto = EXPLICACOES_DAS_METRICAS.get(item.metrica)
+        if texto is None:
+            texto = item.descricao[:1].upper() + item.descricao[1:] if item.descricao else ""
+            texto = texto and texto.rstrip(".") + "."
+        vistas[item.metrica] = texto
+    return [{"nome": nome, "texto": texto} for nome, texto in vistas.items()]
 
 
 def razoes(veredito: Veredito) -> list[str]:
@@ -371,8 +443,29 @@ def _contexto(
         # Failures first: the reader looks for what went wrong, and the sort is stable, so
         # inside each group the criteria stay in the order they were declared.
         "criterios": [_linha(item) for item in sorted(veredito.criterios, key=_falhou_primeiro)],
+        "metricas": explicar_metricas(veredito),
         "razoes": razoes(veredito),
         "avisos": [*avisos, *veredito.avisos],
+        # The same reasons and warnings, each tagged with its variable (or "" when it is
+        # about the whole run), so the HTML can filter them together with the table.
+        "razoes_por_variavel": [
+            (_filtravel(item.variavel), texto)
+            for item in veredito.criterios
+            if (texto := razao(item)) is not None
+        ],
+        "avisos_por_variavel": [
+            *(("", aviso) for aviso in avisos),
+            *(
+                (_filtravel(item.variavel), f"{item.variavel}: {aviso}")
+                for item in veredito.criterios
+                for aviso in item.avisos
+            ),
+        ],
+        "variaveis_do_filtro": [
+            variavel.nome
+            for variavel in configuracao.variaveis
+            if variavel.simplificado is not None
+        ],
         "qualitativo": _secao_qualitativa(comparacao, configuracao, veredito),
         "graficos": [_grafico(grafico) for grafico in graficos],
         "execucao": _execucao(configuracao, ruido, caminho_config, registro, avisos),
@@ -454,6 +547,7 @@ def _resumo_qualitativo(analise: qualitative.Analise, t_fim: float) -> dict[str,
 def _linha_de_equilibrio(item: ItemAvaliado) -> dict[str, str]:
     return {
         "variavel": item.variavel,
+        "filtro": _filtravel(item.variavel),
         "original": _numero(_como_numero(item.detalhes.get("equilibrio_original"))),
         "simplificado": _numero(_como_numero(item.detalhes.get("equilibrio_simplificado"))),
         "erro": _numero(item.valor),
@@ -484,10 +578,20 @@ def _titulo(configuracao: Configuracao) -> str:
     return f"Verificação: {simplificado} vs. {original}"
 
 
+def _filtravel(variavel: str) -> str:
+    """Return the variable an element is filtered by, or "" for one about the whole model.
+
+    ``estabilidade_local`` is one item with no variable (printed as "—"); it stays visible
+    whatever the reader filters, since it is about every variable at once.
+    """
+    return "" if variavel == SEM_VARIAVEL else variavel
+
+
 def _linha(item: ItemAvaliado) -> dict[str, str]:
     return {
         "metrica": item.metrica,
         "variavel": item.variavel,
+        "filtro": _filtravel(item.variavel),
         "valor": item.valor_texto or _numero(item.valor),
         "limite": item.limite_texto or _numero(item.limite),
         "tipo": "obrigatório" if item.obrigatorio else "desejável",

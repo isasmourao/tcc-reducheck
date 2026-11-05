@@ -350,7 +350,54 @@ def _itens_qualitativos(
 ) -> list[ItemAvaliado]:
     if criterio.metrica == "estabilidade_local":
         return [_item_de_estabilidade(criterio, comparacao)]
+    if criterio.metrica == "comportamento_longo_prazo":
+        return [_item_de_longo_prazo(criterio, comparacao)]
     return [_item_de_equilibrio(criterio, nome, series, comparacao) for nome in nomes]
+
+
+def _item_de_longo_prazo(
+    criterio: Criterio, comparacao: qualitative.Comparacao
+) -> ItemAvaliado:
+    """Check that both models have the same long-run behaviour: both settle, or neither.
+
+    One item about the whole model, like ``estabilidade_local``: it passes when
+    ``original.equilibrio.convergiu == simplificado.equilibrio.convergiu``. It is a
+    statement about the kind of behaviour, not about how close the two models are: Waldherr
+    et al. (2007) separate approximating the quantities from preserving the qualitative
+    dynamics, and Vejchodský (2014) shows the same behaviour coming with a 30% error in the
+    period. So this criterion does not replace the metrics; it sits next to them.
+
+    Limite base da literatura: sem limite (compara dois rótulos).
+    """
+    original = comparacao.original.equilibrio.convergiu
+    simplificado = comparacao.simplificado.equilibrio.convergiu
+    rotulo = {True: "chega", False: "não chega"}
+    if original and simplificado:
+        descricao = "os dois modelos chegam a um equilíbrio"
+    elif not original and not simplificado:
+        descricao = "nenhum dos dois modelos chega a um equilíbrio"
+    else:
+        descricao = (
+            f"o original {rotulo[original]} a um equilíbrio e o simplificado "
+            f"{rotulo[simplificado]}"
+        )
+    return ItemAvaliado(
+        metrica=criterio.metrica,
+        variavel=SEM_VARIAVEL,
+        valor=None,
+        limite=None,
+        valor_texto=f"{rotulo[original]} / {rotulo[simplificado]}",
+        limite_texto="igual",
+        passou=original == simplificado,
+        obrigatorio=criterio.obrigatorio,
+        descricao=descricao,
+        detalhes={
+            "convergiu_original": original,
+            "convergiu_simplificado": simplificado,
+            "metodo_original": comparacao.original.equilibrio.metodo,
+            "metodo_simplificado": comparacao.simplificado.equilibrio.metodo,
+        },
+    )
 
 
 def _item_de_estabilidade(

@@ -1,0 +1,132 @@
+# Simplificação 1 do modelo de Verly et al. (2024) com os limites da LITERATURA.
+#
+# Rodar a partir da raiz do repositório:
+#     reducheck verificar exemplos/limites_da_literatura.yaml --saida resultados/literatura/
+#
+# Mesmos modelos, simulação e variáveis de `estudo_de_caso/simp1.yaml`; o que muda são os
+# critérios. Aqui cada limite vem de um artigo, e o comentário de cada critério diz de qual.
+# Os limites de `simp1.yaml` (convenção do TCC, ainda com a orientadora) não foram tocados.
+#
+# Nenhum limite foi ajustado depois de ver o resultado.
+
+versao: 1
+
+modelos:
+  original: ../modelos/verly_original.xml
+  simplificado: ../modelos/verly_simp1.xml
+
+# Igual a `estudo_de_caso/simp1.yaml`: 720 dias, 1000 pontos (TCC I, seção 4).
+simulacao:
+  t_inicio: 0
+  t_fim: 720
+  pontos: 1000
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+  nao_negativas: true
+
+variaveis:
+  # --- Core: as mesmas de simp1.yaml ----------------------------------------
+  - nome: Cb
+    original: Cb
+    simplificado: Cb
+    core: true
+  - nome: Mb
+    original: Mb
+    simplificado: Mb
+    core: true
+  - nome: C1
+    original: C1
+    simplificado: C1
+    core: true
+  - nome: C2
+    original: C2
+    simplificado: C2
+    core: true
+  - nome: E2
+    original: E2
+    simplificado: E2
+    core: true
+
+  # --- Comparadas, fora das core --------------------------------------------
+  - nome: D
+    original: D
+    simplificado: D
+    core: false
+  - nome: Mo
+    original: Mo
+    simplificado: Mo
+    core: false
+  - nome: M1
+    original: M1
+    simplificado: M1
+    core: false
+  - nome: M2
+    original: M2
+    simplificado: M2
+    core: false
+
+  # --- Eliminadas pela simplificação ----------------------------------------
+  - nome: Cm
+    original: Cm
+    simplificado: null
+    core: false
+  - nome: Mc
+    original: Mc
+    simplificado: null
+    core: false
+
+criterios:
+  # --- Trajetória -------------------------------------------------------------
+  # Rao et al. (2014), BMC Syst Biol 8:52, eq. 14: pararam a redução em I = 0,1.
+  - metrica: erro_integral
+    limite: 0.10
+    variaveis: core
+    obrigatorio: true
+
+  # Limites em dois níveis, como Tillil et al. (PAGE 2024): 10% na saída e 50% em todos
+  # os estados. Aqui o nível de 50% vai para as variáveis que não são core.
+  # [VERIFICAR: a fórmula exata do erro no pôster]
+  - metrica: erro_integral
+    limite: 0.50
+    variaveis: [D, Mo, M1, M2]
+    obrigatorio: false
+
+  # Frøysa et al. (2018) não dão limite absoluto. 0,10 é DERIVADO de Rao (2014): o erro
+  # simétrico é a média de duas integrais de Rao.
+  - metrica: erro_simetrico
+    limite: 0.10
+    variaveis: core
+    obrigatorio: false
+
+  # Snowden, van der Graaf & Tindall (2017a), BMC Syst Biol 11:17: tolerância de 5% no
+  # erro relativo máximo das saídas (critério de parada dos autores, não um padrão).
+  - metrica: erro_max_rel
+    limite: 0.05
+    variaveis: core
+    obrigatorio: false
+
+  # erro_l2_rel (Vejchodský, 2014) fica SEM critério: a literatura não dá limite, e
+  # inventar um número aqui seria pior do que não ter. Os valores dele aparecem só para
+  # comparação, num script à parte. Se um dia houver fonte, seria assim:
+  # - metrica: erro_l2_rel
+  #   limite: ???
+  #   variaveis: core
+
+  # --- Longo prazo: como em simp1.yaml ----------------------------------------
+  # O limite de 0,05 do equilíbrio é convenção do TCC (sem limite na literatura), copiado
+  # de simp1.yaml para que as duas configurações respondam a mesma pergunta de longo prazo.
+  - metrica: equilibrio
+    limite: 0.05
+    variaveis: core
+    obrigatorio: true
+  - metrica: estabilidade_local
+    obrigatorio: true
+  # Os dois chegam a um equilíbrio, ou nenhum chega (sem limite: compara dois rótulos).
+  - metrica: comportamento_longo_prazo
+    obrigatorio: true
+
+relatorio:
+  formatos: [html, md, json]
+  pasta: ../resultados/literatura/
+  niveis: 3

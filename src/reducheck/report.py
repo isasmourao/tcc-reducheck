@@ -272,6 +272,27 @@ EXPLICACOES_DAS_METRICAS = {
         "trecho final, quando configurado). Diz se o simplificado chega ao mesmo lugar, sem "
         "olhar o caminho até lá."
     ),
+    "rmse": (
+        "O erro médio ao longo de toda a simulação, na unidade da própria variável (a raiz "
+        "da média dos quadrados das diferenças). Não é porcentagem, então não dá para "
+        "comparar o valor de uma variável com o de outra."
+    ),
+    "erro_integral": (
+        "O erro percentual médio ao longo do tempo, com cada instante pesando pelo trecho de "
+        "tempo que ele representa. É a medida de Rao et al. (2014), que pararam de "
+        "simplificar quando ela chegou a 10%. Os instantes em que o original é praticamente "
+        "zero ficam de fora, e o relatório avisa quantos saíram."
+    ),
+    "erro_simetrico": (
+        "Como o erro integral, mas medido nos dois sentidos: uma vez em relação ao original e "
+        "outra em relação ao simplificado, e depois a média dos dois. Assim, trocar os dois "
+        "modelos de lugar não muda o número (Frøysa et al., 2018)."
+    ),
+    "erro_l2_rel": (
+        "O tamanho da diferença entre as duas curvas, somada em todo o tempo, comparado com o "
+        "tamanho da própria curva do original. Não divide instante a instante, então funciona "
+        "em variáveis que começam em zero. Um atraso entre as curvas conta como erro."
+    ),
     "equilibrio": (
         "A diferença percentual entre os valores em que cada modelo para de mudar (o "
         "equilíbrio). Atenção: esse ponto pode estar muito depois do tempo simulado, e o "
@@ -281,6 +302,11 @@ EXPLICACOES_DAS_METRICAS = {
         "Se os dois modelos têm o mesmo tipo de equilíbrio: estável (depois de um pequeno "
         "empurrão, o sistema volta), instável (se afasta) ou marginal (fica no limite entre "
         "os dois). Não é um número: passa quando a classificação dos dois é a mesma."
+    ),
+    "comportamento_longo_prazo": (
+        "Se os dois modelos têm o mesmo comportamento no longo prazo: os dois param de mudar "
+        "em algum momento (chegam a um equilíbrio), ou nenhum dos dois para. Não é um número "
+        "e não diz se os dois param no mesmo lugar; para isso existe o critério 'equilibrio'."
     ),
 }
 

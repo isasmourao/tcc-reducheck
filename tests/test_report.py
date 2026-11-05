@@ -313,7 +313,10 @@ def test_every_built_in_criterion_has_a_plain_explanation() -> None:
     from reducheck.config import ANALISES_QUALITATIVAS
 
     # Listed by hand: the registry may also hold metrics other tests registered from outside.
-    da_biblioteca = {"nrmse", "mape", "erro_max_abs", "erro_max_rel", "erro_estacionario"}
+    da_biblioteca = {
+        "nrmse", "mape", "erro_max_abs", "erro_max_rel", "erro_estacionario",
+        "rmse", "erro_integral", "erro_simetrico", "erro_l2_rel",
+    }
     assert set(report.EXPLICACOES_DAS_METRICAS) == da_biblioteca | ANALISES_QUALITATIVAS
 
 

@@ -82,6 +82,8 @@ reducheck verificar exemplos/minimo.yaml
 ```text
 Veredito   APROVADO
 Critérios  1 de 1 atendidos (100,0%) · obrigatórios 1/1 · desejáveis 0/0
+  Trajetória   APROVADO · 1 de 1 · obrigatórios 1/1
+  Longo prazo  não verificada
 Falhas     nenhuma
 
 Relatório  C:\...\exemplos\resultados\relatorio.html
@@ -129,11 +131,26 @@ e o resultado só é tão bom quanto o modelo original: a biblioteca verifica a 
 original, não compara com dados experimentais. A única medida que não envolve o simplificado é o
 ruído numérico, que compara o original com ele mesmo.
 
-O `relatorio.html` tem uma seção "O que cada métrica mede", que explica em palavras simples cada
-métrica usada naquele relatório. No topo há uma barra de filtro por variável: por padrão tudo
-aparece; escolhendo uma ou mais variáveis, a tabela de critérios, as razões, os avisos de cada item
-e os gráficos passam a mostrar só essas. O que vale para o modelo inteiro (a estabilidade local e
-os avisos gerais) continua sempre visível.
+**Uma verificação responde a duas perguntas**, e o relatório mostra cada uma separada:
+
+| Pergunta | Critérios | O que ela não vê |
+| --- | --- | --- |
+| **Trajetória**: o simplificado faz o mesmo caminho que o original, dentro do tempo simulado? | as métricas (`nrmse`, `mape`, `erro_estacionario`, ...) | para onde os modelos iriam depois do fim da simulação |
+| **Longo prazo**: se os dois continuassem rodando, parariam no mesmo lugar, e do mesmo jeito? | `equilibrio` e `estabilidade_local` | o caminho; o equilíbrio pode estar muito depois do tempo simulado |
+
+As duas ficam no mesmo YAML e saem no mesmo relatório, com um comando só. Uma pergunta sem
+nenhum critério declarado aparece como "não verificada". O `relatorio.html` tem abas: **Resumo**
+(o resultado de cada pergunta e uma leitura das duas juntas, que aponta, por exemplo, as
+variáveis que erram o caminho e acertam o equilíbrio), **Trajetória** (critérios, razões e
+gráficos), **Longo prazo** (equilíbrio e estabilidade) e **O que cada um mede** (as duas
+perguntas e cada métrica usada, em palavras simples). O veredito do topo junta as duas: um
+obrigatório que falha em qualquer uma reprova o modelo. O terminal mostra uma linha por pergunta,
+e o `resultado.json` traz as contagens de cada uma em `por_pergunta`.
+
+Nas abas Trajetória e Longo prazo há uma barra de filtro por variável: por padrão tudo aparece;
+escolhendo uma ou mais variáveis, a tabela de critérios, as razões, os avisos de cada item e os
+gráficos passam a mostrar só essas. O que vale para o modelo inteiro (a estabilidade local)
+continua sempre visível.
 
 ### O veredito
 
@@ -175,6 +192,8 @@ reducheck verificar tests/fixtures/config_qssa_fail.yaml
 ```text
 Veredito   REPROVADO
 Critérios  1 de 2 atendidos (50,0%) · obrigatórios 1/2 · desejáveis 0/0
+  Trajetória   REPROVADO · 1 de 2 · obrigatórios 1/2
+  Longo prazo  não verificada
 
 Falhas obrigatórias (1 de 2)
   × nrmse  C  52%  limite 5%  erro em t = 4,9 a 28,8 (ao longo da simulação)

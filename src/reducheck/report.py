@@ -38,7 +38,11 @@ from reducheck.simulation import RuidoNumerico, unidade_de_tempo
 from reducheck.verdict import (
     AO_LONGO,
     ESTACIONARIO,
+    LONGO_PRAZO,
+    PERGUNTAS,
+    REPROVADO,
     SEM_VARIAVEL,
+    TRAJETORIA,
     TRANSIENTE,
     Contagem,
     ItemAvaliado,
@@ -48,10 +52,13 @@ from reducheck.verdict import (
 __all__ = [
     "ARQUIVOS",
     "ARQUIVOS_DE_REPRODUCAO",
+    "COMO_LER_JUNTAS",
     "EXPLICACOES_DAS_METRICAS",
+    "EXPLICACOES_DAS_PERGUNTAS",
     "NOME_DO_JSON",
     "MODELOS_DE_RAZAO",
     "como_dicionario",
+    "leitura_conjunta",
     "data_legivel",
     "execucao",
     "explicar_metricas",
@@ -111,6 +118,11 @@ def como_dicionario(
         "porcentagem": veredito.porcentagem,
         "obrigatorios": _contagem(veredito.obrigatorios),
         "desejaveis": _contagem(veredito.desejaveis),
+        # The same counts for each question alone; ``None`` for a question not declared.
+        "por_pergunta": {
+            pergunta: _resumo_da_parte(veredito.parte(pergunta)) for pergunta in PERGUNTAS
+        },
+        "leitura_conjunta": leitura_conjunta(veredito, comparacao, t_fim),
         "razoes": razoes(veredito),
         "avisos": [*avisos, *veredito.avisos],
         "ruido_numerico": None if ruido is None else _ruido(ruido),
@@ -176,6 +188,20 @@ def _analise(analise: qualitative.Analise, t_fim: float | None) -> dict[str, Any
         "metodo_da_jacobiana": estabilidade.metodo,
         "tolerancia_marginal": estabilidade.tolerancia,
         "limiar_marginal": estabilidade.limiar,
+    }
+
+
+def _resumo_da_parte(parte: Veredito) -> dict[str, Any] | None:
+    """Return the verdict and the counts of one question, or ``None`` if it has no item."""
+    if not parte.criterios:
+        return None
+    return {
+        "veredito": parte.nivel,
+        "porcentagem": parte.porcentagem,
+        "passados": sum(1 for item in parte.criterios if item.passou),
+        "total": len(parte.criterios),
+        "obrigatorios": _contagem(parte.obrigatorios),
+        "desejaveis": _contagem(parte.desejaveis),
     }
 
 
@@ -257,6 +283,158 @@ EXPLICACOES_DAS_METRICAS = {
         "os dois). Não é um número: passa quando a classificação dos dois é a mesma."
     ),
 }
+
+
+#: The two questions in plain words, for the summary and for the "O que cada um mede" tab.
+#: ``pergunta`` is what is asked, ``como`` how it is answered, ``nao_responde`` what it is
+#: blind to -- the last one is what the reader misses when looking at one answer alone.
+EXPLICACOES_DAS_PERGUNTAS = {
+    TRAJETORIA: {
+        "pergunta": (
+            "O simplificado faz o mesmo caminho que o original, dentro do tempo simulado?"
+        ),
+        "como": (
+            "Compara as duas curvas instante a instante, do começo ao fim da simulação. É o "
+            "que aparece nos gráficos."
+        ),
+        "nao_responde": (
+            "Não diz para onde os modelos iriam se a simulação continuasse depois do fim."
+        ),
+        "como_ligar": "uma métrica, como 'nrmse' ou 'erro_estacionario'",
+    },
+    LONGO_PRAZO: {
+        "pergunta": (
+            "Se os dois modelos continuassem rodando, eles parariam no mesmo lugar, e do "
+            "mesmo jeito?"
+        ),
+        "como": (
+            "Procura o ponto em que cada modelo para de mudar (o equilíbrio) e compara esses "
+            "pontos. Também confere se cada modelo volta para esse ponto depois de um pequeno "
+            "empurrão (a estabilidade). Esse ponto pode estar muito depois do tempo simulado, "
+            "então ele não aparece nos gráficos."
+        ),
+        "nao_responde": (
+            "Não diz nada sobre o caminho: dois modelos podem chegar ao mesmo lugar por "
+            "caminhos muito diferentes."
+        ),
+        "como_ligar": "os critérios 'equilibrio' e 'estabilidade_local'",
+    },
+}
+
+#: How to read the two answers together: (trajetória, longo prazo, what it means).
+COMO_LER_JUNTAS = (
+    ("passa", "passa", "Fiel: faz o mesmo caminho e chega ao mesmo lugar."),
+    (
+        "falha",
+        "passa",
+        "Erra o caminho, mas acerta o destino. Não serve para estudar o período simulado; "
+        "só diz que, num futuro distante, os dois modelos concordam.",
+    ),
+    (
+        "passa",
+        "falha",
+        "Acerta o caminho no período simulado, mas, se continuasse, iria para outro lugar. "
+        "Serve só dentro da janela simulada.",
+    ),
+    ("falha", "falha", "Não é fiel nem no caminho nem no destino."),
+)
+
+
+def leitura_conjunta(
+    veredito: Veredito,
+    comparacao: qualitative.Comparacao | None = None,
+    t_fim: float | None = None,
+) -> list[str]:
+    """Return, in plain sentences, what the two answers mean together.
+
+    First the overall reading (one of :data:`COMO_LER_JUNTAS`), then the variables where the
+    two answers disagree, then -- when the equilibrium lies beyond the simulated window --
+    the warning that a passing equilibrium speaks of that distant future. The last one is
+    what makes a variable that is wrong in every plot and right in the equilibrium table
+    read as what it is, instead of as a contradiction.
+    """
+    trajetoria = veredito.parte(TRAJETORIA)
+    longo = veredito.parte(LONGO_PRAZO)
+    if not longo.criterios:
+        ligar = EXPLICACOES_DAS_PERGUNTAS[LONGO_PRAZO]["como_ligar"]
+        return [
+            "Só a trajetória foi verificada: o relatório diz se o simplificado faz o mesmo "
+            "caminho no tempo simulado, mas não compara o equilíbrio. Para comparar, "
+            f"acrescente ao YAML {ligar}."
+        ]
+    if not trajetoria.criterios:
+        ligar = EXPLICACOES_DAS_PERGUNTAS[TRAJETORIA]["como_ligar"]
+        return [
+            "Só o longo prazo foi verificado: o relatório compara o equilíbrio, mas não diz "
+            "se o simplificado faz o mesmo caminho no tempo simulado. Para isso, acrescente "
+            f"ao YAML {ligar}."
+        ]
+
+    def situacao(parte: Veredito) -> str:
+        return "falha" if parte.nivel == REPROVADO else "passa"
+
+    combinacao = (situacao(trajetoria), situacao(longo))
+    significado = next(texto for t, lp, texto in COMO_LER_JUNTAS if (t, lp) == combinacao)
+    frases = [
+        f"Trajetória: {trajetoria.nivel}. Longo prazo: {longo.nivel}. {significado}"
+    ]
+
+    falhou_no_caminho = _variaveis(trajetoria, passou=False)
+    passou_no_caminho = _variaveis(trajetoria, passou=True) - set(falhou_no_caminho)
+    equilibrio = [item for item in longo.criterios if item.metrica == "equilibrio"]
+    destino_certo = [i.variavel for i in equilibrio if i.passou]
+    destino_errado = [i.variavel for i in equilibrio if not i.passou]
+
+    caminho_errado = [nome for nome in destino_certo if nome in falhou_no_caminho]
+    if caminho_errado:
+        frases.append(
+            f"{_lista(caminho_errado)}: a trajetória falhou, mas o equilíbrio passou. Os dois "
+            "modelos se afastam no tempo simulado e só se encontram no equilíbrio."
+        )
+    caminho_certo = [nome for nome in destino_errado if nome in passou_no_caminho]
+    if caminho_certo:
+        frases.append(
+            f"{_lista(caminho_certo)}: a trajetória passou, mas o equilíbrio falhou. Os dois "
+            "modelos andam juntos no tempo simulado e se separam depois."
+        )
+
+    instante = _instante_do_equilibrio(comparacao)
+    if instante is not None and t_fim is not None and t_fim > 0 and instante > t_fim:
+        frases.append(
+            f"Atenção: o equilíbrio só é alcançado em t = {_numero(instante)}, "
+            f"{_numero(instante / t_fim)}× o tempo simulado (que vai até {_numero(t_fim)}). "
+            "Um equilíbrio que passa quer dizer que os modelos concordam nesse futuro "
+            "distante, e não no período que aparece nos gráficos."
+        )
+    return frases
+
+
+def _variaveis(parte: Veredito, passou: bool) -> set[str]:
+    """Return the variables with some mandatory item that passed (or failed) in ``parte``."""
+    return {
+        item.variavel
+        for item in parte.criterios
+        if item.obrigatorio and item.passou is passou and item.variavel != SEM_VARIAVEL
+    }
+
+
+def _instante_do_equilibrio(comparacao: qualitative.Comparacao | None) -> float | None:
+    """Return the later of the two instants at which the equilibrium was reached."""
+    if comparacao is None:
+        return None
+    instantes = [
+        analise.equilibrio.instante
+        for analise in (comparacao.original, comparacao.simplificado)
+        if analise.equilibrio.instante is not None
+    ]
+    return max(instantes) if instantes else None
+
+
+def _lista(nomes: Sequence[str]) -> str:
+    """Join names as a sentence does: "A", "A e B", "A, B e C"."""
+    if len(nomes) == 1:
+        return nomes[0]
+    return f"{', '.join(nomes[:-1])} e {nomes[-1]}"
 
 
 def explicar_metricas(veredito: Veredito) -> list[dict[str, str]]:
@@ -469,6 +647,52 @@ def _contexto(
         "qualitativo": _secao_qualitativa(comparacao, configuracao, veredito),
         "graficos": [_grafico(grafico) for grafico in graficos],
         "execucao": _execucao(configuracao, ruido, caminho_config, registro, avisos),
+        # One block per question (the tabs of the HTML, the sections of the Markdown), the
+        # sentences that read the two together, and the warnings about the whole run.
+        "partes": [_parte(veredito, pergunta) for pergunta in PERGUNTAS],
+        "leitura": leitura_conjunta(veredito, comparacao, configuracao.simulacao.t_fim),
+        "avisos_gerais": list(avisos),
+        "como_ler_juntas": [
+            {"trajetoria": t, "longo_prazo": lp, "significado": texto}
+            for t, lp, texto in COMO_LER_JUNTAS
+        ],
+    }
+
+
+def _parte(veredito: Veredito, pergunta: str) -> dict[str, Any]:
+    """Return everything the report shows about one of the two questions."""
+    parte = veredito.parte(pergunta)
+    passados = sum(1 for item in parte.criterios if item.passou)
+    explicacao = EXPLICACOES_DAS_PERGUNTAS[pergunta]
+    return {
+        "chave": pergunta,
+        "titulo": PERGUNTAS[pergunta],
+        "pergunta": explicacao["pergunta"],
+        "como": explicacao["como"],
+        "nao_responde": explicacao["nao_responde"],
+        "como_ligar": explicacao["como_ligar"],
+        "configurada": bool(parte.criterios),
+        "nivel": parte.nivel,
+        "classe": _CLASSES.get(parte.nivel, "reprovado"),
+        "passados": passados,
+        "total": len(parte.criterios),
+        "porcentagem": _porcentagem(parte.porcentagem),
+        "obrigatorios": parte.obrigatorios,
+        "desejaveis": parte.desejaveis,
+        "criterios": [_linha(item) for item in sorted(parte.criterios, key=_falhou_primeiro)],
+        "metricas": explicar_metricas(parte),
+        "razoes": razoes(parte),
+        "razoes_por_variavel": [
+            (_filtravel(item.variavel), texto)
+            for item in parte.criterios
+            if (texto := razao(item)) is not None
+        ],
+        "avisos": list(parte.avisos),
+        "avisos_por_variavel": [
+            (_filtravel(item.variavel), f"{item.variavel}: {aviso}")
+            for item in parte.criterios
+            for aviso in item.avisos
+        ],
     }
 
 

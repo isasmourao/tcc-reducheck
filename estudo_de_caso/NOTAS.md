@@ -150,14 +150,18 @@ a favor de declarar as variáveis core antes de comparar.
 
 ## Análise qualitativa: equilíbrio e estabilidade local
 
-Acrescentado em 11/10/2026 (issue #18). Configuração separada, `simp1_qualitativo.yaml`,
-para não alterar a porcentagem do veredito de trajetória registrado acima:
+Acrescentado em 11/10/2026 (issue #18). Até 04/11/2026 ficava numa configuração separada
+(`simp1_qualitativo.yaml`), para não alterar a porcentagem do veredito de trajetória
+registrado acima. Desde então está no próprio `simp1.yaml`: o relatório separa as duas
+perguntas em abas ("Trajetória" e "Longo prazo"), cada uma com a sua contagem, e os números
+de cada uma são os mesmos de quando eram arquivos separados (conferido em 04/11/2026). O
+veredito do topo junta as duas: **REPROVADO, 8 de 21 (38,1%); obrigatórios 7/16.**
 
 ```bash
-reducheck verificar estudo_de_caso/simp1_qualitativo.yaml
+reducheck verificar estudo_de_caso/simp1.yaml
 ```
 
-**Veredito: REPROVADO. 5 de 6 critérios (83,3%); obrigatórios 5/6.**
+**Longo prazo: REPROVADO. 5 de 6 critérios (83,3%); obrigatórios 5/6.**
 
 Duas coisas precisam ser lidas antes dos números:
 
@@ -197,6 +201,16 @@ reprova nas trajetórias dentro dos 720 dias (`Mb` em 720 dias: 0,999 no origina
 0,896 no simplificado). Ela erra o caminho e acerta o ponto de chegada. Para o texto do
 TCC II, é o complemento do argumento da seção anterior: não basta escolher as variáveis
 core, é preciso escolher também **em que horizonte** a fidelidade é exigida.
+
+> **Leitura automática do relatório (desde 04/11/2026).** A aba "Resumo" lê as duas
+> perguntas juntas e, aqui, diz *"Não é fiel nem no caminho nem no destino"*, porque o longo
+> prazo também reprova, pelo `equilibrio` de `C1`. A frase segue a regra (qualquer
+> obrigatório que falha reprova a pergunta), mas, pelo parágrafo abaixo, essa falha em `C1`
+> mede onde a integração parou, e não o modelo. Logo abaixo, o relatório lista `Cb`, `Mb` e
+> `C2` como "a trajetória falhou, mas o equilíbrio passou" e avisa que o equilíbrio está a
+> 10⁶× o horizonte. A leitura "erra o caminho e acerta o destino" continua valendo para as
+> variáveis de equilíbrio não nulo, e a regra automática só concorda com ela se a questão 42
+> for resolvida.
 
 **O que isso não diz.** O erro de 9,33% em `C1` **não é uma propriedade do modelo**. `C1` e
 `C2` decaem para zero, então o equilíbrio delas é 0 nos dois modelos, e o erro relativo

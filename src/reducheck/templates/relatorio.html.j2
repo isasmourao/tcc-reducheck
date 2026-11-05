@@ -7,7 +7,8 @@
 <style>
   :root {
     --tinta: #1a1a1a; --fundo: #ffffff; --suave: #5a5a5a; --linha: #dcdcdc;
-    --passou: #1a7f37; --falhou: #b3261e; --ressalva: #9a6700;
+    --passou: #1a7f37; --falhou: #b3261e; --ressalva: #9a6700; --neutro: #6e7781;
+    --realce: #f6f6f6;
   }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -15,19 +16,23 @@
     max-width: 52rem; line-height: 1.5;
   }
   h1 { font-size: 1.5rem; margin: 0 0 1rem; }
-  h2 { font-size: 1.1rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--linha);
+  h2 { font-size: 1.2rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--linha);
        padding-bottom: 0.25rem; }
+  h3 { font-size: 1.05rem; margin: 1.75rem 0 0.5rem; }
+  h4 { font-size: 0.95rem; margin: 1.25rem 0 0.3rem; }
   .veredito { display: inline-block; padding: 0.4rem 0.9rem; border-radius: 0.3rem;
               font-size: 1.2rem; font-weight: 700; color: #fff; }
+  .veredito.pequeno { font-size: 0.85rem; padding: 0.15rem 0.6rem; }
   .veredito.aprovado { background: var(--passou); }
   .veredito.ressalvas { background: var(--ressalva); }
   .veredito.reprovado { background: var(--falhou); }
+  .veredito.nao-verificada { background: var(--neutro); }
   .resumo { margin: 0.75rem 0 0; color: var(--suave); }
   .resumo strong { color: var(--tinta); }
   table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
   th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--linha);
            vertical-align: top; }
-  th { font-weight: 600; background: #f6f6f6; }
+  th { font-weight: 600; background: var(--realce); }
   td.numero { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   tr.falhou td { background: #fdf2f1; }
   .passou { color: var(--passou); font-weight: 600; }
@@ -39,13 +44,37 @@
   figure img { width: 100%; height: auto; border: 1px solid var(--linha); }
   figcaption { color: var(--suave); font-size: 0.85rem; margin-top: 0.3rem; }
   .nota { color: var(--suave); font-size: 0.85rem; }
+  .pergunta { font-size: 1.02rem; font-style: italic; margin: 0.3rem 0 0.8rem; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem;
        font-size: 0.9rem; }
   dt { color: var(--suave); }
   dd { margin: 0; }
   [hidden] { display: none !important; }
+  .abas { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 1.75rem;
+          border-bottom: 1px solid var(--linha); }
+  .abas button { font: inherit; padding: 0.5rem 0.9rem; margin-bottom: -1px; cursor: pointer;
+                 color: var(--suave); background: none; border: 1px solid transparent;
+                 border-bottom: none; border-radius: 0.3rem 0.3rem 0 0; }
+  .abas button[aria-selected="true"] { color: var(--tinta); font-weight: 600;
+                                       background: var(--fundo); border-color: var(--linha); }
+  .abas button:focus-visible { outline: 2px solid var(--tinta); outline-offset: -2px; }
+  .abas .marca { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%;
+                 margin-right: 0.4rem; vertical-align: middle; }
+  .marca.aprovado { background: var(--passou); }
+  .marca.ressalvas { background: var(--ressalva); }
+  .marca.reprovado { background: var(--falhou); }
+  .marca.nao-verificada { background: var(--neutro); }
+  .cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+             gap: 1rem; margin: 1rem 0; }
+  .cartao { border: 1px solid var(--linha); border-radius: 0.4rem; padding: 0.8rem 1rem; }
+  .cartao h3 { margin: 0 0 0.3rem; }
+  .cartao .pergunta { font-size: 0.95rem; }
+  .cartao .contagem { font-size: 0.9rem; color: var(--suave); margin: 0.5rem 0 0; }
+  .leitura { background: var(--realce); border-left: 4px solid var(--tinta);
+             padding: 0.6rem 1rem 0.6rem 1.8rem; margin: 0.5rem 0; }
+  .leitura li:first-child { font-weight: 600; }
   .filtro { position: sticky; top: 0; z-index: 1; background: var(--fundo);
-            border-bottom: 1px solid var(--linha); padding: 0.6rem 0; margin-top: 1.5rem;
+            border-bottom: 1px solid var(--linha); padding: 0.6rem 0; margin-top: 0.5rem;
             display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
   .filtro .rotulo { color: var(--suave); font-size: 0.85rem; margin-right: 0.3rem; }
   .filtro button { font: inherit; font-size: 0.85rem; padding: 0.15rem 0.7rem;
@@ -55,10 +84,11 @@
                                         color: var(--fundo); }
   .filtro button:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }
   .filtro .estado { flex-basis: 100%; color: var(--suave); font-size: 0.8rem; }
-  dl.metricas { display: block; }
+  dl.metricas, dl.perguntas { display: block; }
   dl.metricas dt { color: var(--tinta); font-weight: 600; margin-top: 0.8rem;
                    font-family: ui-monospace, Consolas, monospace; }
-  dl.metricas dd { margin: 0.15rem 0 0; }
+  dl.perguntas dt { color: var(--tinta); font-weight: 600; margin-top: 0.6rem; }
+  dl.metricas dd, dl.perguntas dd { margin: 0.15rem 0 0; }
 </style>
 </head>
 <body>
@@ -74,6 +104,15 @@
 <p class="nota">{{ nota_dos_niveis }}</p>
 {% endif %}
 
+{# Sem JavaScript, a barra de abas fica escondida e as seções aparecem uma embaixo da outra. #}
+<nav class="abas" id="abas" role="tablist" aria-label="Partes do relatório" hidden>
+  <button type="button" role="tab" id="botao-resumo" data-aba="resumo" aria-controls="aba-resumo">Resumo</button>
+  {% for parte in partes %}
+  <button type="button" role="tab" id="botao-{{ parte.chave }}" data-aba="{{ parte.chave }}" aria-controls="aba-{{ parte.chave }}"><span class="marca {{ parte.classe if parte.configurada else 'nao-verificada' }}" aria-hidden="true"></span>{{ parte.titulo }}</button>
+  {% endfor %}
+  <button type="button" role="tab" id="botao-explicacao" data-aba="explicacao" aria-controls="aba-explicacao">O que cada um mede</button>
+</nav>
+
 {% if variaveis_do_filtro | length > 1 %}
 <div class="filtro" id="filtro" role="group" aria-label="Filtrar por variável" hidden>
   <span class="rotulo">Variáveis:</span>
@@ -85,7 +124,58 @@
 </div>
 {% endif %}
 
-<h2>Critérios</h2>
+<section id="aba-resumo" role="tabpanel" aria-labelledby="botao-resumo" data-painel>
+<h2>Resumo</h2>
+<p class="nota">A verificação responde a duas perguntas diferentes, e cada uma tem o seu
+resultado. O veredito do topo junta as duas: se um critério obrigatório falha em qualquer
+uma delas, o modelo é reprovado.</p>
+<div class="cartoes">
+  {% for parte in partes %}
+  <div class="cartao">
+    <h3>{{ parte.titulo }}</h3>
+    <p class="pergunta">{{ parte.pergunta }}</p>
+    {% if parte.configurada %}
+    <span class="veredito pequeno {{ parte.classe }}">{{ parte.nivel }}</span>
+    <p class="contagem">{{ parte.passados }} de {{ parte.total }} critérios ({{ parte.porcentagem }}%) ·
+      obrigatórios {{ parte.obrigatorios.passados }}/{{ parte.obrigatorios.total }} ·
+      desejáveis {{ parte.desejaveis.passados }}/{{ parte.desejaveis.total }}</p>
+    {% else %}
+    <span class="veredito pequeno nao-verificada">NÃO VERIFICADA</span>
+    <p class="contagem">Para verificar, acrescente ao YAML {{ parte.como_ligar }}.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<h3>O que os dois resultados dizem juntos</h3>
+<ul class="leitura">
+  {% for frase in leitura %}<li>{{ frase }}</li>{% endfor %}
+</ul>
+
+<h3>Avisos gerais</h3>
+{% if avisos_gerais %}
+<ul>
+  {% for aviso in avisos_gerais %}<li>{{ aviso }}</li>{% endfor %}
+</ul>
+{% else %}
+<p>Nenhum aviso.</p>
+{% endif %}
+</section>
+
+{% for parte in partes %}
+<section id="aba-{{ parte.chave }}" role="tabpanel" aria-labelledby="botao-{{ parte.chave }}" data-painel>
+<h2>{{ parte.titulo }}</h2>
+<p class="pergunta">{{ parte.pergunta }}</p>
+<p class="nota">{{ parte.como }} {{ parte.nao_responde }}</p>
+{% if parte.configurada %}
+<p><span class="veredito pequeno {{ parte.classe }}">{{ parte.nivel }}</span></p>
+<p class="resumo">
+  Critérios atendidos: <strong>{{ parte.passados }} de {{ parte.total }} ({{ parte.porcentagem }}%)</strong> |
+  Obrigatórios: <strong>{{ parte.obrigatorios.passados }} de {{ parte.obrigatorios.total }}</strong> |
+  Desejáveis: <strong>{{ parte.desejaveis.passados }} de {{ parte.desejaveis.total }}</strong>
+</p>
+
+<h3>Critérios</h3>
 <table>
   <thead>
     <tr>
@@ -94,7 +184,7 @@
     </tr>
   </thead>
   <tbody data-filtravel>
-  {% for item in criterios %}
+  {% for item in parte.criterios %}
     <tr class="{{ item.resultado }}">
       <td>{{ item.metrica }}{% if item.descricao %}<span class="descricao">{{ item.descricao }}</span>{% endif %}</td>
       <td{% if item.filtro %} data-variavel="{{ item.filtro }}"{% endif %}>{{ item.variavel }}</td>
@@ -107,41 +197,22 @@
   </tbody>
 </table>
 <p class="nota vazio-filtro" hidden>Nenhum critério nas variáveis escolhidas.</p>
-<p class="nota">As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.</p>
+<p class="nota">As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.
+Os valores são erros: quanto menor, mais o simplificado se parece com o original. O que cada
+métrica mede está na aba "O que cada um mede".</p>
 
-{% if metricas %}
-<h2>O que cada métrica mede</h2>
-<p class="nota">Os valores da tabela são erros: quanto menor, mais o simplificado se parece com
-o original. Um critério passa quando o valor fica abaixo do limite ou igual a ele.</p>
-<dl class="metricas">
-  {% for metrica in metricas %}
-  <dt>{{ metrica.nome }}</dt><dd>{{ metrica.texto }}</dd>
-  {% endfor %}
-</dl>
-{% endif %}
-
-<h2>Razões</h2>
-{% if razoes_por_variavel %}
+<h3>Razões</h3>
+{% if parte.razoes_por_variavel %}
 <ul data-filtravel>
-  {% for variavel, razao in razoes_por_variavel %}<li{% if variavel %} data-variavel="{{ variavel }}"{% endif %}>{{ razao }}</li>{% endfor %}
+  {% for variavel, razao in parte.razoes_por_variavel %}<li{% if variavel %} data-variavel="{{ variavel }}"{% endif %}>{{ razao }}</li>{% endfor %}
 </ul>
 <p class="vazio-filtro" hidden>Nenhum critério falhou nas variáveis escolhidas.</p>
 {% else %}
 <p>Nenhum critério falhou.</p>
 {% endif %}
 
-<h2>Avisos</h2>
-{% if avisos_por_variavel %}
-<ul data-filtravel>
-  {% for variavel, aviso in avisos_por_variavel %}<li{% if variavel %} data-variavel="{{ variavel }}"{% endif %}>{{ aviso }}</li>{% endfor %}
-</ul>
-<p class="vazio-filtro" hidden>Nenhum aviso nas variáveis escolhidas.</p>
-{% else %}
-<p>Nenhum aviso.</p>
-{% endif %}
-
-{% if qualitativo %}
-<h2>Análise qualitativa</h2>
+{% if parte.chave == "longo_prazo" and qualitativo %}
+<h3>Equilíbrio e estabilidade</h3>
 {% if qualitativo.equilibrio %}
 <table>
   <thead>
@@ -163,7 +234,7 @@ o original. Um critério passa quando o valor fica abaixo do limite ou igual a e
   {% endfor %}
   </tbody>
 </table>
-<p class="nota">Equilíbrio das variáveis mapeadas, na combinação declarada em cada modelo.</p>
+<p class="nota">Valor de cada variável no equilíbrio, na combinação declarada em cada modelo.</p>
 {% endif %}
 <table>
   <thead>
@@ -189,9 +260,25 @@ o original. Um critério passa quando o valor fica abaixo do limite ou igual a e
 {% if qualitativo.nota %}
 <p class="nota">{{ qualitativo.nota }}</p>
 {% endif %}
-
 {% endif %}
-<h2>Gráficos</h2>
+
+<h3>Avisos</h3>
+{% if parte.avisos_por_variavel %}
+<ul data-filtravel>
+  {% for variavel, aviso in parte.avisos_por_variavel %}<li{% if variavel %} data-variavel="{{ variavel }}"{% endif %}>{{ aviso }}</li>{% endfor %}
+</ul>
+<p class="vazio-filtro" hidden>Nenhum aviso nas variáveis escolhidas.</p>
+{% else %}
+<p>Nenhum aviso.</p>
+{% endif %}
+{% else %}
+<p><span class="veredito pequeno nao-verificada">NÃO VERIFICADA</span></p>
+<p>Esta pergunta não foi verificada, porque a configuração não declara nenhum critério dela.
+Para verificar, acrescente ao YAML {{ parte.como_ligar }}.</p>
+{% endif %}
+
+{% if parte.chave == "trajetoria" %}
+<h3>Gráficos</h3>
 {% if graficos %}
 <div data-filtravel>
   {% for grafico in graficos %}
@@ -211,6 +298,56 @@ o original. Um critério passa quando o valor fica abaixo do limite ou igual a e
 {% else %}
 <p>Nenhuma variável mapeada para desenhar.</p>
 {% endif %}
+{% endif %}
+</section>
+{% endfor %}
+
+<section id="aba-explicacao" role="tabpanel" aria-labelledby="botao-explicacao" data-painel>
+<h2>O que cada um mede</h2>
+
+<h3>As duas perguntas</h3>
+{% for parte in partes %}
+<h4>{{ parte.titulo }}</h4>
+<dl class="perguntas">
+  <dt>O que pergunta</dt><dd>{{ parte.pergunta }}</dd>
+  <dt>Como responde</dt><dd>{{ parte.como }}</dd>
+  <dt>O que não responde</dt><dd>{{ parte.nao_responde }}</dd>
+  <dt>Neste relatório</dt><dd>{% if parte.configurada %}verificada, com {{ parte.total }} critérios.{% else %}não verificada: a configuração não declara {{ parte.como_ligar }}.{% endif %}</dd>
+</dl>
+{% endfor %}
+
+<h3>Como ler as duas juntas</h3>
+<table>
+  <thead>
+    <tr><th>Trajetória</th><th>Longo prazo</th><th>O que quer dizer</th></tr>
+  </thead>
+  <tbody>
+  {% for linha in como_ler_juntas %}
+    <tr>
+      <td class="{{ 'passou' if linha.trajetoria == 'passa' else 'falhou' }}">{{ linha.trajetoria }}</td>
+      <td class="{{ 'passou' if linha.longo_prazo == 'passa' else 'falhou' }}">{{ linha.longo_prazo }}</td>
+      <td>{{ linha.significado }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="nota">"Passa" quer dizer que nenhum critério obrigatório daquela pergunta falhou.</p>
+
+{% if metricas %}
+<h3>O que cada métrica mede</h3>
+<p class="nota">Os valores das tabelas são erros: quanto menor, mais o simplificado se parece
+com o original. Um critério passa quando o valor fica abaixo do limite ou igual a ele. Aqui
+estão só as métricas usadas neste relatório.</p>
+{% for parte in partes if parte.metricas %}
+<h4>{{ parte.titulo }}</h4>
+<dl class="metricas">
+  {% for metrica in parte.metricas %}
+  <dt>{{ metrica.nome }}</dt><dd>{{ metrica.texto }}</dd>
+  {% endfor %}
+</dl>
+{% endfor %}
+{% endif %}
+</section>
 
 <h2>Dados da execução</h2>
 <dl>
@@ -219,6 +356,47 @@ o original. Um critério passa quando o valor fica abaixo do limite ou igual a e
   {% endfor %}
 </dl>
 <script>
+/* Abas. Sem JavaScript a barra continua escondida e as seções aparecem em sequência. */
+(function () {
+  var barra = document.getElementById("abas");
+  if (!barra) return;
+  var botoes = Array.prototype.slice.call(barra.querySelectorAll("button[data-aba]"));
+  var paineis = Array.prototype.slice.call(document.querySelectorAll("[data-painel]"));
+  var filtro = document.getElementById("filtro");
+  barra.hidden = false;
+
+  function mostrar(nome, focar) {
+    paineis.forEach(function (painel) { painel.hidden = painel.id !== "aba-" + nome; });
+    botoes.forEach(function (botao) {
+      var ativo = botao.getAttribute("data-aba") === nome;
+      botao.setAttribute("aria-selected", String(ativo));
+      botao.tabIndex = ativo ? 0 : -1;
+      if (ativo && focar) botao.focus();
+    });
+    if (filtro) {
+      /* O filtro só faz sentido nas abas que têm algo por variável. */
+      var painel = document.getElementById("aba-" + nome);
+      filtro.style.display = painel && painel.querySelector("[data-variavel]") ? "" : "none";
+    }
+    try { history.replaceState(null, "", "#" + nome); } catch (erro) { /* file:// */ }
+  }
+
+  botoes.forEach(function (botao, indice) {
+    botao.addEventListener("click", function () { mostrar(botao.getAttribute("data-aba")); });
+    botao.addEventListener("keydown", function (evento) {
+      var passo = evento.key === "ArrowRight" ? 1 : evento.key === "ArrowLeft" ? -1 : 0;
+      if (!passo) return;
+      evento.preventDefault();
+      var proximo = botoes[(indice + passo + botoes.length) % botoes.length];
+      mostrar(proximo.getAttribute("data-aba"), true);
+    });
+  });
+
+  var inicial = window.location.hash.slice(1);
+  var existe = botoes.some(function (botao) { return botao.getAttribute("data-aba") === inicial; });
+  mostrar(existe ? inicial : "resumo");
+})();
+
 /* Filtro por variável. Sem JavaScript a barra continua escondida e tudo fica visível. */
 (function () {
   var barra = document.getElementById("filtro");

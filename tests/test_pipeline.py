@@ -528,7 +528,10 @@ def test_the_readable_report_shows_the_equilibrium_and_the_eigenvalues(
     resultado = reducheck.verificar(prepare(tmp_path, "config_qualitativo.yaml"))
     markdown = (tmp_path / "resultados" / "relatorio.md").read_text(encoding="utf-8")
 
-    assert "## Análise qualitativa" in markdown
+    # The qualitative tables live in the "Longo prazo" section since the report was split
+    # by question.
+    assert "## Longo prazo" in markdown
+    assert "### Equilíbrio e estabilidade" in markdown
     assert "Autovalores dominantes" in markdown
     assert "-0,2" in markdown  # autovalor do original, com vírgula decimal
     assert "estável / estável" in resultado.criterios[-1].valor_texto

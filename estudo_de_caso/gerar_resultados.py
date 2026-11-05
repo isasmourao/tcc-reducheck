@@ -6,8 +6,9 @@ Rodar a partir da raiz do repositório:
 
 O que faz, em ordem:
 
-1. refaz as duas verificações do estudo de caso (`simp1.yaml` e `simp1_qualitativo.yaml`)
-   com a versão atual da biblioteca, regravando `estudo_de_caso/resultados/`;
+1. refaz a verificação do estudo de caso (`simp1.yaml`, que responde às duas perguntas:
+   trajetória e longo prazo) com a versão atual da biblioteca, regravando
+   `estudo_de_caso/resultados/`;
 2. desenha as figuras do texto em `texto/figuras/`, cada uma em PDF vetorial e em PNG de
    300 dpi, num estilo só;
 3. escreve as tabelas em LaTeX em `texto/tabelas/`: critérios × resultado, equilíbrios,
@@ -41,7 +42,7 @@ import reducheck  # noqa: E402
 from reducheck import mapping, plots, qualitative, simulation  # noqa: E402
 from reducheck.config import Simulacao  # noqa: E402
 from reducheck.mapping import SerieComparada  # noqa: E402
-from reducheck.verdict import ItemAvaliado  # noqa: E402
+from reducheck.verdict import LONGO_PRAZO, TRAJETORIA, ItemAvaliado, Veredito  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[1]
 ESTUDO = RAIZ / "estudo_de_caso"
@@ -468,11 +469,11 @@ def _porcentagem(valor: float) -> str:
     return f"{valor:.1f}".replace(".", ",") + "\\%"
 
 
-def _resumo_do_veredito(resultado: reducheck.Resultado) -> str:
-    passados = sum(item.passou for item in resultado.criterios)
+def _resumo_do_veredito(parte: Veredito) -> str:
+    passados = sum(item.passou for item in parte.criterios)
     return (
-        f"Veredito: {resultado.nivel}, {passados} de {len(resultado.criterios)} critérios "
-        f"({_porcentagem(resultado.porcentagem)})."
+        f"Veredito: {parte.nivel}, {passados} de {len(parte.criterios)} critérios "
+        f"({_porcentagem(parte.porcentagem)})."
     )
 
 
@@ -485,10 +486,14 @@ def _escrever(caminho: Path, conteudo: str) -> tuple[Path, Path]:
 
 def main() -> None:
     """Refaz o estudo de caso e grava as figuras e as tabelas do texto."""
-    trajetorias = reducheck.verificar(ESTUDO / "simp1.yaml")
-    qualitativo = reducheck.verificar(ESTUDO / "simp1_qualitativo.yaml")
-    print(f"simp1.yaml: {trajetorias.nivel}, {trajetorias.porcentagem:.1f}%")
-    print(f"simp1_qualitativo.yaml: {qualitativo.nivel}, {qualitativo.porcentagem:.1f}%")
+    resultado = reducheck.verificar(ESTUDO / "simp1.yaml")
+    # Uma execução, duas perguntas: cada tabela do texto fala de uma delas, com a sua contagem.
+    trajetorias = resultado
+    caminho = resultado.veredito.parte(TRAJETORIA)
+    destino = resultado.veredito.parte(LONGO_PRAZO)
+    print(f"simp1.yaml: {resultado.nivel}, {resultado.porcentagem:.1f}%")
+    print(f"  trajetória: {caminho.nivel}, {caminho.porcentagem:.1f}%")
+    print(f"  longo prazo: {destino.nivel}, {destino.porcentagem:.1f}%")
 
     configuracao = trajetorias.configuracao
     core = configuracao.nomes_core()
@@ -505,36 +510,36 @@ def main() -> None:
         *_escrever(
             TABELAS / "simp1_criterios.tex",
             tabela_criterios(
-                trajetorias.criterios,
+                caminho.criterios,
                 "Critérios de trajetória da simplificação 1 nas variáveis core. "
-                + _resumo_do_veredito(trajetorias),
+                + _resumo_do_veredito(caminho),
                 "tab:simp1-criterios",
             ),
         ),
         *_escrever(
             TABELAS / "simp1_criterios_qualitativos.tex",
             tabela_criterios(
-                qualitativo.criterios,
+                destino.criterios,
                 "Critérios qualitativos da simplificação 1. "
-                + _resumo_do_veredito(qualitativo),
+                + _resumo_do_veredito(destino),
                 "tab:simp1-qualitativos",
             ),
         ),
         *_escrever(
             TABELAS / "simp1_equilibrios.tex",
             tabela_equilibrios(
-                qualitativo.criterios,
+                destino.criterios,
                 "Equilíbrio das variáveis core no original e na simplificação 1.",
                 "tab:simp1-equilibrios",
             ),
         ),
     ]
-    assert qualitativo.comparacao is not None
+    assert resultado.comparacao is not None
     gerados.extend(
         _escrever(
             TABELAS / "simp1_autovalores.tex",
             tabela_autovalores(
-                qualitativo.comparacao,
+                resultado.comparacao,
                 "Estabilidade local no equilíbrio: os três autovalores de maior parte real "
                 "da Jacobiana de cada modelo.",
                 "tab:simp1-autovalores",

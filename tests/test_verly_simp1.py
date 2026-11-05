@@ -198,7 +198,7 @@ def test_estradiol_matches_the_original_exactly() -> None:
 
 # --- qualitative analysis of the case study (issue #18) ----------------------
 
-#: Measured by `reducheck verificar estudo_de_caso/simp1_qualitativo.yaml` and recorded in
+#: Measured by `reducheck verificar estudo_de_caso/simp1.yaml` ("Longo prazo") and recorded in
 #: `estudo_de_caso/NOTAS.md`. The equilibrium is only reached at t = 7.2e8, a million times
 #: the 720-day horizon, which is why these numbers come with question 39 attached.
 EQUILIBRIO_VERLY = {
@@ -210,7 +210,7 @@ EQUILIBRIO_VERLY = {
 }
 
 
-def test_the_qualitative_analysis_of_the_case_study() -> None:
+def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
     """The library on the real case study: same stability, equilibrium fails on C1.
 
     This is the "works on the Verly model" criterion of issue #18, and it works in a
@@ -220,7 +220,7 @@ def test_the_qualitative_analysis_of_the_case_study() -> None:
     """
     import reducheck
 
-    resultado = reducheck.verificar(ROOT / "estudo_de_caso" / "simp1_qualitativo.yaml")
+    resultado = reducheck.verificar(ROOT / "estudo_de_caso" / "simp1.yaml", pasta_de_saida=tmp_path)
     comparacao = resultado.comparacao
     assert comparacao is not None
 
@@ -249,6 +249,16 @@ def test_the_qualitative_analysis_of_the_case_study() -> None:
         )
         assert itens[nome].valor == pytest.approx(erro, abs=5e-5)
 
-    assert resultado.nivel == "REPROVADO"
+    # One file answers both questions since 2026-11-04; each keeps the count it had when
+    # the two were separate files (trajectory 3 of 15, long run 5 of 6).
+    from reducheck.verdict import LONGO_PRAZO, TRAJETORIA
+
+    longo = resultado.veredito.parte(LONGO_PRAZO)
+    caminho = resultado.veredito.parte(TRAJETORIA)
+    assert longo.nivel == "REPROVADO"
     assert not itens["C1"].passou
-    assert resultado.porcentagem == pytest.approx(100.0 * 5 / 6)
+    assert longo.porcentagem == pytest.approx(100.0 * 5 / 6)
+    assert sum(item.passou for item in caminho.criterios) == 3
+    assert len(caminho.criterios) == 15
+    assert resultado.nivel == "REPROVADO"
+    assert resultado.porcentagem == pytest.approx(100.0 * 8 / 21)

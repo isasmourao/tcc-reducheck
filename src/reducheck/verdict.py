@@ -28,9 +28,12 @@ __all__ = [
     "ESTACIONARIO",
     "FRACAO_CONCENTRADA",
     "FRACAO_DA_FASE",
+    "LONGO_PRAZO",
     "NIVEIS",
+    "PERGUNTAS",
     "REPROVADO",
     "SEM_VARIAVEL",
+    "TRAJETORIA",
     "TRANSIENTE",
     "Contagem",
     "Diagnostico",
@@ -38,6 +41,7 @@ __all__ = [
     "Veredito",
     "avaliar",
     "diagnosticar",
+    "pergunta_de",
 ]
 
 #: The three levels, spelled as they are printed in the report.
@@ -64,6 +68,17 @@ FRACAO_DA_FASE = 0.2
 TRANSIENTE = "transiente"
 ESTACIONARIO = "estado estacionário"
 AO_LONGO = "ao longo da simulação"
+
+#: The two questions a verification answers. Every criterion belongs to exactly one: the
+#: qualitative analyses (:data:`~reducheck.config.ANALISES_QUALITATIVAS`) ask about the
+#: long run, and every metric asks about the trajectory inside the simulated window. The
+#: report counts them apart, because a simplification can fail one and pass the other --
+#: Verly's simplification 1 misses the path and reaches the same destination.
+TRAJETORIA = "trajetoria"
+LONGO_PRAZO = "longo_prazo"
+
+#: How each question is titled in the report and in the terminal, in the order shown.
+PERGUNTAS = {TRAJETORIA: "Trajetória", LONGO_PRAZO: "Longo prazo"}
 
 
 @dataclass(frozen=True)
@@ -133,6 +148,20 @@ class Veredito:
     #: One of :data:`APROVADO`, :data:`COM_RESSALVAS` or :data:`REPROVADO`.
     nivel: str
     criterios: tuple[ItemAvaliado, ...]
+    #: ``relatorio.niveis`` of the run, kept so each question can be judged by the same rule.
+    niveis: int = 3
+
+    def parte(self, pergunta: str) -> Veredito:
+        """Return the verdict of one question alone: its items and the level they imply.
+
+        ``pergunta`` is :data:`TRAJETORIA` or :data:`LONGO_PRAZO`. The level follows the
+        same rule as the whole run, so the overall verdict is never better than either
+        part. A question with no criterion declared comes back with no items.
+        """
+        if pergunta not in PERGUNTAS:
+            raise ValueError(f"pergunta desconhecida: {pergunta!r} (use {', '.join(PERGUNTAS)})")
+        itens = tuple(item for item in self.criterios if pergunta_de(item) == pergunta)
+        return Veredito(nivel=_decidir(itens, self.niveis), criterios=itens, niveis=self.niveis)
 
     @property
     def aprovado(self) -> bool:
@@ -248,7 +277,12 @@ def avaliar(
                     diagnostico=diagnostico,
                 )
             )
-    return Veredito(nivel=_decidir(itens, niveis), criterios=tuple(itens))
+    return Veredito(nivel=_decidir(itens, niveis), criterios=tuple(itens), niveis=niveis)
+
+
+def pergunta_de(item: ItemAvaliado) -> str:
+    """Return which question an item answers: :data:`LONGO_PRAZO` or :data:`TRAJETORIA`."""
+    return LONGO_PRAZO if item.metrica in ANALISES_QUALITATIVAS else TRAJETORIA
 
 
 # --- where the error is (capability V3) --------------------------------------

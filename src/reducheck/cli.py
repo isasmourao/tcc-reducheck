@@ -41,7 +41,7 @@ from reducheck.config import ErroDeConfiguracao
 from reducheck.mapping import ErroDeMapeamento
 from reducheck.metrics import ErroDeMetrica
 from reducheck.simulation import ErroDeSimulacao
-from reducheck.verdict import APROVADO, COM_RESSALVAS, REPROVADO, ItemAvaliado
+from reducheck.verdict import APROVADO, COM_RESSALVAS, PERGUNTAS, REPROVADO, ItemAvaliado
 
 __all__ = ["CODIGOS", "CODIGO_DE_ERRO", "main", "resumo", "usar_cor"]
 
@@ -272,6 +272,21 @@ def resumo(resultado: reducheck.Resultado, cor: bool = False) -> list[str]:
         f"obrigatórios {obrigatorios.passados}/{obrigatorios.total} · "
         f"desejáveis {desejaveis.passados}/{desejaveis.total}",
     ]
+    # The two questions apart, so that a run is never read as one answer when it is two
+    # (and so that a question nobody declared shows up as such).
+    for pergunta, titulo in PERGUNTAS.items():
+        parte = resultado.veredito.parte(pergunta)
+        rotulo_da_parte = "  " + titulo.ljust(_ROTULO + 2)
+        if not parte.criterios:
+            linhas.append(pintar(rotulo_da_parte + "não verificada", "cinza"))
+            continue
+        passados_da_parte = sum(1 for item in parte.criterios if item.passou)
+        linhas.append(
+            pintar(rotulo_da_parte, "cinza")
+            + pintar(parte.nivel, _COR_DO_NIVEL[parte.nivel])
+            + f" · {passados_da_parte} de {len(parte.criterios)} · "
+            f"obrigatórios {parte.obrigatorios.passados}/{parte.obrigatorios.total}"
+        )
 
     grupos = [
         ("Falhas obrigatórias", True, obrigatorios.total, "vermelho"),

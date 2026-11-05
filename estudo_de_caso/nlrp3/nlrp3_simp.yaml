@@ -1,0 +1,128 @@
+# Modelo da Julia para teste — NLRP3 original x simplificado.
+#
+# Rodar a partir da raiz do repositório:
+#     reducheck verificar estudo_de_caso/nlrp3/nlrp3_simp.yaml
+#
+# Serve para testar se a biblioteca é genérica: é um modelo que não é o da Verly, rodado sem
+# mudar o código da biblioteca. O simplificado vai de 13 para 8 variáveis (ver o cabeçalho de
+# `modelos/nlrp3_simp.ant`). Resultado em `estudo_de_caso/nlrp3/NOTAS.md`.
+#
+# ATENÇÃO — os critérios abaixo são PROVISÓRIOS (proposta de 04/11/2026, a revisar com a
+# Bárbara: questão 57 de `docs/questoes-em-aberto.md`). Eles substituem os critérios copiados
+# da Verly, que aplicavam erro estacionário e MAPE a todas as variáveis. As duas métricas
+# dividem pelo valor do original e inflavam nas variáveis que voltam a zero (IL18c reprovava
+# com 6% de erro final sobre um valor de 2,6e-7). Diagnóstico em `NOTAS.md`.
+# Por ora, todas as variáveis com contrapartida no simplificado são core.
+
+versao: 1
+
+modelos:
+  original: ../../modelos/nlrp3_original.xml
+  simplificado: ../../modelos/nlrp3_simp.xml
+
+# Mesmo horizonte dos notebooks (0 a 300 min). As tolerâncias são as do estudo de caso da
+# Verly, não as dos notebooks (1e-4), que dão até 23 % de erro (questão 55, item b).
+simulacao:
+  t_inicio: 0
+  t_fim: 300
+  pontos: 1001
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+  nao_negativas: true
+
+variaveis:
+  # --- Com contrapartida no simplificado (mesmo nome ou só a caixa muda) ---
+  - nome: NLRP3a
+    original: NLRP3a
+    simplificado: NLRP3a
+    core: true
+  - nome: NLRP3o
+    original: NLRP3o
+    simplificado: NLRP3o
+    core: true
+  - nome: ASCb
+    original: ASCb
+    simplificado: ASCb
+    core: true
+  - nome: C1
+    original: C1
+    simplificado: C1
+    core: true
+  - nome: IL18c
+    original: IL18c
+    simplificado: IL18c
+    core: true
+  - nome: IL18e
+    original: IL18e
+    simplificado: IL18e
+    core: true
+  - nome: proIL1b
+    original: proIL1b
+    simplificado: proIL1B
+    core: true
+  - nome: IL1be
+    original: IL1be
+    simplificado: IL1Be
+    core: true
+
+  # --- Eliminadas pela simplificação ---------------------------------------
+  # NLRP3i e IL1bc saem do modelo. ASCf, proC1 e proIL18 saem pelas leis de conservação
+  # (ASCf = 1 - ASCb, proC1 = 1 - C1, proIL18 = 1 - IL18c - IL18e); o mapeamento por
+  # expressão está fora do escopo, então elas não são comparadas.
+  - nome: NLRP3i
+    original: NLRP3i
+    simplificado: null
+    core: false
+  - nome: ASCf
+    original: ASCf
+    simplificado: null
+    core: false
+  - nome: proC1
+    original: proC1
+    simplificado: null
+    core: false
+  - nome: IL1bc
+    original: IL1bc
+    simplificado: null
+    core: false
+  - nome: proIL18
+    original: proIL18
+    simplificado: null
+    core: false
+
+# Regra usada para escolher os critérios, definida ANTES de rodar (não ajustada ao resultado):
+#   * todas as variáveis estão numa escala unitária (os totais de ASC, caspase-1 e IL-18 valem
+#     1), então "5% da escala" = 0,05, o mesmo nível do NRMSE;
+#   * as variáveis foram separadas pelo comportamento no ORIGINAL: as que terminam no pico
+#     (valor final / pico ~ 100%) e as que sobem e voltam a ~0 (final / pico <= 1,3%).
+criterios:
+  # 1. Curva inteira, em todas as variáveis. Divide pela amplitude, então não infla perto de 0.
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: core
+    obrigatorio: true
+  # 2. Valor final, só nas variáveis que terminam longe de zero.
+  - metrica: erro_estacionario
+    limite: 0.01
+    variaveis: [NLRP3o, ASCb, C1, IL18e, IL1be]
+    obrigatorio: true
+  # 3. Nas que voltam a zero (NLRP3a, IL18c, proIL1b), o erro relativo no fim não tem sentido.
+  #    O maior erro absoluto não divide por nada; 0,05 = 5% da escala unitária.
+  - metrica: erro_max_abs
+    limite: 0.05
+    variaveis: [NLRP3a, IL18c, proIL1b]
+    obrigatorio: true
+  # 4. MAPE só como informação: desejável, e ignorando os pontos com |original| < 0,05 (as
+  #    subidas, onde dividir por valores minúsculos infla o número).
+  - metrica: mape
+    limite: 0.05
+    variaveis: core
+    obrigatorio: false
+    parametros:
+      epsilon: 0.05
+
+relatorio:
+  formatos: [html, md, json]
+  pasta: resultados/
+  niveis: 3

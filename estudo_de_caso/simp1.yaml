@@ -7,6 +7,15 @@
 # levando o sistema de 11 para 9 variáveis. Ver `modelos/verly_simp1.ant` para a lista
 # exata do que foi retirado e `estudo_de_caso/NOTAS.md` para o resultado.
 #
+# Um só arquivo para as duas perguntas (desde 04/11/2026; antes a segunda ficava em
+# `simp1_qualitativo.yaml`). O relatório separa as duas em abas, cada uma com a sua contagem:
+#   * Trajetória (nrmse, mape, erro_estacionario): o simplificado faz o mesmo caminho nos
+#     720 dias?
+#   * Longo prazo (equilibrio, estabilidade_local): os dois modelos param no mesmo lugar, e
+#     do mesmo jeito? O equilíbrio deste modelo só é alcançado em t ≈ 7×10⁸ dias, cerca de
+#     um milhão de vezes os 720 simulados (questão 39 de `docs/questoes-em-aberto.md`).
+# O veredito do topo junta as duas.
+#
 # ATENÇÃO — os critérios abaixo são PROVISÓRIOS. As variáveis core e os limites ainda
 # precisam ser fechados com a orientadora (questão 7 de `docs/questoes-em-aberto.md`).
 
@@ -86,6 +95,7 @@ variaveis:
     core: false
 
 criterios:
+  # --- Trajetória: o caminho nos 720 dias -----------------------------------
   - metrica: nrmse
     limite: 0.05
     variaveis: core
@@ -97,6 +107,16 @@ criterios:
   - metrica: erro_estacionario
     limite: 0.01
     variaveis: core
+    obrigatorio: true
+
+  # --- Longo prazo: o equilíbrio e a estabilidade ----------------------------
+  # Vieram de `simp1_qualitativo.yaml`, com os mesmos limites. D fica fora porque não é
+  # core: é a variável do modo lento, e no equilíbrio os dois modelos ainda descem por ela.
+  - metrica: equilibrio
+    limite: 0.05
+    variaveis: core
+    obrigatorio: true
+  - metrica: estabilidade_local
     obrigatorio: true
 
 relatorio:

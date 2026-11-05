@@ -8,52 +8,73 @@ Obrigatórios: {{ obrigatorios.passados }} de {{ obrigatorios.total }} | Desejá
 {{ nota_dos_niveis }}
 {% endif %}
 
-## Critérios
+## Resumo
 
-| Critério | Variável | Valor | Limite | Tipo | Resultado |
-| --- | --- | --- | --- | --- | --- |
-{% for item in criterios %}
-| {{ item.metrica }} | {{ item.variavel }} | {{ item.valor }} | {{ item.limite }} | {{ item.tipo }} | {{ item.resultado }} |
-{% endfor %}
+A verificação responde a duas perguntas diferentes, e cada uma tem o seu resultado. O veredito
+do topo junta as duas: se um critério obrigatório falha em qualquer uma delas, o modelo é
+reprovado.
 
-As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.
-
-{% if metricas %}
-## O que cada métrica mede
-
-Os valores da tabela são erros: quanto menor, mais o simplificado se parece com o original. Um
-critério passa quando o valor fica abaixo do limite ou igual a ele.
-
-{% for metrica in metricas %}
-- **{{ metrica.nome }}**: {{ metrica.texto }}
-{% endfor %}
-
-{% endif %}
-## Razões
-
-{% if razoes %}
-{% for razao in razoes %}
-- {{ razao }}
-{% endfor %}
+| Pergunta | Resultado | Critérios atendidos | Obrigatórios | Desejáveis |
+| --- | --- | --- | --- | --- |
+{% for parte in partes %}
+{% if parte.configurada %}
+| **{{ parte.titulo }}**: {{ parte.pergunta }} | {{ parte.nivel }} | {{ parte.passados }} de {{ parte.total }} ({{ parte.porcentagem }}%) | {{ parte.obrigatorios.passados }} de {{ parte.obrigatorios.total }} | {{ parte.desejaveis.passados }} de {{ parte.desejaveis.total }} |
 {% else %}
-Nenhum critério falhou.
+| **{{ parte.titulo }}**: {{ parte.pergunta }} | NÃO VERIFICADA | — | — | — |
 {% endif %}
+{% endfor %}
 
-## Avisos
+O que os dois resultados dizem juntos:
 
-{% if avisos %}
-{% for aviso in avisos %}
+{% for frase in leitura %}
+- {{ frase }}
+{% endfor %}
+
+### Avisos gerais
+
+{% if avisos_gerais %}
+{% for aviso in avisos_gerais %}
 - {{ aviso }}
 {% endfor %}
 {% else %}
 Nenhum aviso.
 {% endif %}
 
-{% if qualitativo %}
-## Análise qualitativa
+{% for parte in partes %}
+## {{ parte.titulo }}
+
+*{{ parte.pergunta }}*
+
+{{ parte.como }} {{ parte.nao_responde }}
+
+{% if parte.configurada %}
+Resultado: {{ parte.nivel }}. Critérios atendidos: {{ parte.passados }} de {{ parte.total }} ({{ parte.porcentagem }}%) | Obrigatórios: {{ parte.obrigatorios.passados }} de {{ parte.obrigatorios.total }} | Desejáveis: {{ parte.desejaveis.passados }} de {{ parte.desejaveis.total }}
+
+### Critérios
+
+| Critério | Variável | Valor | Limite | Tipo | Resultado |
+| --- | --- | --- | --- | --- | --- |
+{% for item in parte.criterios %}
+| {{ item.metrica }} | {{ item.variavel }} | {{ item.valor }} | {{ item.limite }} | {{ item.tipo }} | {{ item.resultado }} |
+{% endfor %}
+
+As falhas vêm primeiro; na ordem em que foram declaradas dentro de cada grupo.
+
+### Razões
+
+{% if parte.razoes %}
+{% for razao in parte.razoes %}
+- {{ razao }}
+{% endfor %}
+{% else %}
+Nenhum critério falhou.
+{% endif %}
+
+{% if parte.chave == "longo_prazo" and qualitativo %}
+### Equilíbrio e estabilidade
 
 {% if qualitativo.equilibrio %}
-Equilíbrio das variáveis mapeadas:
+Valor de cada variável no equilíbrio:
 
 | Variável | Original | Simplificado | Erro relativo | Limite | Resultado |
 | --- | --- | --- | --- | --- | --- |
@@ -77,7 +98,22 @@ Estabilidade local, com os três autovalores de maior parte real:
 {% endif %}
 
 {% endif %}
-## Gráficos
+### Avisos
+
+{% if parte.avisos %}
+{% for aviso in parte.avisos %}
+- {{ aviso }}
+{% endfor %}
+{% else %}
+Nenhum aviso.
+{% endif %}
+
+{% else %}
+Resultado: NÃO VERIFICADA. A configuração não declara nenhum critério desta pergunta. Para verificar, acrescente ao YAML {{ parte.como_ligar }}.
+
+{% endif %}
+{% if parte.chave == "trajetoria" %}
+### Gráficos
 
 {% if graficos %}
 {% for grafico in graficos %}
@@ -91,6 +127,48 @@ Estabilidade local, com os três autovalores de maior parte real:
 {% else %}
 Nenhuma variável mapeada para desenhar.
 
+{% endif %}
+{% endif %}
+{% endfor %}
+## O que cada um mede
+
+### As duas perguntas
+
+{% for parte in partes %}
+**{{ parte.titulo }}**
+
+- O que pergunta: {{ parte.pergunta }}
+- Como responde: {{ parte.como }}
+- O que não responde: {{ parte.nao_responde }}
+- Neste relatório: {% if parte.configurada %}verificada, com {{ parte.total }} critérios.{% else %}não verificada: a configuração não declara {{ parte.como_ligar }}.{% endif %}
+
+
+{% endfor %}
+### Como ler as duas juntas
+
+| Trajetória | Longo prazo | O que quer dizer |
+| --- | --- | --- |
+{% for linha in como_ler_juntas %}
+| {{ linha.trajetoria }} | {{ linha.longo_prazo }} | {{ linha.significado }} |
+{% endfor %}
+
+"Passa" quer dizer que nenhum critério obrigatório daquela pergunta falhou.
+
+{% if metricas %}
+### O que cada métrica mede
+
+Os valores das tabelas são erros: quanto menor, mais o simplificado se parece com o original. Um
+critério passa quando o valor fica abaixo do limite ou igual a ele. Aqui estão só as métricas
+usadas neste relatório.
+
+{% for parte in partes if parte.metricas %}
+**{{ parte.titulo }}**
+
+{% for metrica in parte.metricas %}
+- **{{ metrica.nome }}**: {{ metrica.texto }}
+{% endfor %}
+
+{% endfor %}
 {% endif %}
 ## Dados da execução
 

@@ -31,24 +31,61 @@ foram corrigidos, porque o arquivo não deve ser editado.
 - Condições iniciais: `ASCf = proC1 = proIL18 = 1`; as outras são 0.
 - No notebook: `solve_ivp` com BDF, `rtol = atol = 1e-4`.
 
+## `nlrp3_simplificado.ipynb`
+
+Cópia **sem nenhuma alteração** do notebook do Google Colab com o modelo simplificado.
+
+| | |
+| --- | --- |
+| Link | <https://colab.research.google.com/drive/1tHLVyrbm1dvhyVXkAGQdVsugNZyz5eDl> |
+| Baixado em | 2026-11-04 |
+| SHA-256 | `926ec74b3faed8a36a9134772720cad9233ea6b3cbb5c73724a6b109e510ccfe` |
+| Autoria | Julia |
+
+- 8 variáveis, na ordem de `edos`: `NLRP3a, NLRP3o, ASCb, C1, IL18c, IL18e, proIL1B, IL1Be`.
+  Todas começam em 0.
+- Mesma entrada `nfkbn(t)`, mesmo horizonte e mesmo solver do original.
+- O que muda em relação ao original está no cabeçalho de `modelos/nlrp3_simp.ant` e em
+  `estudo_de_caso/nlrp3/NOTAS.md`.
+- O notebook também lê CSVs de dados do artigo (`nlrp3a.csv`, `b.csv`, ...), que não vieram junto
+  e não são usados aqui.
+
 ## `comparar_sbml.py`
 
-Compara o notebook com a tradução em SBML (`modelos/nlrp3_original.xml`):
+Compara cada notebook com a sua tradução em SBML (`modelos/nlrp3_original.xml` e
+`modelos/nlrp3_simp.xml`):
 
 ```bash
-python referencia/nlrp3/comparar_sbml.py
+python referencia/nlrp3/comparar_sbml.py                # os dois
+python referencia/nlrp3/comparar_sbml.py simplificado   # só um
 ```
 
-- original: as células do notebook que definem os parâmetros, `nfkbn`, `hill`, `sinal` e
-  `dinamica_nlrp3`, executadas sem alteração e integradas com scipy (`solve_ivp`, BDF);
+- notebook: as células que definem os parâmetros, `nfkbn`, `hill`, `sinal` e as EDOs
+  (`dinamica_nlrp3` ou `edos`), executadas sem alteração e integradas com scipy (`solve_ivp`, BDF);
 - SBML: libRoadRunner (CVODE);
 - os dois com `rtol = 1e-10` e `atol = 1e-12`, e com o mesmo vetor de tempo: 0 a 300 min,
   1001 pontos.
 
-O erro relativo é normalizado pelo maior valor absoluto de cada variável no original, como no
+O erro relativo é normalizado pelo maior valor absoluto de cada variável no notebook, como no
 modelo da Verly.
 
-### Resultado (execução de 2026-11-04)
+### Resultado do simplificado (execução de 2026-11-04)
+
+| Variável | Erro absoluto máximo | Erro relativo máximo |
+| --- | --- | --- |
+| NLRP3a | 3.624385e-10 | 1.636717e-09 |
+| NLRP3o | 3.701484e-10 | 3.672656e-10 |
+| ASCb | 1.186317e-08 | 1.186911e-08 |
+| C1 | 8.162260e-09 | 8.203905e-09 |
+| IL18c | 1.917443e-08 | 4.018151e-08 |
+| IL18e | 1.907652e-08 | 1.907652e-08 |
+| proIL1B | 1.961820e-08 | 2.464360e-08 |
+| IL1Be | 1.425266e-08 | 3.329976e-08 |
+
+Maior erro relativo: **4.02e-08**. Gráfico: `comparacao_sbml_simp.png`. Com as tolerâncias do
+próprio notebook, o simplificado também difere da execução precisa em até **22,8 %**.
+
+### Resultado do original (execução de 2026-11-04)
 
 | Variável | Erro absoluto máximo | Erro relativo máximo |
 | --- | --- | --- |

@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created by libAntimony version v3.2.0 with libSBML version 5.21.1. -->
+<sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" version="2">
+  <model metaid="nlrp3_simp" id="nlrp3_simp">
+    <listOfFunctionDefinitions>
+      <functionDefinition id="hill">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <lambda>
+            <bvar>
+              <ci> x </ci>
+            </bvar>
+            <bvar>
+              <ci> K </ci>
+            </bvar>
+            <bvar>
+              <ci> n </ci>
+            </bvar>
+            <apply>
+              <divide/>
+              <apply>
+                <power/>
+                <ci> x </ci>
+                <ci> n </ci>
+              </apply>
+              <apply>
+                <plus/>
+                <apply>
+                  <power/>
+                  <ci> K </ci>
+                  <ci> n </ci>
+                </apply>
+                <apply>
+                  <power/>
+                  <ci> x </ci>
+                  <ci> n </ci>
+                </apply>
+              </apply>
+            </apply>
+          </lambda>
+        </math>
+      </functionDefinition>
+      <functionDefinition id="sinal">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <lambda>
+            <bvar>
+              <ci> NLRP3o </ci>
+            </bvar>
+            <bvar>
+              <ci> a </ci>
+            </bvar>
+            <bvar>
+              <ci> b </ci>
+            </bvar>
+            <bvar>
+              <ci> c </ci>
+            </bvar>
+            <apply>
+              <divide/>
+              <cn type="integer"> 1 </cn>
+              <apply>
+                <plus/>
+                <cn type="integer"> 1 </cn>
+                <apply>
+                  <power/>
+                  <apply>
+                    <divide/>
+                    <apply>
+                      <plus/>
+                      <ci> NLRP3o </ci>
+                      <ci> a </ci>
+                    </apply>
+                    <ci> b </ci>
+                  </apply>
+                  <apply>
+                    <minus/>
+                    <ci> c </ci>
+                  </apply>
+                </apply>
+              </apply>
+            </apply>
+          </lambda>
+        </math>
+      </functionDefinition>
+    </listOfFunctionDefinitions>
+    <listOfParameters>
+      <parameter id="nfkb0" value="0.25" constant="true"/>
+      <parameter id="gammaNF" value="2" constant="true"/>
+      <parameter id="NF_50" value="0.3" constant="true"/>
+      <parameter id="h" value="0.55" constant="true"/>
+      <parameter id="s" value="0.8" constant="true"/>
+      <parameter id="tau" value="10" constant="true"/>
+      <parameter id="S1" value="1" constant="true"/>
+      <parameter id="alpha1" value="0.07" constant="true"/>
+      <parameter id="S2" value="1" constant="true"/>
+      <parameter id="k1" value="0.7" constant="true"/>
+      <parameter id="novodelta1" value="0.0025" constant="true"/>
+      <parameter id="k2" value="1" constant="true"/>
+      <parameter id="k3" value="0.04" constant="true"/>
+      <parameter id="a" value="1" constant="true"/>
+      <parameter id="b" value="2" constant="true"/>
+      <parameter id="c" value="1000" constant="true"/>
+      <parameter id="k4" value="0.03" constant="true"/>
+      <parameter id="C1_50" value="0.3" constant="true"/>
+      <parameter id="gammaC1" value="2" constant="true"/>
+      <parameter id="Gnovo" value="0.08" constant="true"/>
+      <parameter id="alpha3" value="0.06" constant="true"/>
+      <parameter id="alpha4" value="1" constant="true"/>
+      <parameter id="alpha5" value="1" constant="true"/>
+      <parameter id="k5" value="1" constant="true"/>
+      <parameter id="delta2" value="0.004" constant="true"/>
+      <parameter id="k6" value="1" constant="true"/>
+      <parameter id="j" value="0.7" constant="true"/>
+      <parameter id="nfkbn" constant="false"/>
+      <parameter id="hNF" constant="false"/>
+      <parameter id="hC1" constant="false"/>
+      <parameter id="C1" value="0" constant="false"/>
+      <parameter id="sASC" constant="false"/>
+      <parameter id="NLRP3o" value="0" constant="false"/>
+      <parameter id="NLRP3a" value="0" constant="false"/>
+      <parameter id="ASCb" value="0" constant="false"/>
+      <parameter id="IL18c" value="0" constant="false"/>
+      <parameter id="IL18e" value="0" constant="false"/>
+      <parameter id="proIL1B" value="0" constant="false"/>
+      <parameter id="IL1Be" value="0" constant="false"/>
+    </listOfParameters>
+    <listOfRules>
+      <assignmentRule variable="nfkbn">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <plus/>
+            <apply>
+              <times/>
+              <ci> S1 </ci>
+              <ci> h </ci>
+              <apply>
+                <exp/>
+                <apply>
+                  <divide/>
+                  <apply>
+                    <minus/>
+                    <apply>
+                      <power/>
+                      <apply>
+                        <ln/>
+                        <apply>
+                          <divide/>
+                          <csymbol encoding="text" definitionURL="http://www.sbml.org/sbml/symbols/time"> time </csymbol>
+                          <ci> tau </ci>
+                        </apply>
+                      </apply>
+                      <cn type="integer"> 2 </cn>
+                    </apply>
+                  </apply>
+                  <ci> s </ci>
+                </apply>
+              </apply>
+            </apply>
+            <ci> nfkb0 </ci>
+          </apply>
+        </math>
+      </assignmentRule>
+      <assignmentRule variable="hNF">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <ci> hill </ci>
+            <apply>
+              <minus/>
+              <ci> nfkbn </ci>
+              <ci> nfkb0 </ci>
+            </apply>
+            <ci> NF_50 </ci>
+            <ci> gammaNF </ci>
+          </apply>
+        </math>
+      </assignmentRule>
+      <assignmentRule variable="hC1">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <ci> hill </ci>
+            <ci> C1 </ci>
+            <ci> C1_50 </ci>
+            <ci> gammaC1 </ci>
+          </apply>
+        </math>
+      </assignmentRule>
+      <rateRule variable="C1">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <times/>
+            <ci> k4 </ci>
+            <ci> ASCb </ci>
+            <apply>
+              <minus/>
+              <cn type="integer"> 1 </cn>
+              <ci> C1 </ci>
+            </apply>
+          </apply>
+        </math>
+      </rateRule>
+      <assignmentRule variable="sASC">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <ci> sinal </ci>
+            <ci> NLRP3o </ci>
+            <ci> a </ci>
+            <ci> b </ci>
+            <ci> c </ci>
+          </apply>
+        </math>
+      </assignmentRule>
+      <rateRule variable="NLRP3o">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <times/>
+            <ci> k2 </ci>
+            <apply>
+              <power/>
+              <ci> NLRP3a </ci>
+              <cn type="integer"> 2 </cn>
+            </apply>
+          </apply>
+        </math>
+      </rateRule>
+      <rateRule variable="NLRP3a">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <minus/>
+            <apply>
+              <minus/>
+              <apply>
+                <times/>
+                <ci> alpha1 </ci>
+                <ci> hNF </ci>
+              </apply>
+              <apply>
+                <times/>
+                <ci> k2 </ci>
+                <apply>
+                  <power/>
+                  <ci> NLRP3a </ci>
+                  <cn type="integer"> 2 </cn>
+                </apply>
+              </apply>
+            </apply>
+            <apply>
+              <times/>
+              <ci> novodelta1 </ci>
+              <ci> NLRP3a </ci>
+            </apply>
+          </apply>
+        </math>
+      </rateRule>
+      <rateRule variable="ASCb">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <times/>
+            <ci> k3 </ci>
+            <ci> sASC </ci>
+            <apply>
+              <minus/>
+              <cn type="integer"> 1 </cn>
+              <ci> ASCb </ci>
+            </apply>
+          </apply>
+        </math>
+      </rateRule>
+      <rateRule variable="IL18c">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <minus/>
+            <apply>
+              <times/>
+              <ci> alpha5 </ci>
+              <ci> hC1 </ci>
+              <apply>
+                <minus/>
+                <cn type="integer"> 1 </cn>
+                <apply>
+                  <plus/>
+                  <ci> IL18c </ci>
+                  <ci> IL18e </ci>
+                </apply>
+              </apply>
+            </apply>
+            <apply>
+              <times/>
+              <ci> Gnovo </ci>
+              <ci> IL18c </ci>
+            </apply>
+          </apply>
+        </math>
+      </rateRule>
+      <rateRule variable="IL18e">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <times/>
+            <ci> Gnovo </ci>
+            <ci> IL18c </ci>
+          </apply>
+        </math>
+      </rateRule>
+      <rateRule variable="proIL1B">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <minus/>
+            <apply>
+              <minus/>
+              <apply>
+                <times/>
+                <ci> hNF </ci>
+                <ci> alpha3 </ci>
+              </apply>
+              <apply>
+                <times/>
+                <ci> hC1 </ci>
+                <ci> alpha4 </ci>
+                <ci> proIL1B </ci>
+              </apply>
+            </apply>
+            <apply>
+              <times/>
+              <ci> delta2 </ci>
+              <ci> proIL1B </ci>
+            </apply>
+          </apply>
+        </math>
+      </rateRule>
+      <rateRule variable="IL1Be">
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <apply>
+            <times/>
+            <ci> j </ci>
+            <ci> hC1 </ci>
+            <ci> alpha4 </ci>
+            <ci> proIL1B </ci>
+          </apply>
+        </math>
+      </rateRule>
+    </listOfRules>
+  </model>
+</sbml>

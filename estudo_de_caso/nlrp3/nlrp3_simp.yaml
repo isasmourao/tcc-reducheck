@@ -7,11 +7,12 @@
 # mudar o código da biblioteca. O simplificado vai de 13 para 8 variáveis (ver o cabeçalho de
 # `modelos/nlrp3_simp.ant`). Resultado em `estudo_de_caso/nlrp3/NOTAS.md`.
 #
-# ATENÇÃO — os critérios abaixo são PROVISÓRIOS e copiados do estudo de caso da Verly
-# (`estudo_de_caso/simp1.yaml`): NRMSE e erro estacionário obrigatórios, MAPE desejável. Quais
-# variáveis importam neste modelo e com quais limites ainda precisa ser decidido com a Bárbara
-# (questão 55 de `docs/questoes-em-aberto.md`). Por ora, todas as variáveis com contrapartida
-# no simplificado são core.
+# ATENÇÃO — os critérios abaixo são PROVISÓRIOS (proposta de 04/11/2026, a revisar com a
+# Bárbara: questão 57 de `docs/questoes-em-aberto.md`). Eles substituem os critérios copiados
+# da Verly, que aplicavam erro estacionário e MAPE a todas as variáveis. As duas métricas
+# dividem pelo valor do original e inflavam nas variáveis que voltam a zero (IL18c reprovava
+# com 6% de erro final sobre um valor de 2,6e-7). Diagnóstico em `NOTAS.md`.
+# Por ora, todas as variáveis com contrapartida no simplificado são core.
 
 versao: 1
 
@@ -90,19 +91,36 @@ variaveis:
     simplificado: null
     core: false
 
+# Regra usada para escolher os critérios, definida ANTES de rodar (não ajustada ao resultado):
+#   * todas as variáveis estão numa escala unitária (os totais de ASC, caspase-1 e IL-18 valem
+#     1), então "5% da escala" = 0,05, o mesmo nível do NRMSE;
+#   * as variáveis foram separadas pelo comportamento no ORIGINAL: as que terminam no pico
+#     (valor final / pico ~ 100%) e as que sobem e voltam a ~0 (final / pico <= 1,3%).
 criterios:
+  # 1. Curva inteira, em todas as variáveis. Divide pela amplitude, então não infla perto de 0.
   - metrica: nrmse
     limite: 0.05
     variaveis: core
     obrigatorio: true
+  # 2. Valor final, só nas variáveis que terminam longe de zero.
+  - metrica: erro_estacionario
+    limite: 0.01
+    variaveis: [NLRP3o, ASCb, C1, IL18e, IL1be]
+    obrigatorio: true
+  # 3. Nas que voltam a zero (NLRP3a, IL18c, proIL1b), o erro relativo no fim não tem sentido.
+  #    O maior erro absoluto não divide por nada; 0,05 = 5% da escala unitária.
+  - metrica: erro_max_abs
+    limite: 0.05
+    variaveis: [NLRP3a, IL18c, proIL1b]
+    obrigatorio: true
+  # 4. MAPE só como informação: desejável, e ignorando os pontos com |original| < 0,05 (as
+  #    subidas, onde dividir por valores minúsculos infla o número).
   - metrica: mape
     limite: 0.05
     variaveis: core
     obrigatorio: false
-  - metrica: erro_estacionario
-    limite: 0.01
-    variaveis: core
-    obrigatorio: true
+    parametros:
+      epsilon: 0.05
 
 relatorio:
   formatos: [html, md, json]

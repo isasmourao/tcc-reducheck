@@ -288,6 +288,88 @@ Três hipóteses para a divergência, em ordem de plausibilidade:
 
 Nenhum limite foi afrouxado e nenhuma equação foi ajustada para mudar este resultado.
 
+## Diagnóstico: remover só Mc
+
+Escrito em 05/11/2026. **Estes dois modelos não são simplificações novas** (simplificar está
+fora do escopo do TCC): são testes para separar as causas da reprovação da simplificação 1.
+
+Em relação ao original, a simplificação 1 faz três mudanças:
+
+1. remove `Cm`, com os termos `F1·Cm` em `Cb` e `k_3·Cm` em `C2`, e põe a fonte `E2` em `Cb`;
+2. remove `Mc`;
+3. usa o `C1` da nota de abril, sem o `E2` na degradação (questão 35):
+   `C1' = H1·(k_o·D + k_1·M1) − d_c1·C1·E2` no original e `− d_c1·C1` na nota.
+
+`Mc` só aparece na própria equação, então removê-lo não muda nenhuma outra variável. Os dois
+modelos partem de `verly_original.ant`, não da simplificação 1:
+
+| Modelo | Arquivo | Diferenças em relação ao original |
+| --- | --- | --- |
+| Diagnóstico A | `modelos/verly_diag_sem_mc.ant` | só `Mc` (equação, condição inicial, `p_cs`, `q_cd1`, `q_cd2`) |
+| Diagnóstico B | `modelos/verly_diag_sem_mc_c1_nota.ant` | `Mc` e o `C1` da nota, igual ao de `verly_simp1.ant` |
+
+As configurações (`diag_sem_mc.yaml` e `diag_sem_mc_c1_nota.yaml`) são cópias de
+`simp1_criterios_propostos.yaml`. Mudam só o modelo simplificado, a pasta de saída e `Cm`, que
+passa a existir nos dois modelos (`core: false`, sem critério). Métricas, limites, variáveis core
+e obrigatório/desejável são os mesmos.
+
+Reproduzir:
+
+```bash
+python modelos/build_sbml.py
+reducheck verificar estudo_de_caso/simp1_criterios_propostos.yaml
+reducheck verificar estudo_de_caso/diag_sem_mc.yaml
+reducheck verificar estudo_de_caso/diag_sem_mc_c1_nota.yaml
+```
+
+### Números
+
+| Critério | Variável | Limite | Tipo | Simp. 1 | Diag. A | Diag. B |
+| --- | --- | --- | --- | --- | --- | --- |
+| `nrmse` | `Cb` | 0,05 | obrigatório | 0,45 ✗ | 7,8e-09 ✓ | 1,97 ✗ |
+| `nrmse` | `Mb` | 0,05 | obrigatório | 0,685 ✗ | 4,4e-09 ✓ | 0,114 ✗ |
+| `nrmse` | `C1` | 0,05 | obrigatório | 0,682 ✗ | 3,2e-09 ✓ | 0,862 ✗ |
+| `nrmse` | `C2` | 0,05 | obrigatório | 0,992 ✗ | 4,1e-09 ✓ | 0,104 ✗ |
+| `erro_l2_rel` | `Cb` | 0,05 | desejável | 0,818 ✗ | 1,4e-08 ✓ | 3,58 ✗ |
+| `erro_l2_rel` | `Mb` | 0,05 | desejável | 0,752 ✗ | 4,8e-09 ✓ | 0,125 ✗ |
+| `erro_l2_rel` | `C1` | 0,05 | desejável | 0,739 ✗ | 3,5e-09 ✓ | 0,934 ✗ |
+| `erro_l2_rel` | `C2` | 0,05 | desejável | 1,00 ✗ | 4,1e-09 ✓ | 0,104 ✗ |
+| `erro_estacionario` | `Cb` | 0,01 | obrigatório | 0,0984 ✗ | 4,4e-09 ✓ | 4,41 ✗ |
+| `erro_estacionario` | `Mb` | 0,01 | obrigatório | 0,103 ✗ | 2,1e-09 ✓ | 0,00106 ✓ |
+| `erro_estacionario` | `C1` | 0,01 | obrigatório | 0,753 ✗ | 2,6e-09 ✓ | 0,939 ✗ |
+| `erro_estacionario` | `C2` | 0,01 | obrigatório | 1,00 ✗ | 9,9e-13 ✓ | 0,105 ✗ |
+| `erro_estacionario` | `Mo` | 0,01 | desejável | 0,405 ✗ | 1,5e-12 ✓ | 0,0103 ✗ |
+| `erro_estacionario` | `M1` | 0,01 | desejável | 0,379 ✗ | 1,1e-12 ✓ | 0,00472 ✓ |
+| `erro_estacionario` | `M2` | 0,01 | desejável | 0,403 ✗ | 6,3e-14 ✓ | 7,1e-05 ✓ |
+| `equilibrio` | `Cb` | 0,05 | desejável | 4,2e-06 ✓ | 2,8e-11 ✓ | 0,0117 ✓ |
+| `equilibrio` | `Mb` | 0,05 | desejável | 0 ✓ | 0 ✓ | 2,2e-16 ✓ |
+| `equilibrio` | `C1` | 0,05 | desejável | 0,0933 ✗ | 1,6e-06 ✓ | 663 ✗ |
+| `equilibrio` | `C2` | 0,05 | desejável | 0,00087 ✓ | 1,5e-08 ✓ | 0,248 ✗ |
+| `estabilidade_local` | — | — | desejável | marginal/marginal ✓ | marginal/marginal ✓ | marginal/marginal ✓ |
+| *`Cm` (informativo)* | `nrmse` / `erro_estacionario` | — | — | — | 5,5e-09 / 4,7e-12 | 0,147 / 0,148 |
+
+| | Simp. 1 | Diag. A | Diag. B |
+| --- | --- | --- | --- |
+| Veredito | REPROVADO | APROVADO | REPROVADO |
+| Itens atendidos | 4 de 20 (20,0%) | 20 de 20 (100%) | 6 de 20 (30,0%) |
+| Obrigatórios | 0/8 | 8/8 | 1/8 |
+
+### Leitura
+
+- **O diagnóstico A confere a montagem.** Tirar só `Mc` dá erros entre 1e-14 e 1e-8 na
+  trajetória (o ruído numérico de referência é 8,95e-07) e 1,6e-6 no equilíbrio de `C1`, que é
+  da ordem da tolerância da busca do equilíbrio. Como esperado, `Mc` não influencia nada.
+- **A divergência do `C1` (questão 35), sozinha, já reprova.** No diagnóstico B, com `Cm`
+  presente, os quatro `nrmse` obrigatórios falham. Em `Cb` e `C1` o erro do B é **maior** que
+  o da simplificação 1 (`nrmse` de `Cb`: 1,97 contra 0,45). Em `Mb` e `C2`, é menor (0,114
+  contra 0,685 e 0,104 contra 0,992).
+- **Os efeitos não se somam.** Como o B erra mais que a simplificação 1 em `Cb` e `C1`, a
+  retirada do `Cm` compensa em parte o efeito do `C1` nessas variáveis. Não dá para dividir a
+  reprovação em "x% do `Cm` e y% do `C1`". Com estes dois modelos, o efeito do `Cm` sozinho
+  (com o `C1` do código) não está medido.
+
+Nenhum limite foi mudado, e as conclusões das seções anteriores não foram alteradas.
+
 ## Simplificação 2 — fora do escopo deste estudo de caso
 
 **Decisão da Isabella em 11/10/2026: a simplificação 2 sai, e o estudo de caso fica só

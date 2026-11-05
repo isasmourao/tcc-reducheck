@@ -1,0 +1,100 @@
+// Verly et al. (2024) - DIAGNOSTIC model A: original without Mc.
+//
+// NOT a simplification (simplifying is out of the scope of the TCC): a test to
+// separate the causes of the rejection of simplification 1, which makes three
+// changes to the original: (1) removes Cm, with F1*Cm in Cb and k_3*Cm in C2,
+// and adds the source E2 in Cb; (2) removes Mc; (3) uses the C1 of the April
+// note, without E2 in the degradation (question 35 of docs/questoes-em-aberto.md).
+// Mc only appears in its own equation, so removing it changes no other variable.
+//
+// Built from modelos/verly_original.ant, not from verly_simp1.ant. Differences
+// from the original, and nothing else:
+//
+//   * the equation and the initial condition of Mc, and its parameters p_cs,
+//     q_cd1 and q_cd2 (used nowhere else);
+//
+// Results in estudo_de_caso/NOTAS.md, section "Diagnóstico: remover só Mc".
+
+model verly_diag_sem_mc
+
+  // --- Parameters (same names and values as in `bonerepair`) --------------
+  ke_1  = 3.0;
+  ke_2  = 3.0;
+  a_ed  = 4.71e6;    // declared in the original code but never used (see aed)
+  d_o   = 0.156;
+  k_12  = 0.075;
+  k_21  = 0.005;
+  d_1   = 0.121;
+  d_2   = 0.163;
+  k_o   = 0.0000005;
+  k_1   = 0.0000083;
+  d_c1  = 0.2;
+  k_2   = 0.00000372;
+  k_3   = 0.0000007;
+  d_c2  = 0.25;
+  K_lm  = 1000000.0;
+  k_lb  = 1000000.0;
+  d_b   = 0.15;
+  p_bs  = 0.00000005;
+  q_bd  = 0.00000005;
+  aed   = 4.71e6;    // the one actually passed to RD in the original code
+  kmax  = 0.015;
+  Mmax  = 6.0e5;
+  k_01  = 0.55;
+  a_01  = 0.01;
+  k_02  = 0.3;
+  a_02  = 0.005;
+  a_12  = 0.025;
+  a_22  = 0.1;
+  kpm   = 0.5;
+  apm   = 3.162;
+  apm1  = 13.0;
+  dm    = 1.0;
+  amb1  = 0.1;
+  kpb   = 0.2202;
+  apb   = 10.0;
+  ae2   = 0.5;
+  de2   = 0.03;
+
+  // In the original code E2max is the argument `E2_max` of `bonerepair`, and
+  // the script always calls it with the initial value of E2 (0.060 in the
+  // first run, 0.019 in the second). This model reproduces the first run.
+  E2max = 0.060;
+
+  // --- Auxiliary functions (same names as in the original code) -----------
+  M  := Mo + M1 + M2;                                  // total macrophages
+  RD := D / (aed + D);                                 // phagocytosis rate
+  RM := kmax * (1 - M / Mmax);                         // migration of Mo
+  G1 := k_01 * (C1 / (a_01 + C1));                     // Mo -> M1
+  G2 := k_02 * (C2 / (a_02 + C2));                     // Mo -> M2
+  H1 := a_12 / (a_12 + C2);                            // inhibition by C2
+  H2 := a_22 / (a_22 + C2);                            // inhibition by C2
+  Am := kpm * ((apm * apm) + (apm1 * C1)) / ((apm * apm) + (C1 * C1));
+  F1 := dm * (amb1 / (amb1 + C1));                     // Cm -> Cb
+  Ab := kpb * (apb / (apb + C1));                      // proliferation of Cb
+
+  // --- Equations (one per state variable) ---------------------------------
+  D'  = -RD * (ke_1 * M1 + ke_2 * M2);
+  Mo' = RM - G1 * Mo - G2 * Mo - (d_o * Mo);
+  M1' = G1 * Mo + (k_21 * M2) - (k_12 * M1) - (d_1 * M1);
+  M2' = G2 * Mo + (k_12 * M1) - (k_21 * M2) - (d_2 * M2);
+  C1' = H1 * (k_o * D + k_1 * M1) - (d_c1 * C1) * E2;
+  C2' = H2 * (k_2 * M2 + k_3 * Cm) * E2 - (d_c2 * C2);
+  Cm' = Am * Cm * (1 - (Cm / K_lm)) - (F1 * Cm);
+  Cb' = Ab * Cb * (1 - (Cb / k_lb)) + (F1 * Cm) - (d_b * Cb);
+  Mb' = (p_bs - (q_bd * Mb)) * Cb;
+  E2' = ((E2max - E2) / E2max) * ae2 * E2 - de2 * E2;
+
+  // --- Initial conditions (same values as in the original script) ---------
+  D  = 1000000.0;
+  Mo = 4000.0;
+  M1 = 0.0;
+  M2 = 0.0;
+  C1 = 0.0;
+  C2 = 0.0;
+  Cm = 2500.0;
+  Cb = 0.0;
+  Mb = 0.0;
+  E2 = 0.060;
+
+end

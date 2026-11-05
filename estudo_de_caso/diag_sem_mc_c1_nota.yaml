@@ -1,0 +1,136 @@
+# Estudo de caso — DIAGNÓSTICO B: original sem Mc, com o C1 da nota (modelo da Verly).
+#
+# Rodar a partir da raiz do repositório:
+#     reducheck verificar estudo_de_caso/diag_sem_mc_c1_nota.yaml
+#
+# NÃO é uma simplificação nova (simplificar está fora do escopo do TCC): é um teste para
+# separar as causas da reprovação da simplificação 1, que (1) remove Cm, (2) remove Mc e
+# (3) usa o C1 da nota de abril. Ver estudo_de_caso/NOTAS.md, seção "Diagnóstico:
+# remover só Mc".
+#
+# Cortes em relação ao original: Mc e o E2 da degradação de C1 (o C1 da nota de abril,
+# questão 35), exatamente como em verly_simp1.ant. Mede o efeito do C1 sozinho.
+#
+# Cópia de simp1_criterios_propostos.yaml. Mudam só: o modelo simplificado, a pasta de
+# saída e o mapeamento de Cm (agora presente nos dois modelos, core: false, sem critério).
+# Métricas, limites, variáveis core e obrigatório/desejável são os mesmos.
+
+versao: 1
+
+modelos:
+  original: ../modelos/verly_original.xml
+  simplificado: ../modelos/verly_diag_sem_mc_c1_nota.xml
+
+# Igual a `simp1.yaml`: 720 dias, 1000 pontos (TCC I, seção 4).
+simulacao:
+  t_inicio: 0
+  t_fim: 720
+  pontos: 1000
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+  nao_negativas: true
+
+variaveis:
+  # --- Core: o que a simplificação tem que acertar --------------------------
+  - nome: Cb
+    original: Cb
+    simplificado: Cb
+    core: true
+  - nome: Mb
+    original: Mb
+    simplificado: Mb
+    core: true
+  - nome: C1
+    original: C1
+    simplificado: C1
+    core: true
+  - nome: C2
+    original: C2
+    simplificado: C2
+    core: true
+
+  # --- E2: fora da contagem do veredito --------------------------------------
+  # A simplificação não toca em E2, então ela sempre passaria e inflaria a porcentagem (a
+  # crítica de Sargent às notas agregadas). Fica comparada, sem critério, só como checagem de
+  # que a transcrição está certa: o gráfico e o series.csv continuam mostrando as duas curvas.
+  - nome: E2
+    original: E2
+    simplificado: E2
+    core: false
+
+  # --- Comparadas, fora das core ---------------------------------------------
+  - nome: D
+    original: D
+    simplificado: D
+    core: false
+  - nome: Mo
+    original: Mo
+    simplificado: Mo
+    core: false
+  - nome: M1
+    original: M1
+    simplificado: M1
+    core: false
+  - nome: M2
+    original: M2
+    simplificado: M2
+    core: false
+
+  # --- Cm: presente nos dois modelos (só informativo, sem critério) --------
+  - nome: Cm
+    original: Cm
+    simplificado: Cm
+    core: false
+  # --- Eliminada no modelo de diagnóstico ----------------------------------
+  - nome: Mc
+    original: Mc
+    simplificado: null
+    core: false
+
+criterios:
+  # --- Trajetória: forma -------------------------------------------------------
+  # Pega a perda do pico de Cb (357 mil no dia 32 no original; sem pico na simplificação).
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: core
+    obrigatorio: true
+  # Segunda medida de forma, robusta ao zero inicial. Convenção do TCC (sem limite na
+  # literatura). Desejável para a mesma falha de forma não reprovar duas vezes; numa série que
+  # começa em zero ela é >= nrmse, então com o mesmo 0,05 é um pouco mais rígida.
+  - metrica: erro_l2_rel
+    limite: 0.05
+    variaveis: core
+    obrigatorio: false
+
+  # --- Trajetória: destino em t = 720 -------------------------------------------
+  # fracao_final padrão (0) = só o último ponto, t = 720: o destino relevante para o acoplamento.
+  - metrica: erro_estacionario
+    limite: 0.01
+    variaveis: core
+    obrigatorio: true
+  # Macrófagos: erro_estacionario e não nrmse. Desejável porque não são core (obrigatório
+  # deixaria uma variável fora do core reprovar a simplificação); 0,01 para não criar número novo.
+  - metrica: erro_estacionario
+    limite: 0.01
+    variaveis: [Mo, M1, M2]
+    obrigatorio: false
+
+  # erro_max_abs em Cb NÃO foi declarado: qualquer limite seria inventado, e mesmo desejável
+  # mudaria o nível do veredito. O erro absoluto no pico aparece no gráfico de Cb (painel de
+  # baixo); o número exato, se precisar, sai de um script à parte.
+
+  # --- Longo prazo: desejáveis ----------------------------------------------------
+  # Continuam na aba "Longo prazo" (com o aviso de que o equilíbrio está em ~7×10⁸ dias), mas
+  # só geram ressalva. Em simp1.yaml eles são obrigatórios.
+  - metrica: equilibrio
+    limite: 0.05
+    variaveis: core
+    obrigatorio: false
+  - metrica: estabilidade_local
+    obrigatorio: false
+
+relatorio:
+  formatos: [html, md, json]
+  pasta: resultados/diag_sem_mc_c1_nota/
+  niveis: 3

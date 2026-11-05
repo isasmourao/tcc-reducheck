@@ -136,7 +136,7 @@ ruído numérico, que compara o original com ele mesmo.
 | Pergunta | Critérios | O que ela não vê |
 | --- | --- | --- |
 | **Trajetória**: o simplificado faz o mesmo caminho que o original, dentro do tempo simulado? | as métricas (`nrmse`, `mape`, `erro_estacionario`, ...) | para onde os modelos iriam depois do fim da simulação |
-| **Longo prazo**: se os dois continuassem rodando, parariam no mesmo lugar, e do mesmo jeito? | `equilibrio` e `estabilidade_local` | o caminho; o equilíbrio pode estar muito depois do tempo simulado |
+| **Longo prazo**: se os dois continuassem rodando, parariam no mesmo lugar, e do mesmo jeito? | `equilibrio`, `estabilidade_local` e `comportamento_longo_prazo` | o caminho; o equilíbrio pode estar muito depois do tempo simulado |
 
 As duas ficam no mesmo YAML e saem no mesmo relatório, com um comando só. Uma pergunta sem
 nenhum critério declarado aparece como "não verificada". O `relatorio.html` tem abas: **Resumo**
@@ -297,8 +297,8 @@ Um teste falha se ela ficar desatualizada.
 | `variaveis[].core` | booleano | `true` | Se a variável é essencial ao propósito do modelo; `variaveis: core` nos critérios seleciona estas. | `false` |
 | `criterios` | lista de blocos (pelo menos 1 item) | **obrigatório** | Critérios de aceitação. Cada par (critério, variável) é um item do veredito. | — |
 | `criterios[].metrica` | texto | **obrigatório** | Nome de uma métrica registrada ou de uma análise qualitativa. | `nrmse`, `estabilidade_local` |
-| `criterios[].limite` | número ou `null` (> 0) | `null` | Maior erro aceito, inclusivo (passa com valor igual ao limite). Obrigatório, exceto em `estabilidade_local`, que não o aceita. | `0.05` |
-| `criterios[].variaveis` | lista de texto ou `core` ou `null` | `null` | Nomes declarados em `variaveis`, ou `core` para todas as core. Obrigatório, exceto em `estabilidade_local`, que não o aceita. | `[D, M]`, `core` |
+| `criterios[].limite` | número ou `null` (> 0) | `null` | Maior erro aceito, inclusivo (passa com valor igual ao limite). Obrigatório, exceto em `estabilidade_local` e `comportamento_longo_prazo`, que não o aceitam. | `0.05` |
+| `criterios[].variaveis` | lista de texto ou `core` ou `null` | `null` | Nomes declarados em `variaveis`, ou `core` para todas as core. Obrigatório, exceto em `estabilidade_local` e `comportamento_longo_prazo`, que não o aceitam. | `[D, M]`, `core` |
 | `criterios[].obrigatorio` | booleano | `true` | Se a falha reprova o modelo (`true`) ou só gera ressalva (`false`, desejável). | `false` |
 | `criterios[].parametros` | mapa texto → número | `{}` | Opções da própria métrica (ver a seção de métricas). | `{epsilon: 1e-6}`, `{fracao_final: 0.1}` |
 | `relatorio` | bloco | — | O que escrever, e onde. | — |
@@ -326,15 +326,26 @@ Todas as métricas comparam a série original `o` com a simplificada `s` nos mes
 todas, **menor é melhor** e 0 é idêntico. Os valores em fração leem-se como porcentagem:
 `0.05` = 5%.
 
-| Nome | Mede | Unidade | Parâmetros |
-| --- | --- | --- | --- |
-| `nrmse` | erro quadrático médio da trajetória | fração | — |
-| `mape` | erro relativo médio | fração | `epsilon` |
-| `erro_max_abs` | pior ponto, em valor absoluto | unidade da variável | — |
-| `erro_max_rel` | pior ponto, em valor relativo | fração | `epsilon` |
-| `erro_estacionario` | erro relativo no fim | fração | `fracao_final` |
-| `equilibrio` | erro relativo no equilíbrio | fração | — |
-| `estabilidade_local` | classificação da estabilidade | estável / instável / marginal | — |
+| Nome | Tipo | Fórmula | Unidade | Parâmetros | Fonte | Limite base da literatura |
+| --- | --- | --- | --- | --- | --- | --- |
+| `nrmse` | quantitativa | $\sqrt{\frac1n\sum(o_i-s_i)^2}\,/\,(\max o - \min o)$ | fração | — | — | sem limite na literatura |
+| `rmse` | quantitativa | $\sqrt{\frac1n\sum(o_i-s_i)^2}$ | unidade da variável | — | Chai & Draxler (2014) | sem limite na literatura |
+| `mape` | quantitativa | $\frac{1}{\lvert I\rvert}\sum_{i\in I}\lvert o_i-s_i\rvert/\lvert o_i\rvert$ | fração | `epsilon` | Hyndman & Koehler (2006), para a exclusão perto de zero | sem limite na literatura |
+| `erro_max_abs` | quantitativa | $\max_i\lvert o_i-s_i\rvert$ | unidade da variável | — | — | sem limite na literatura |
+| `erro_max_rel` | quantitativa | $\max_{i\in I}\lvert o_i-s_i\rvert/\lvert o_i\rvert$ | fração | `epsilon` | Snowden et al. (2017a) | 0,05 |
+| `erro_estacionario` | quantitativa | $\lvert\bar o-\bar s\rvert/\lvert\bar o\rvert$ | fração | `fracao_final` | — | sem limite na literatura |
+| `erro_integral` | quantitativa | $\frac1T\int_0^T\lvert 1-s/o\rvert\,dt$ | fração | `epsilon` | Rao et al. (2014), eq. 14 | 0,10 |
+| `erro_simetrico` | quantitativa | $\frac12\left[I(s,o)+I(o,s)\right]$ | fração | `epsilon` | Frøysa et al. (2018), eqs. 3–4 | sem limite no artigo; 0,10 derivado de Rao (2014) |
+| `erro_l2_rel` | quantitativa | $\lVert o-s\rVert_{L^2}/\lVert o\rVert_{L^2}$ | fração | — | Vejchodský (2014), Tabela 1 | sem limite na literatura |
+| `equilibrio` | qualitativa | $\lvert o^*-s^*\rvert/\lvert o^*\rvert$ no equilíbrio | fração | — | — | sem limite na literatura |
+| `estabilidade_local` | qualitativa | classificação dos autovalores da Jacobiana | estável / instável / marginal | — | — | sem limite (compara classificações) |
+| `comportamento_longo_prazo` | qualitativa | os dois chegam a um equilíbrio, ou nenhum chega | chega / não chega | — | Waldherr et al. (2007); Vejchodský (2014) | sem limite (compara rótulos) |
+
+"Sem limite na literatura" quer dizer que nenhum artigo consultado dá um número; os limites de
+[estudo_de_caso/simp1.yaml](estudo_de_caso/simp1.yaml) para essas métricas são convenção do TCC.
+As integrais (`erro_integral`, `erro_simetrico`, `erro_l2_rel`) usam a regra do trapézio na malha
+de tempo, que não precisa ser uniforme. Um exemplo com os limites da literatura está em
+[exemplos/limites_da_literatura.yaml](exemplos/limites_da_literatura.yaml).
 
 ### `nrmse`
 
@@ -380,6 +391,46 @@ do **tempo** (padrão `0`: só o último ponto). Use quando o que importa é ond
 independentemente do caminho. Um `fracao_final` como `0.1` estabiliza o número se a trajetória
 ainda oscila. Recusa um valor final zero; nesse caso use `erro_max_abs`.
 
+### `rmse`
+
+$$\mathrm{RMSE} = \sqrt{\frac{1}{n}\sum_i (o_i - s_i)^2}$$
+
+O numerador do `nrmse`, na unidade da variável (`rmse = nrmse × (max o − min o)`). Não compare
+nem some valores de variáveis diferentes. Chai & Draxler (2014) concluem que nenhuma métrica basta
+sozinha. Sem limite na literatura, porque depende da escala da variável.
+
+### `erro_integral`
+
+$$I = \frac{1}{T}\int_0^T \left|1 - \frac{s(t)}{o(t)}\right| dt \approx \frac{\sum_{i \in I} w_i\,\frac{|o_i - s_i|}{|o_i|}}{\sum_{i \in I} w_i}$$
+
+Erro relativo médio integrado no tempo (Rao et al., 2014, eq. 14), com os pesos `w_i` do
+trapézio e a mesma exclusão perto de zero (e o mesmo `epsilon`) do `mape`. Em Rao a integral
+também é tirada a média sobre as espécies importantes; aqui cada variável é um item e tem de passar
+sozinha. Rao parou a redução em `I = 0,1` e viu diferenças visuais claras com `0,2`. O resultado
+depende da janela `[0, T]` simulada. **Limite base: 0,10 (Rao et al., 2014).**
+
+### `erro_simetrico`
+
+$$E = \tfrac12\left[I(s, o) + I(o, s)\right],\qquad I(x_r, x_f) = \frac{1}{T}\int_0^T \left|1 - \frac{x_r(t)}{x_f(t)}\right| dt$$
+
+A média do `erro_integral` dividindo pelo original e do mesmo erro dividindo pelo simplificado
+(Frøysa et al., 2018, eqs. 3–4). Os dois termos usam os mesmos pontos: sai o ponto em que o
+original **ou** o simplificado está perto de zero. O relatório mostra os dois termos
+(`I_original`, `I_simplificado`). Frøysa usa a medida para agrupar e ranquear reduções, e não dá
+limite. **0,10 é derivado de Rao (2014)**, porque `E` é a média de duas integrais de Rao. Atenção:
+se o simplificado fica muito menor que o original em algum trecho, o termo que divide pelo
+simplificado explode, e o valor pode passar de 100%.
+
+### `erro_l2_rel`
+
+$$E = \frac{\lVert o - s\rVert_{L^2(0,T)}}{\lVert o\rVert_{L^2(0,T)}} = \sqrt{\frac{\int_0^T (o - s)^2\,dt}{\int_0^T o^2\,dt}}$$
+
+Erro relativo na norma L² (Vejchodský, 2014, Tabela 1), pelo trapézio. Não exclui ponto nenhum,
+porque a norma é da série inteira: serve para variáveis que começam em zero, como `M1`. Vejchodský
+alinha período e fase antes de calcular; aqui não há alinhamento, então um atraso conta como erro.
+Números do artigo, como referência: QSSA padrão 92,7%, QSSA com atraso 19%. Sem limite na
+literatura. Recusa um original identicamente zero; nesse caso use `erro_max_abs`.
+
 ### `equilibrio`
 
 Para cada variável mapeada, o erro relativo entre o **ponto de equilíbrio** dos dois modelos, com
@@ -400,8 +451,18 @@ alguma indistinguível de zero: abaixo de `10⁻⁶` vezes a maior parte real em
 linearização não decide). Passa quando os dois modelos recebem a mesma classificação. Compara a
 classificação, e não os autovalores, porque o simplificado tem menos variáveis.
 
-Declarar `equilibrio` ou `estabilidade_local` é o que liga a análise qualitativa; sem eles, nada de
-equilíbrio é calculado. Exemplo com os dois:
+### `comportamento_longo_prazo`
+
+Um item único sobre o modelo inteiro, **sem** `limite` e **sem** `variaveis`, como
+`estabilidade_local`. Passa quando os dois modelos chegam a um equilíbrio, ou nenhum chega.
+Waldherr et al. (2007) separam aproximar as quantidades de preservar a dinâmica qualitativa, e
+Vejchodský (2014) mostra o mesmo comportamento com 30% de erro no período: este critério não
+substitui as métricas. Hoje, se um dos modelos não acha equilíbrio, a análise qualitativa para com
+erro antes de chegar a este critério, então na prática ele só aparece passando.
+
+Declarar `equilibrio`, `estabilidade_local` ou `comportamento_longo_prazo` é o que liga a análise
+qualitativa; sem eles, nada de equilíbrio é calculado. Exemplo com `equilibrio` e
+`estabilidade_local`:
 [tests/fixtures/config_qualitativo.yaml](tests/fixtures/config_qualitativo.yaml).
 
 ### Qual usar
@@ -410,6 +471,8 @@ equilíbrio é calculado. Exemplo com os dois:
 - Acrescente `erro_estacionario` se o estado final importa para o propósito do modelo.
 - Use `mape` ou `erro_max_rel` só em variáveis longe de zero e leia os avisos.
 - Use `erro_max_abs` quando houver uma tolerância em unidades físicas.
+- Para usar um limite publicado, `erro_integral` (0,10, Rao et al., 2014) e `erro_max_rel`
+  (0,05, Snowden et al., 2017a) são os que têm número na literatura.
 - Marque como desejável (`obrigatorio: false`) o que é bom ter, mas não reprova a simplificação.
 - Declare os critérios **antes** de ver os resultados. Ajustar o limite até passar invalida a
   verificação.

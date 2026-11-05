@@ -61,11 +61,14 @@ __all__ = [
 #: criteria like any other -- declaring one is how it is switched on, and each item counts
 #: in the percentage -- but they are not registered metrics: a metric takes two series, and
 #: these take the two models (see ``docs/questoes-em-aberto.md``, question 41).
-ANALISES_QUALITATIVAS = frozenset({"equilibrio", "estabilidade_local"})
+ANALISES_QUALITATIVAS = frozenset(
+    {"equilibrio", "estabilidade_local", "comportamento_longo_prazo"}
+)
 
 #: Which qualitative analyses are measured per variable, and therefore need ``limite`` and
-#: ``variaveis`` like a metric. ``estabilidade_local`` is the other kind: one item about the
-#: whole model, met when the two classifications are equal, so a threshold would mean
+#: ``variaveis`` like a metric. ``estabilidade_local`` and ``comportamento_longo_prazo`` are
+#: the other kind: one item about the whole model, met when the two models agree (same
+#: classification, both reaching an equilibrium or neither), so a threshold would mean
 #: nothing there.
 QUALITATIVAS_POR_VARIAVEL = frozenset({"equilibrio"})
 
@@ -252,7 +255,7 @@ class Criterio(_Base):
         gt=0.0,
         description=(
             "Maior erro aceito, inclusivo (passa com valor igual ao limite). Obrigatório, "
-            "exceto em `estabilidade_local`, que não o aceita."
+            "exceto em `estabilidade_local` e `comportamento_longo_prazo`, que não o aceitam."
         ),
         examples=["0.05"],
     )
@@ -261,7 +264,7 @@ class Criterio(_Base):
         default=None,
         description=(
             "Nomes declarados em `variaveis`, ou `core` para todas as core. Obrigatório, "
-            "exceto em `estabilidade_local`, que não o aceita."
+            "exceto em `estabilidade_local` e `comportamento_longo_prazo`, que não o aceitam."
         ),
         examples=["[D, M]", "core"],
     )
@@ -676,9 +679,14 @@ def _conferir_qualitativo(indice: int, criterio: Criterio) -> list[str]:
             )
         return problemas
     if criterio.limite is not None:
+        quando = (
+            "os dois chegam a um equilíbrio, ou nenhum chega"
+            if criterio.metrica == "comportamento_longo_prazo"
+            else "os dois modelos têm a mesma classificação"
+        )
         problemas.append(
             f"criterios[{indice}].limite: a análise qualitativa '{criterio.metrica}' não "
-            "usa limite; ela passa quando os dois modelos têm a mesma classificação."
+            f"usa limite; ela passa quando {quando}."
         )
     if criterio.variaveis is not None:
         problemas.append(

@@ -200,7 +200,7 @@ def test_every_metric_and_qualitative_analysis_is_documented() -> None:
         for nome in metrics.disponiveis()
         if metrics.obter(nome).__module__ == metrics.__name__
     }
-    assert len(da_biblioteca) == 5
+    assert len(da_biblioteca) == 9
     for nome in da_biblioteca | config.ANALISES_QUALITATIVAS:
         assert f"### `{nome}`" in trecho, nome
 

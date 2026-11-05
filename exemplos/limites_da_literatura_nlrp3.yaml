@@ -1,0 +1,132 @@
+# Modelo da Julia (NLRP3), original x simplificado, com os limites da LITERATURA.
+#
+# Rodar a partir da raiz do repositório:
+#     reducheck verificar exemplos/limites_da_literatura_nlrp3.yaml --saida resultados/literatura_nlrp3/
+#
+# O par da Verly com os mesmos limites está em `limites_da_literatura.yaml`; os dois rodam
+# separados, cada um com o seu relatório.
+#
+# Mesmos modelos, simulação e variáveis de `estudo_de_caso/nlrp3/nlrp3_simp.yaml`; o que muda
+# são os critérios, cada um com a fonte do limite no comentário. Os critérios de
+# `nlrp3_simp.yaml` (provisórios, a revisar com a Bárbara) não foram tocados.
+#
+# As métricas relativas usam o `epsilon` padrão, como no artigo de cada uma, e não o 0,05 do
+# MAPE em `nlrp3_simp.yaml`. NLRP3a, IL18c e proIL1b sobem e voltam a ~0, então espere avisos
+# de "perto de zero" nelas (NOTAS.md do NLRP3 explica por quê).
+#
+# Nenhum limite foi ajustado depois de ver o resultado.
+
+versao: 1
+
+modelos:
+  original: ../modelos/nlrp3_original.xml
+  simplificado: ../modelos/nlrp3_simp.xml
+
+# Igual a `estudo_de_caso/nlrp3/nlrp3_simp.yaml`.
+simulacao:
+  t_inicio: 0
+  t_fim: 300
+  pontos: 1001
+  solver: cvode
+  tol_relativa: 1e-8
+  tol_absoluta: 1e-10
+  nao_negativas: true
+
+variaveis:
+  # --- Com contrapartida no simplificado -----------------------------------
+  - nome: NLRP3a
+    original: NLRP3a
+    simplificado: NLRP3a
+    core: true
+  - nome: NLRP3o
+    original: NLRP3o
+    simplificado: NLRP3o
+    core: true
+  - nome: ASCb
+    original: ASCb
+    simplificado: ASCb
+    core: true
+  - nome: C1
+    original: C1
+    simplificado: C1
+    core: true
+  - nome: IL18c
+    original: IL18c
+    simplificado: IL18c
+    core: true
+  - nome: IL18e
+    original: IL18e
+    simplificado: IL18e
+    core: true
+  - nome: proIL1b
+    original: proIL1b
+    simplificado: proIL1B
+    core: true
+  - nome: IL1be
+    original: IL1be
+    simplificado: IL1Be
+    core: true
+
+  # --- Eliminadas pela simplificação ---------------------------------------
+  - nome: NLRP3i
+    original: NLRP3i
+    simplificado: null
+    core: false
+  - nome: ASCf
+    original: ASCf
+    simplificado: null
+    core: false
+  - nome: proC1
+    original: proC1
+    simplificado: null
+    core: false
+  - nome: IL1bc
+    original: IL1bc
+    simplificado: null
+    core: false
+  - nome: proIL18
+    original: proIL18
+    simplificado: null
+    core: false
+
+criterios:
+  # --- Trajetória -------------------------------------------------------------
+  # Rao et al. (2014), BMC Syst Biol 8:52, eq. 14: pararam a redução em I = 0,1.
+  - metrica: erro_integral
+    limite: 0.10
+    variaveis: core
+    obrigatorio: true
+
+  # O segundo nível de Tillil et al. (PAGE 2024: 50% em todos os estados) não entra aqui:
+  # todas as variáveis comparadas deste par são core, então não há "outros estados" para ele.
+
+  # Frøysa et al. (2018) não dão limite absoluto. 0,10 é DERIVADO de Rao (2014): o erro
+  # simétrico é a média de duas integrais de Rao.
+  - metrica: erro_simetrico
+    limite: 0.10
+    variaveis: core
+    obrigatorio: false
+
+  # Snowden, van der Graaf & Tindall (2017a), BMC Syst Biol 11:17: tolerância de 5% no
+  # erro relativo máximo das saídas (critério de parada dos autores, não um padrão).
+  - metrica: erro_max_rel
+    limite: 0.05
+    variaveis: core
+    obrigatorio: false
+
+  # erro_l2_rel (Vejchodský, 2014) fica SEM critério: a literatura não dá limite.
+  # - metrica: erro_l2_rel
+  #   limite: ???
+  #   variaveis: core
+
+  # --- Longo prazo: FORA deste arquivo ----------------------------------------
+  # Nenhum dos dois modelos acha um equilíbrio (o steadyState falha com Jacobiana singular e a
+  # integração não para de mudar), e hoje isso interrompe a análise qualitativa com erro. Por
+  # isso equilibrio, estabilidade_local e comportamento_longo_prazo não foram declarados.
+  # comportamento_longo_prazo deveria passar aqui ("nenhum chega"), mas a biblioteca ainda não
+  # deixa a análise seguir sem equilíbrio (pendência do PR #55).
+
+relatorio:
+  formatos: [html, md, json]
+  pasta: ../resultados/literatura_nlrp3/
+  niveis: 3

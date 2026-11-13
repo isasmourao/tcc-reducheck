@@ -1,10 +1,10 @@
 // Verly et al. (2024) - DIAGNOSTIC model A: original without Mc.
 //
 // NOT a simplification (simplifying is out of the scope of the TCC): a test to
-// separate the causes of the rejection of simplification 1, which makes three
+// separate the causes of the rejection of simplification 1, which makes two
 // changes to the original: (1) removes Cm, with F1*Cm in Cb and k_3*Cm in C2,
-// and adds the source E2 in Cb; (2) removes Mc; (3) uses the C1 of the April
-// note, without E2 in the degradation (question 35 of docs/questoes-em-aberto.md).
+// and adds the source E2 in Cb; (2) removes Mc. (Until 2026-11-13 it also used
+// the C1 of the April note; question 35 of docs/questoes-em-aberto.md.)
 // Mc only appears in its own equation, so removing it changes no other variable.
 //
 // Built from modelos/verly_original.ant, not from verly_simp1.ant. Differences

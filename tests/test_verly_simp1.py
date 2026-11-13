@@ -161,22 +161,40 @@ def test_without_any_source_the_osteoblasts_stay_at_zero(
     assert result[:, 2].max() == 0.0
 
 
-def test_the_source_only_seeds_and_the_logistic_sets_the_level(
+def test_the_source_sets_the_level_because_the_logistic_has_no_positive_point(
     runner: roadrunner.RoadRunner,
 ) -> None:
-    """Cb settles at the non-zero fixed point of the logistic, not at the source.
+    """Cb stays small, at the level the source E2 alone can hold.
 
-    This is why the open question about `Es` does not change the verdict: the
-    magnitude of the source is almost irrelevant to where `Cb` ends up. What it
-    decides is only whether `Cb` leaves zero at all.
+    With the C1 of the original (with E2 in the degradation), C1 ends high enough that
+    the proliferation rate Ab falls below the death rate d_b. The logistic then has no
+    positive fixed point, and with Cb << k_lb the equation is close to linear:
+    `dCb/dt ~ E2 - (d_b - Ab) * Cb`, whose equilibrium is `E2 / (d_b - Ab)`.
     """
     runner.reset()
-    runner.selections = ["time", "Cb", "C1"]
+    runner.selections = ["time", "Cb", "C1", "E2"]
     result = runner.simulate(0, 720, 1000)
-    cb_final, c1_final = result[-1, 1], result[-1, 2]
+    cb_final, c1_final, e2_final = result[-1, 1], result[-1, 2], result[-1, 3]
     ab_final = PARAMETERS["kpb"] * PARAMETERS["apb"] / (PARAMETERS["apb"] + c1_final)
-    esperado = PARAMETERS["k_lb"] * (1 - PARAMETERS["d_b"] / ab_final)
+    assert ab_final < PARAMETERS["d_b"]
+    esperado = e2_final / (PARAMETERS["d_b"] - ab_final)
     assert cb_final == pytest.approx(esperado, rel=1e-2)
+
+
+def test_c1_equation_is_the_one_of_the_original() -> None:
+    """Removing Cm and Mc does not touch C1, so its equation stays as in the original.
+
+    The note of 2026-04-22 writes it without the E2 that multiplies the degradation;
+    the simplification keeps the E2 of the original code (question 35).
+    """
+    libsbml = pytest.importorskip("libsbml")
+
+    def c1_rate(path: Path) -> str:
+        model = libsbml.readSBMLFromFile(str(path)).getModel()
+        return libsbml.formulaToL3String(model.getRateRuleByVariable("C1").getMath())
+
+    assert c1_rate(MODEL_PATH) == c1_rate(ORIGINAL_PATH)
+    assert "E2" in c1_rate(MODEL_PATH)
 
 
 def test_estradiol_matches_the_original_exactly() -> None:
@@ -202,21 +220,22 @@ def test_estradiol_matches_the_original_exactly() -> None:
 #: `estudo_de_caso/NOTAS.md`. The equilibrium is only reached at t = 7.2e8, a million times
 #: the 720-day horizon, which is why these numbers come with question 39 attached.
 EQUILIBRIO_VERLY = {
-    "Cb": (318795.0, 4.17e-06),
+    "Cb": (318795.0, 2.46e-06),
     "Mb": (1.0, 0.0),
-    "C1": (8.2922e-05, 0.09330),
-    "C2": (8.17263e-10, 0.00087),
+    "C1": (8.2922e-05, 0.00356),
+    "C2": (8.17263e-10, 3.32e-05),
     "E2": (0.0564, 0.0),
 }
 
 
 def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
-    """The library on the real case study: same stability, equilibrium fails on C1.
+    """The library on the real case study: same stability and same equilibrium.
 
-    This is the "works on the Verly model" criterion of issue #18, and it works in a
-    narrow sense: both models are classified the same way and the variables with a non-zero
-    equilibrium agree to six digits, while `C1`, which decays to zero, disagrees by 9.3% --
-    a number that depends on where the integration stopped (question 42).
+    This is the "works on the Verly model" criterion of issue #18. Both models are classified
+    the same way and every equilibrium agrees within the 5% limit; `C1`, which decays to
+    zero, is the farthest, at 0.36% -- a number that depends on where the integration stopped
+    (question 42). It was 9.3% while the simplified model used the C1 of the note, without
+    E2 (question 35).
     """
     import reducheck
 
@@ -249,16 +268,16 @@ def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
         )
         assert itens[nome].valor == pytest.approx(erro, abs=5e-5)
 
-    # One file answers both questions since 2026-11-04; each keeps the count it had when
-    # the two were separate files (trajectory 3 of 15, long run 5 of 6).
+    # One file answers both questions since 2026-11-04: trajectory 3 of 15, long run 6 of 6
+    # (5 of 6 while the simplified model used the C1 of the note).
     from reducheck.verdict import LONGO_PRAZO, TRAJETORIA
 
     longo = resultado.veredito.parte(LONGO_PRAZO)
     caminho = resultado.veredito.parte(TRAJETORIA)
-    assert longo.nivel == "REPROVADO"
-    assert not itens["C1"].passou
-    assert longo.porcentagem == pytest.approx(100.0 * 5 / 6)
+    assert longo.nivel == "APROVADO"
+    assert itens["C1"].passou
+    assert longo.porcentagem == pytest.approx(100.0)
     assert sum(item.passou for item in caminho.criterios) == 3
     assert len(caminho.criterios) == 15
     assert resultado.nivel == "REPROVADO"
-    assert resultado.porcentagem == pytest.approx(100.0 * 8 / 21)
+    assert resultado.porcentagem == pytest.approx(100.0 * 9 / 21)

@@ -142,7 +142,7 @@ resolvida por conta própria.** O detalhamento e o impacto numérico estão na s
 | # | Ponto | Documento | `bone_estradiol.py` | Situação |
 | --- | --- | --- | --- | --- |
 | 1 | Fonte de `Cb` | `Es + ...` | sem termo de fonte | `Es` é `E2`, erro de digitação (Isabella, 11/10/2026 — questão 34), e é assim que o simplificado está. O termo **não existe no código**, o que levanta a questão 38: a equação original do documento não é a do código. |
-| 2 | Degradação de `c1` | `- dc1*c1` | `- (d_c1*C1)*E2` | O documento não tem o `E2`. **Decidido em 29/09: seguir o documento.** Muda o NRMSE de `C1` de 3,03 para 0,68, então parte da diferença medida em `C1` não é efeito da simplificação. Mesmo ponto da questão 3 de `referencia/duvidas.md`. |
+| 2 | Degradação de `c1` | `- dc1*c1` | `- (d_c1*C1)*E2` | O documento não tem o `E2`. Em 29/09 decidiu-se seguir o documento; **em 13/11/2026 a decisão foi revertida: o simplificado usa o `C1` do código, com o `E2`** (questão 35). Com isso, a equação de `C1` é igual nos dois modelos. Mesmo ponto da questão 3 de `referencia/duvidas.md`. |
 | 3 | Logística de `Cb` | `Ab*Cb*(1 - Cb)/klb` | `Ab*Cb*(1 - Cb/k_lb)` | O próprio documento manda conferir no código. Foi adotada a forma do código. Ver a questão 38. |
 | 4 | Sinal de `F1*Cm` em `Cb` | `- F1*Cm` | `+ F1*Cm` | O positivo é o que fecha o balanço: o que sai de `Cm` entra em `Cb`. Irrelevante para a simplificação 1, que remove o termo. Ver a questão 38. |
 | 5 | `dE2/dt` | `a*E2*(1 - E2/E2max) - d*E2` | `((E2max - E2)/E2max)*ae2*E2 - de2*E2` | **Equivalentes**: `(E2max - E2)/E2max == 1 - E2/E2max`. Não é divergência. |

@@ -150,6 +150,15 @@ def test_a_solver_failure_becomes_a_simulation_error() -> None:
         simulation.simular(FIXTURES_DIR / "divergente.xml", CURTAS, ["X"])
 
 
+def test_state_variables_leave_out_assignment_rules_and_constants() -> None:
+    # In qssa_ok_simplified B is an assignment rule and k1, k2 are constants: all three are
+    # "parametro" for tipos_disponiveis, and none of them is a state variable.
+    caminho = FIXTURES_DIR / "qssa_ok_simplified.xml"
+
+    assert simulation.variaveis_de_estado(caminho) == {"A", "C"}
+    assert {"B", "k1", "k2"} <= set(simulation.tipos_disponiveis(caminho))
+
+
 # --- simulation: reference numerical noise (capability S3) -------------------
 
 

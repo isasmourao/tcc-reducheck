@@ -624,6 +624,28 @@ def test_equilibrio_demands_a_threshold_and_a_list(tmp_path: Path) -> None:
     assert "criterios[0].variaveis" in mensagem
 
 
+#: ``B`` is a species in qssa_ok_original but an assignment rule in qssa_ok_simplified (it
+#: is the variable QSSA eliminated), so it has no value in the simplified equilibrium.
+EQUILIBRIO_EM_REGRA = BASE.replace(
+    "variaveis:\n  - nome: A",
+    "variaveis:\n  - nome: B\n    original: B\n    simplificado: B\n  - nome: A",
+) + "  - metrica: equilibrio\n    limite: 0.05\n    variaveis: [B]\n"
+
+
+def test_equilibrio_on_an_assignment_rule_is_refused_before_simulating(
+    tmp_path: Path,
+) -> None:
+    # It used to load, simulate, and then die with a KeyError inside verdict._combinar.
+    mensagem = recusa(tmp_path, EQUILIBRIO_EM_REGRA)
+
+    assert "criterios[1].variaveis" in mensagem
+    assert "'B'" in mensagem
+    assert "modelo simplificado" in mensagem
+    assert "variável de estado" in mensagem
+    # The original side is a real state variable, so it must not be blamed.
+    assert "modelo original" not in mensagem
+
+
 def test_equilibrio_with_a_threshold_and_a_list_is_accepted(tmp_path: Path) -> None:
     cfg = config_mod.carregar(
         escrever(tmp_path, BASE.replace("metrica: nrmse", "metrica: equilibrio"))

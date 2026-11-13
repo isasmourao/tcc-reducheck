@@ -172,6 +172,74 @@ def test_a_broken_simulation_exits_with_three(tmp_path: Path) -> None:
     assert "X" in processo.stderr
 
 
+#: ``divergente`` blows up at t = 1. Up to t = 0.5 the simulation is fine, so the metrics
+#: run; the equilibrium search integrates past the horizon and cannot find one.
+SEM_EQUILIBRIO = """versao: 1
+modelos:
+  original: divergente.xml
+  simplificado: divergente.xml
+simulacao:
+  t_inicio: 0
+  t_fim: 0.5
+  pontos: 51
+variaveis:
+  - nome: X
+    original: X
+    simplificado: X
+criterios:
+  - metrica: nrmse
+    limite: 0.05
+    variaveis: [X]
+  - metrica: equilibrio
+    limite: 0.05
+    variaveis: [X]
+relatorio:
+  formatos: [json]
+  pasta: resultados/
+"""
+
+
+def test_a_model_without_equilibrium_exits_with_three_and_no_traceback(
+    tmp_path: Path,
+) -> None:
+    shutil.copy(FIXTURES_DIR / "divergente.xml", tmp_path / "divergente.xml")
+    config = tmp_path / "config.yaml"
+    config.write_text(SEM_EQUILIBRIO, encoding="utf-8")
+
+    processo = run("verificar", config)
+
+    assert processo.returncode == 3
+    assert "Traceback" not in processo.stderr
+    # libRoadRunner writes its own CVODE lines to stderr first; ours is the one that counts.
+    linhas = [linha for linha in processo.stderr.splitlines() if linha.startswith("reducheck:")]
+    assert len(linhas) == 1
+    assert linhas[0].startswith("reducheck: erro: Análise qualitativa do modelo original")
+    # CVODE's own warnings may land on stdout too; what must not be there is a verdict.
+    assert "Veredito" not in processo.stdout
+
+
+def test_equilibrio_on_an_assignment_rule_exits_with_three(tmp_path: Path) -> None:
+    # B is an assignment rule in qssa_ok_simplified: there is no B in its equilibrium.
+    config = prepare(tmp_path, "config_qssa_ok.yaml")
+    texto = config.read_text(encoding="utf-8")
+    texto = texto.replace(
+        "variaveis:\n  - nome: A",
+        "variaveis:\n  - nome: B\n    original: B\n    simplificado: B\n  - nome: A",
+    ).replace(
+        "    variaveis: [A, C]\n",
+        "    variaveis: [A, C]\n  - metrica: equilibrio\n    limite: 0.05\n    variaveis: [B]\n",
+    )
+    config.write_text(texto, encoding="utf-8")
+
+    processo = run("verificar", config)
+
+    assert processo.returncode == 3
+    assert "Traceback" not in processo.stderr
+    assert "KeyError" not in processo.stderr
+    assert "variável de estado" in processo.stderr
+    assert processo.stdout == ""
+
+
 def test_help_is_in_portuguese(tmp_path: Path) -> None:
     geral = run("--help")
     do_subcomando = run("verificar", "--help")

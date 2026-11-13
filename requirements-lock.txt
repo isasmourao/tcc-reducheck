@@ -1,0 +1,49 @@
+# Versões exatas do ambiente em que os resultados do estudo de caso foram gerados.
+#
+# Python 3.13.7 (64 bits), Windows 10 Pro 10.0.19045. É o mesmo conjunto gravado em
+# `execucao.versoes` de cada resultado.json (reducheck 0.3.0, libroadrunner 2.10.0,
+# numpy 2.3.2, scipy 1.16.1, matplotlib 3.10.6), mais o resto das dependências do
+# pyproject.toml (inclusive as de desenvolvimento, [dev]) e as dependências delas.
+#
+# Gerado em 13/11/2026 a partir do ambiente instalado (pip), percorrendo as dependências
+# declaradas de `reducheck[dev]`. Linhas com "# transitiva" não estão no pyproject; vêm de
+# outra dependência. colorama só é instalada no Windows (vem do pytest).
+#
+# Para reproduzir:
+#     pip install -r requirements-lock.txt
+#     pip install -e . --no-deps
+
+# --- dependências do pyproject.toml -------------------------------------------
+Jinja2==3.1.6
+libroadrunner==2.10.0
+matplotlib==3.10.6
+numpy==2.3.2
+pydantic==2.13.5
+PyYAML==6.0.3
+scipy==1.16.1
+
+# --- dependências de desenvolvimento ([dev]) ----------------------------------
+antimony==3.2.0
+pytest==9.1.1
+python-libsbml==5.21.2
+ruff==0.16.9
+
+# --- transitivas ----------------------------------------------------------------
+annotated-types==0.8.0
+colorama==0.4.6 ; sys_platform == "win32"
+contourpy==1.3.3
+cycler==0.12.1
+fonttools==4.59.2
+iniconfig==2.3.0
+kiwisolver==1.4.9
+MarkupSafe==3.0.3
+packaging==25.0
+pillow==11.3.0
+pluggy==1.6.0
+pydantic_core==2.46.5
+Pygments==2.21.0
+pyparsing==3.2.3
+python-dateutil==2.9.0.post0
+six==1.17.0
+typing_extensions==4.16.0
+typing-inspection==0.4.4

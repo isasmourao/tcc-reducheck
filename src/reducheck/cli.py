@@ -8,7 +8,7 @@ command line here is being usable from a script:
   0    APROVADO
   1    APROVADO COM RESSALVAS
   2    REPROVADO
-  3    error: configuration, mapping, metric or simulation
+  3    error: configuration, mapping, metric, simulation or qualitative analysis
 =====  ==========================================
 
 An error is never a verdict (``docs/produto.md``: "nenhum desses casos gera veredito"), so
@@ -40,6 +40,7 @@ from reducheck import report
 from reducheck.config import ErroDeConfiguracao
 from reducheck.mapping import ErroDeMapeamento
 from reducheck.metrics import ErroDeMetrica
+from reducheck.qualitative import ErroDeQualitativo
 from reducheck.simulation import ErroDeSimulacao
 from reducheck.verdict import APROVADO, COM_RESSALVAS, PERGUNTAS, REPROVADO, ItemAvaliado
 
@@ -52,7 +53,13 @@ CODIGOS = {APROVADO: 0, COM_RESSALVAS: 1, REPROVADO: 2}
 CODIGO_DE_ERRO = 3
 
 #: The errors the library raises on purpose, all of them meaning "no verdict".
-_ERROS = (ErroDeConfiguracao, ErroDeMapeamento, ErroDeMetrica, ErroDeSimulacao)
+_ERROS = (
+    ErroDeConfiguracao,
+    ErroDeMapeamento,
+    ErroDeMetrica,
+    ErroDeQualitativo,
+    ErroDeSimulacao,
+)
 
 #: How many failed items of each kind the summary lists before it stops, to keep the
 #: summary short; the report has all of them.

@@ -12,7 +12,8 @@ that name the offending field:
 2. :func:`_conferir_coerencia` -- what only makes sense when the whole file is read
    (repeated names, criteria citing undeclared variables, metric names in the registry);
 3. :func:`_conferir_contra_modelos` -- the two SBML files: they exist, they load, and every
-   name cited in the mapping is a name the corresponding model has;
+   name cited in the mapping is a name the corresponding model has, and every name an
+   ``equilibrio`` criterion reads is a state variable;
 4. :func:`_exigir_suportado` -- what this version cannot honour yet.
 
 The last pass is deliberately apart from the schema: a request that is *valid* but not yet
@@ -865,6 +866,7 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
                         f"variaveis[{indice}].{papel}: o modelo {papel} não tem a variável "
                         f"'{nome}'.{_sugerir(nome, disponiveis[papel])}"
                     )
+    problemas.extend(_conferir_equilibrio(configuracao, disponiveis))
     sobrescrever = configuracao.simulacao.sobrescrever
     for papel in ("original", "simplificado"):
         proprios: Valores = getattr(sobrescrever, papel)
@@ -890,6 +892,51 @@ def _conferir_contra_modelos(configuracao: Configuracao, caminho: Path | str) ->
                         f"não {esperado}; use 'simulacao.sobrescrever.{outro}'."
                     )
     _reclamar(problemas, caminho)
+
+
+def _conferir_equilibrio(
+    configuracao: Configuracao, disponiveis: dict[str, frozenset[str]]
+) -> list[str]:
+    """Refuse an ``equilibrio`` criterion on a name that is not a state variable.
+
+    The equilibrium point of a model has only its state variables, so a variable the
+    mapping reads from an assignment rule (one eliminated by QSSA) or from a constant has
+    no value there to compare. Caught here, before anything is simulated; otherwise the
+    run would go all the way to the verdict and die there without one. A name the model
+    does not have at all was already reported by the mapping check, so it is skipped.
+    """
+    from reducheck import simulation  # deferred: simulation imports this module
+
+    pedidos = [
+        (indice, criterio)
+        for indice, criterio in enumerate(configuracao.criterios)
+        if criterio.metrica in QUALITATIVAS_POR_VARIAVEL
+    ]
+    if not pedidos:
+        return []
+    estados = {
+        papel: simulation.variaveis_de_estado(getattr(configuracao.modelos, papel))
+        for papel in ("original", "simplificado")
+    }
+    por_nome = {variavel.nome: variavel for variavel in configuracao.variaveis}
+    problemas: list[str] = []
+    for indice, criterio in pedidos:
+        for nome in configuracao.variaveis_de(criterio):
+            variavel = por_nome.get(nome)
+            if variavel is None:
+                continue  # pass 2 already refused a criterion citing an undeclared name
+            for papel in ("original", "simplificado"):
+                for citado in _nomes_citados(getattr(variavel, papel)):
+                    if citado in disponiveis[papel] and citado not in estados[papel]:
+                        problemas.append(
+                            f"criterios[{indice}].variaveis: o critério '{criterio.metrica}' "
+                            f"em '{nome}' precisa de '{citado}' no equilíbrio do modelo "
+                            f"{papel}, mas '{citado}' não é variável de estado nesse modelo "
+                            "(não tem equação diferencial: é uma regra de atribuição, como "
+                            "uma variável eliminada por QSSA, ou uma constante). O equilíbrio "
+                            f"só tem variáveis de estado; tire '{nome}' deste critério."
+                        )
+    return problemas
 
 
 # --- pass 4: what this version cannot honour yet -----------------------------

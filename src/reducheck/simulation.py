@@ -50,6 +50,7 @@ __all__ = [
     "simular",
     "tipos_disponiveis",
     "unidade_de_tempo",
+    "variaveis_de_estado",
 ]
 
 #: How much looser the tolerances of the second run of the original are. Two orders of
@@ -269,6 +270,19 @@ def tipos_disponiveis(caminho_sbml: Path | str) -> dict[str, str]:
     ``parametro``, because that is how libRoadRunner exposes an assignment rule.
     """
     return _tipos(_carregar(caminho_sbml))
+
+
+def variaveis_de_estado(caminho_sbml: Path | str) -> frozenset[str]:
+    """Return the names of the state variables of the model at ``caminho_sbml``.
+
+    These are the only names an equilibrium point has (see
+    :func:`reducheck.qualitative.estado`, which reads the same listing): the floating
+    species and the parameters with a rate rule. A variable defined by an assignment rule
+    -- one eliminated by QSSA -- is not among them, nor is a constant, even though
+    :func:`tipos_disponiveis` lists both as ``parametro``.
+    """
+    taxas = _carregar(caminho_sbml).getRatesOfChangeNamedArray()
+    return frozenset(str(nome).removesuffix("'") for nome in taxas.colnames)
 
 
 def unidade_de_tempo(caminho_sbml: Path | str) -> str | None:

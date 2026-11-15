@@ -234,6 +234,55 @@ o acordo em `C1` e `C2` também não deve ser citado no texto como resultado sob
 enquanto a questão 42 não for decidida com a orientadora. O que vale como resultado é o
 acordo em `Cb`, `Mb` e `E2` e a igualdade das classificações.
 
+## Sensibilidade ao teste de convergência
+
+Acrescentado em 15/11/2026, a partir de uma pergunta da orientadora: até onde o teste de
+convergência aceita, e o veredito muda conforme ele? Interpretação e achados na questão 59
+de `docs/questoes-em-aberto.md`. Números com o `C1` do original (com `E2`), a versão do main
+desde o PR #59.
+
+```bash
+python estudo_de_caso/sensibilidade_convergencia.py   # cerca de 20 s
+```
+
+Gera `texto/tabelas/convergencia_tolerancia.tex`, `texto/tabelas/convergencia_horizonte.tex`
+(as duas também em PNG), `texto/figuras/convergencia_horizonte.pdf` e `.png`, além dos CSV em
+`resultados/convergencia/`. O erro e o veredito saem de `verdict.avaliar`, com os critérios
+de longo prazo de `simp1.yaml`, então são os mesmos números do relatório.
+
+**Tolerância** (análise da biblioteca como ela roda, trocando só a tolerância):
+
+| Tolerância | Parou em | Cb | C1 | C2 | Longo prazo |
+| --- | --- | --- | --- | --- | --- |
+| 10⁻³ | 720 / steadyState | 1,00 | 1,00 | 1,00 | REPROVADO 0/6 |
+| 10⁻⁴ | 7200 / steadyState | 1,00 | 1,00 | 1,00 | REPROVADO 0/6 |
+| 10⁻⁵ | 7,2×10⁷ | 0,756 | 2,61 | 1,00 | REPROVADO 3/6 |
+| 10⁻⁶ a 10⁻¹⁰ | 7,2×10⁸ | 2,5×10⁻⁶ | 0,0036 | 3,3×10⁻⁵ | APROVADO 6/6 |
+| 10⁻¹¹ | 7,2×10⁸ / 7,2×10⁹ | 1,9×10⁻⁵ | **0,931** | 0,0090 | REPROVADO 5/6 |
+| 10⁻¹² | não convergiu | — | — | — | — |
+
+**Horizonte fixo** (os dois integrados até o mesmo instante, sem teste de parada):
+
+| Horizonte (× 720) | Cb | Mb | C1 | C2 | Longo prazo |
+| --- | --- | --- | --- | --- | --- |
+| 10⁰ a 10⁴ | 1,00 | 1,00 a 0,82 | 3,4 | 1,00 | REPROVADO 2/6 |
+| 10⁵ | 0,756 | 3×10⁻¹⁶ | 2,61 | 1,00 | REPROVADO 3/6 |
+| 10⁶ | 2,5×10⁻⁶ | 1×10⁻¹⁶ | 0,0036 | 3,3×10⁻⁵ | APROVADO 6/6 |
+| 10⁷ a 10¹¹ | 2,5×10⁻⁶ | < 10⁻¹⁵ | 2×10⁻⁷ a 1,5×10⁻⁴ | < 2×10⁻⁷ | APROVADO 6/6 |
+
+Nos primeiros horizontes, o erro de `Cb` é 1,00 porque o `Cb` do simplificado fica perto de
+zero (0,5 contra 1,67×10⁵ em t = 720; ainda 0,58 em 7,2×10⁶). Os dois modelos só se encontram
+entre 7,2×10⁷ e 7,2×10⁸ dias. `E2` fica abaixo de 10⁻¹⁵ em todos os pontos. A estabilidade é
+"marginal" nos dois modelos em todo ponto com tolerância de 10⁻⁵ ou mais apertada. Com 10⁻³ e
+10⁻⁴, o simplificado é "instável" porque está no equilíbrio trivial.
+
+**Leitura em uma frase:** a faixa útil de tolerâncias vai de 10⁻⁶ a 10⁻¹⁰. Dentro dela, o
+longo prazo é APROVADO 6/6 em todas as cinco décadas. Fora dela, o teste ou aceita pontos que
+ainda não são equilíbrio (frouxa) ou esbarra no piso numérico (10⁻¹¹ compara instantes
+diferentes; 10⁻¹² não converge). Na versão v-nota, antes do PR #59, o padrão dava REPROVADO 5/6
+por `C1` (9,3%), que era a fragilidade da questão 42. Com o `C1` do original, ela não muda mais
+o veredito.
+
 ## Tempo de execução
 
 Escrito em 17/10/2026 (issue #22). Medido por `gerar_resultados.py`: 10 execuções de cada

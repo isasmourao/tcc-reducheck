@@ -296,8 +296,8 @@ def faixa_estavel(pontos: Sequence[Ponto], referencia: float) -> tuple[float, fl
     O par é ``(mais frouxa, mais apertada)``, ou ``None`` se a análise falhou na própria
     referência. "Mesmo veredito" é mesmo nível, mesma contagem de itens *e* mesmo ponto de
     parada dos dois modelos: um item que troca de lado sem mudar o nível ainda é uma
-    mudança, e a mesma contagem medida em outro ponto é coincidência (na Verly, 10⁻¹¹ dá
-    5/6 como o padrão, mas com `C1` errando 93% em vez de 9,3%).
+    mudança, e a mesma contagem medida em outro ponto de parada é coincidência, e não o
+    mesmo resultado.
     """
     ordenados = sorted(
         (p for p in pontos if p.tolerancia is not None),

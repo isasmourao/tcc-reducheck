@@ -50,6 +50,7 @@ O MVP é **genérico na arquitetura e limitado no que promete**. Qualquer modelo
 - Mapeamentos por expressão arbitrária (ex.: razões, funções não lineares).
 - Busca de todos os equilíbrios e estabilidade global.
 - Incerteza de parâmetros (amostragem, como em Frøysa et al. 2018).
+- Sensibilidade automática do veredito ao teste de convergência (varrer tolerância, horizonte ou `t_fim` e mostrar onde o veredito muda). Feita só para o estudo de caso, em `estudo_de_caso/sensibilidade_convergencia.py`; ver a questão 59 de `docs/questoes-em-aberto.md` para o motivo de não ser genérica.
 - Interface gráfica.
 - Geração automática de simplificações.
 

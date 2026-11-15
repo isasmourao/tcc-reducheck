@@ -234,6 +234,55 @@ o acordo em `C1` e `C2` também não deve ser citado no texto como resultado sob
 enquanto a questão 42 não for decidida com a orientadora. O que vale como resultado é o
 acordo em `Cb`, `Mb` e `E2` e a igualdade das classificações.
 
+## Sensibilidade ao teste de convergência
+
+Acrescentado em 15/11/2026, a partir de uma pergunta da orientadora: até onde o teste de
+convergência aceita, e o veredito muda conforme ele? Interpretação e achados na questão 59
+de `docs/questoes-em-aberto.md`.
+
+```bash
+python estudo_de_caso/sensibilidade_convergencia.py   # cerca de 20 s
+```
+
+Gera `texto/tabelas/convergencia_tolerancia.tex`, `texto/tabelas/convergencia_horizonte.tex`
+(as duas também em PNG), `texto/figuras/convergencia_horizonte.pdf` e `.png`, além dos CSV em
+`resultados/convergencia/`. O erro e o veredito saem de `verdict.avaliar`, com os critérios
+de longo prazo de `simp1.yaml`, então são os mesmos números do relatório.
+
+**Tolerância** (análise da biblioteca como ela roda, trocando só a tolerância):
+
+| Tolerância | Parou em | Cb | C1 | C2 | Longo prazo |
+| --- | --- | --- | --- | --- | --- |
+| 10⁻³ | 720 / steadyState | 1,00 | 1,00 | 1,00 | REPROVADO 0/6 |
+| 10⁻⁴ | 7200 / steadyState | 1,00 | 1,00 | 1,00 | REPROVADO 0/6 |
+| 10⁻⁵ | 7,2×10⁷ | 0,694 | 0,789 | 1,00 | REPROVADO 3/6 |
+| 10⁻⁶ a 10⁻¹⁰ | 7,2×10⁸ | 4,2×10⁻⁶ | **0,0933** | 8,7×10⁻⁴ | REPROVADO 5/6 |
+| 10⁻¹¹ | 7,2×10⁸ / 7,2×10⁹ | 1,9×10⁻⁵ | **0,931** | 0,0090 | REPROVADO 5/6 |
+| 10⁻¹² | 7,2×10⁹ | 2,5×10⁻⁶ | 0,0043 | 5,2×10⁻⁶ | APROVADO 6/6 |
+
+**Horizonte fixo** (os dois integrados até o mesmo instante, sem teste de parada):
+
+| Horizonte (× 720) | Cb | C1 | C2 | Longo prazo |
+| --- | --- | --- | --- | --- |
+| 10⁰ | 0,0984 | 0,753 | 1,00 | REPROVADO 2/6 |
+| 10¹ a 10³ | 0,098 a 0,106 | 0,753 | 1,00 | REPROVADO 3/6 |
+| 10⁴ | 0,217 | 0,752 | 1,00 | REPROVADO 3/6 |
+| 10⁵ | 0,694 | 0,789 | 1,00 | REPROVADO 3/6 |
+| 10⁶ | 4,2×10⁻⁶ | 0,0933 | 8,7×10⁻⁴ | REPROVADO 5/6 |
+| 10⁷ | 2,5×10⁻⁶ | 0,0043 | 5,2×10⁻⁶ | APROVADO 6/6 |
+| 10⁸ a 10¹¹ | 2,5×10⁻⁶ | 4×10⁻⁵ a 6×10⁻⁷ | < 5×10⁻⁸ | APROVADO 6/6 |
+
+`Mb` e `E2` ficam abaixo de 10⁻⁸ em todos os pontos, exceto `Mb` em 10⁰ (0,103: em 720 dias
+o `Mb` do original ainda não chegou a 1). A estabilidade é "marginal" nos dois modelos em
+todos os pontos com tolerância de 10⁻⁵ ou mais apertada. Com 10⁻³ e 10⁻⁴, o simplificado é
+"instável" porque está no equilíbrio trivial.
+
+**Leitura em uma frase:** com a tolerância padrão, o veredito de longo prazo está no meio de
+uma faixa estável de quatro décadas (10⁻⁶ a 10⁻¹⁰). Mas o item que reprova (`C1`, que vai a
+zero) depende de onde a integração para, e não da simplificação. É a questão 42, agora
+medida de forma sistemática. Enquanto a 42 não for decidida, vale a mesma ressalva da seção
+anterior.
+
 ## Tempo de execução
 
 Escrito em 17/10/2026 (issue #22). Medido por `gerar_resultados.py`: 10 execuções de cada

@@ -116,6 +116,8 @@ Resultado: NÃO VERIFICADA. A configuração não declara nenhum critério desta
 ### Gráficos
 
 {% if graficos %}
+Como ler o painel de erro: a escala do eixo se ajusta ao tamanho do próprio erro, então até um erro minúsculo ocupa o painel inteiro. Confira os valores do eixo. Quando o erro fica perto da tolerância do integrador, ele oscila e troca de sinal: os dois modelos são integrados separadamente, com passos de tempo diferentes, e cada solução carrega o seu pequeno erro numérico. Essa oscilação é ruído do integrador, não diferença entre os modelos. O veredito vem das métricas, não do formato da curva.
+
 {% for grafico in graficos %}
 ![{{ grafico.variavel }}: original vs. simplificado e erro ao longo do tempo]({{ grafico.arquivo }})
 

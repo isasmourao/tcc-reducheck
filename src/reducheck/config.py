@@ -1,10 +1,5 @@
 """Read and validate the YAML configuration file.
 
-The schema is the whole "Input" section of ``docs/produto.md``, including fields that only
-later versions of the pipeline will act on (``obrigatorio``, qualitative criteria, report
-formats). Parsing everything now is what
-keeps the file format stable for the people who write it.
-
 Validation happens in four separate passes, in this order, and each one produces messages
 that name the offending field:
 
@@ -16,9 +11,8 @@ that name the offending field:
    ``equilibrio`` criterion reads is a state variable;
 4. :func:`_exigir_suportado` -- what this version cannot honour yet.
 
-The last pass is deliberately apart from the schema: a request that is *valid* but not yet
-implemented has to stop with an explicit message, never be silently ignored, or the verdict
-would be wrong without anyone noticing.
+The last pass is apart from the schema so that a request that is valid but not supported
+stops with an explicit message instead of being silently ignored.
 """
 
 from __future__ import annotations
@@ -58,10 +52,9 @@ __all__ = [
     "validar_esquema",
 ]
 
-#: Names of the qualitative analyses of ``docs/produto.md`` (capabilities L1-L3). They are
-#: criteria like any other -- declaring one is how it is switched on, and each item counts
-#: in the percentage -- but they are not registered metrics: a metric takes two series, and
-#: these take the two models (see ``docs/questoes-em-aberto.md``, question 41).
+#: Names of the qualitative analyses. They are criteria like any other -- declaring one
+#: switches it on, and each item counts in the percentage -- but they are not registered
+#: metrics: a metric takes two series, and these take the two models.
 ANALISES_QUALITATIVAS = frozenset(
     {"equilibrio", "estabilidade_local", "comportamento_longo_prazo"}
 )
@@ -132,7 +125,7 @@ class Valores(_Base):
 
 
 class Sobrescrita(Valores):
-    """Overrides of the values in the SBML files (capability S2).
+    """Overrides of the values in the SBML files.
 
     What is written directly under ``sobrescrever`` goes to *both* models, which is the
     common case: the same scenario simulated in the original and in the reduction. The
@@ -171,12 +164,18 @@ class Simulacao(_Base):
         examples=["0"],
     )
     t_fim: float = Field(
-        description="Instante final; tem que ser maior que `t_inicio`.",
+        description=(
+            "Instante final, na unidade de tempo dos modelos (por exemplo, dias); tem que "
+            "ser maior que `t_inicio`."
+        ),
         examples=["720"],
     )
     pontos: int = Field(
         ge=2,
-        description="Pontos de saída, contando as duas pontas. Os dois modelos usam a mesma malha.",
+        description=(
+            "Número de instantes salvos entre `t_inicio` e `t_fim`, igualmente espaçados e "
+            "contando as duas pontas. Os dois modelos usam a mesma malha."
+        ),
         examples=["1000"],
     )
     solver: str = Field(
@@ -234,7 +233,7 @@ class Variavel(_Base):
         examples=["M", "null"],
     )
     #: Whether the variable is essential to the purpose of the model. A criterion written
-    #: with ``variaveis: core`` is applied to exactly these (capability M4).
+    #: with ``variaveis: core`` is applied to exactly these.
     core: bool = Field(
         default=True,
         description="Se a variável é essencial ao propósito do modelo; `variaveis: core` "
@@ -298,9 +297,8 @@ class Relatorio(_Base):
         description="Pasta de saída, relativa ao YAML. `--saida` na linha de comando a substitui.",
         examples=["resultados/simp1"],
     )
-    #: How many verdict levels to use: 3 (the rule of ``docs/produto.md``) or 2, which
-    #: turns "aprovado com ressalvas" into "aprovado". The default is 3 while decision D01
-    #: (issue #1) is open, because that is what the product document describes.
+    #: How many verdict levels to use: 3, or 2, which turns "aprovado com ressalvas" into
+    #: "aprovado".
     niveis: Literal[2, 3] = Field(
         default=3,
         description="Níveis do veredito; `2` junta APROVADO COM RESSALVAS em APROVADO.",
@@ -901,9 +899,8 @@ def _conferir_equilibrio(
 
     The equilibrium point of a model has only its state variables, so a variable the
     mapping reads from an assignment rule (one eliminated by QSSA) or from a constant has
-    no value there to compare. Caught here, before anything is simulated; otherwise the
-    run would go all the way to the verdict and die there without one. A name the model
-    does not have at all was already reported by the mapping check, so it is skipped.
+    no value there to compare. Checked here so the error comes before any simulation. A
+    name the model does not have at all was already reported by the mapping check.
     """
     from reducheck import simulation  # deferred: simulation imports this module
 
@@ -941,10 +938,8 @@ def _conferir_equilibrio(
 
 # --- pass 4: what this version cannot honour yet -----------------------------
 
-#: Field -> (capability of docs/produto.md, issue that will implement it). Empty while
-#: every capability the schema accepts is implemented; kept because the mechanism is what
-#: makes a valid-but-unsupported request stop with an explicit message instead of being
-#: silently ignored, and the next unimplemented field goes here.
+#: Field -> (capability, issue) of a field the schema accepts but this version does not
+#: implement. Empty when every accepted field is supported.
 _PENDENTES: dict[str, tuple[str, str]] = {}
 
 

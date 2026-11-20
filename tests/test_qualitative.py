@@ -135,7 +135,7 @@ def test_classificar_instavel_quando_ha_autovalor_com_parte_real_positiva():
 
 
 def test_classificar_usa_tolerancia_relativa_ao_espectro():
-    """The decision of 11/10: the threshold scales with the model's own fastest mode.
+    """The threshold scales with the model's own fastest mode.
 
     The same system written in another time unit is the same system, so the label may not
     depend on the unit. Multiplying every eigenvalue by 86400 (days to seconds) must not

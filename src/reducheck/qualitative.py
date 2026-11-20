@@ -1,22 +1,15 @@
 """Equilibrium point and local stability analysis of each model.
 
-This is the long-term half of the comparison: the metrics ask whether the two models walk
-the same path, and this module asks whether they arrive at the same place and whether that
-place holds. Two analyses, both per model (capabilities L1 and L2), compared by
-:mod:`reducheck.verdict` (L3).
+The metrics compare the paths of the two models; this module checks whether they arrive at
+the same place and whether that place is stable. Both analyses run per model and are
+compared by :mod:`reducheck.verdict`.
 
-**One equilibrium, not all of them.** :func:`encontrar_equilibrio` returns the equilibrium
-the system reaches from the initial conditions of the configuration. Finding every
-equilibrium of a nonlinear system is out of scope (``docs/produto.md``), so every report
-carries :data:`AVISO_DO_EQUILIBRIO_UNICO` next to the numbers.
+Only the equilibrium reached from the initial conditions of the configuration is found,
+not every equilibrium; every report carries :data:`AVISO_DO_EQUILIBRIO_UNICO`.
 
-**Why the fallback is the main path.** The plan was libRoadRunner's ``steadyState``, with
-integration as a plan B. In the case-study model it is the other way round: Verly et al.
-write the eleven state variables as parameters with a *rate rule* and no floating species
-at all, and both ``steadyState`` and ``getFullJacobian`` only know about floating species.
-``steadyState`` then returns a residual of 1e-18 -- "converged" -- without having solved
-anything, with the rates still at 2500, and ``getFullJacobian`` refuses outright
-(*fewer floating species (0) than rate rules (11)*). So:
+libRoadRunner's ``steadyState`` and ``getFullJacobian`` only handle floating species. For a
+model whose state variables are parameters with rate rules, ``steadyState`` can report
+convergence without solving anything and ``getFullJacobian`` raises. Therefore:
 
 * convergence is judged by this module, from the rates of change at the point, and never
   by the solver's own claim (:attr:`Equilibrio.residuo`);
@@ -24,13 +17,9 @@ anything, with the rates still at 2500, and ``getFullJacobian`` refuses outright
 * when ``steadyState`` does not produce a point, the model is integrated over growing
   horizons until it stops moving, and only then refined with :func:`scipy.optimize.root`.
 
-**Beyond the declared horizon.** The equilibrium may lie far outside the simulated window:
-in the Verly model it arrives at t ~ 1e9 days, 1.4 million times the 720 days of the
-configuration. The decision of 11/10 (question 39 of ``docs/questoes-em-aberto.md``) is to
-measure it anyway and to say so: :attr:`Equilibrio.instante` and
-:meth:`Equilibrio.vezes_o_horizonte` exist so the report can state in which instant the
-point was reached, instead of letting a criterion about t = 1e9 pass for a statement about
-the window the user asked about.
+The equilibrium may lie far beyond the simulated window. :attr:`Equilibrio.instante` and
+:meth:`Equilibrio.vezes_o_horizonte` let the report state when the point was reached, so a
+criterion met far beyond ``t_fim`` is not read as a statement about the simulated window.
 """
 
 from __future__ import annotations
@@ -85,22 +74,20 @@ TOLERANCIA_DO_EQUILIBRIO = 1e-6
 #: called marginal, as a fraction of the largest real part in absolute value of the same
 #: model. Relative to the spectrum, and not an absolute number, so that the label does not
 #: depend on the time unit of the model: the same system written in days and in seconds has
-#: eigenvalues 86400 times apart and must be classified the same way (decision of 11/10,
-#: question 40 of ``docs/questoes-em-aberto.md``).
+#: eigenvalues 86400 times apart and must be classified the same way.
 TOLERANCIA_MARGINAL = 1e-6
 
 #: Factor by which the horizon grows at each attempt of the integration fallback.
 FATOR_DO_HORIZONTE = 10.0
 
 #: How many times the horizon may grow before the analysis gives up. ``t_fim`` times
-#: :data:`FATOR_DO_HORIZONTE` to this power is the furthest the model is integrated; the
-#: cap is arbitrary and is itself an open question (39 of ``docs/questoes-em-aberto.md``).
+#: :data:`FATOR_DO_HORIZONTE` to this power is the furthest the model is integrated.
 EXTENSOES_MAXIMAS = 12
 
 #: Relative step of the central finite differences of the Jacobian.
 PASSO_RELATIVO = 1e-7
 
-#: Printed in every report that contains a qualitative analysis, as issue #18 requires.
+#: Printed in every report that contains a qualitative analysis.
 AVISO_DO_EQUILIBRIO_UNICO = (
     "Análise de um único equilíbrio, alcançado a partir das condições iniciais da "
     "configuração; outros equilíbrios não foram buscados."
@@ -122,8 +109,7 @@ class Equilibrio:
     #: ``max|dx/dt|`` at the point, divided by the same quantity at the initial condition.
     #: Dimensionless and scale-free, which an absolute norm is not: it reads as "the system
     #: is moving this many times slower than it was when the simulation started". A norm in
-    #: the unit of the model would need a different threshold per model -- in the Verly
-    #: model the initial pace is 2500 and in the toy pairs it is 0.6.
+    #: the unit of the model would need a different threshold per model.
     residuo: float
     #: ``max|dx/dt|`` at the point, in the unit of the model, for whoever wants the raw
     #: number.
@@ -141,8 +127,7 @@ class Equilibrio:
     def vezes_o_horizonte(self, t_fim: float) -> float | None:
         """How many times the simulated horizon the equilibrium instant is.
 
-        ``None`` when there is no instant to compare. This is the number that keeps a
-        criterion about t = 1e9 from being read as a statement about t = 720.
+        ``None`` when there is no instant to compare.
         """
         if self.instante is None or t_fim <= 0:
             return None
@@ -210,9 +195,8 @@ def estado(modelo: roadrunner.RoadRunner) -> tuple[str, ...]:
     """Return the names of the state variables, in the model's own order.
 
     Read from the names of the rates of change, which is the only listing that covers both
-    ways a state variable can be written in SBML: a floating species (the toy models) and a
-    parameter with a rate rule (every variable of the Verly model). Asking for floating
-    species alone would report an empty state for the case-study model.
+    ways a state variable can be written in SBML: a floating species and a parameter with a
+    rate rule. Asking for floating species alone would miss the latter.
     """
     taxas_nomeadas = modelo.getRatesOfChangeNamedArray()
     nomes = tuple(str(nome).removesuffix("'") for nome in taxas_nomeadas.colnames)
@@ -245,7 +229,7 @@ def _norma(modelo: roadrunner.RoadRunner) -> float:
     return float(np.max(np.abs(taxas(modelo))))
 
 
-# --- equilibrium (L1) --------------------------------------------------------
+# --- equilibrium -------------------------------------------------------------
 
 
 def encontrar_equilibrio(
@@ -263,12 +247,12 @@ def encontrar_equilibrio(
     2. integration from the initial condition over horizons growing by
        :data:`FATOR_DO_HORIZONTE`, starting at ``t_fim``, until the system stops moving;
     3. refinement of that point with :func:`scipy.optimize.root`, in variables scaled by
-       their own magnitude -- without the scaling the solver does not move at all on a
-       state vector that spans from 1e-2 to 1e6, as the Verly model does.
+       their own magnitude -- without the scaling the solver may not move at all on a
+       state vector that spans many orders of magnitude.
 
-    The refinement is only accepted when it actually lowers the residual. In the case-study
-    model it does not converge (the condition number of the Jacobian is around 3e11), and a
-    point taken from a solver that reports failure would be worse than the integrated one.
+    The refinement is only accepted when it reports success and lowers the residual: on an
+    ill-conditioned Jacobian it may fail, and its point would then be worse than the
+    integrated one.
     """
     nomes = estado(modelo)
     modelo.reset()
@@ -366,7 +350,7 @@ def _refinar(
     return ponto, False
 
 
-# --- local stability (L2) ----------------------------------------------------
+# --- local stability ---------------------------------------------------------
 
 
 def jacobiana(
@@ -375,8 +359,8 @@ def jacobiana(
     """Return the full Jacobian at ``ponto`` and how it was obtained.
 
     libRoadRunner's ``getFullJacobian`` is preferred, and is only usable when the state is
-    made of floating species: it raises for a model written with rate rules, which is the
-    case of the Verly model. Central finite differences then do the work, with a step
+    made of floating species: it raises for a model written with rate rules. Central
+    finite differences then do the work, with a step
     relative to each variable, because the state spans many orders of magnitude.
     """
     nomes = estado(modelo)
@@ -504,11 +488,9 @@ def avisos(comparacao: Comparacao, t_fim: float) -> tuple[str, ...]:
     """Return what the report has to say next to a qualitative result, always.
 
     Two kinds of warning. The first is fixed: only one equilibrium was looked at. The
-    second says, per model, how far outside the declared horizon the point was found --
-    without it, a criterion met at t = 1e9 reads as a statement about the window the user
-    asked about, which in the case-study model is 1.4 million times shorter (question 39 of
-    ``docs/questoes-em-aberto.md``). Only stated when the instant is beyond ``t_fim``:
-    inside the simulated window there is nothing to warn about.
+    second says, per model, how far beyond the declared horizon the point was found, so a
+    criterion met there is not read as a statement about the simulated window. It is only
+    stated when the instant is beyond ``t_fim``.
     """
     linhas = [AVISO_DO_EQUILIBRIO_UNICO]
     for analise in (comparacao.original, comparacao.simplificado):

@@ -1,4 +1,4 @@
-"""The readable report: HTML, Markdown and the plots (issue #14)."""
+"""The readable report: HTML, Markdown and the plots."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def test_the_requested_formats_are_the_files_that_appear(tmp_path: Path) -> None
 
 
 def test_asking_for_markdown_alone_writes_no_html(tmp_path: Path) -> None:
-    # The "opção de gerar Markdown em vez de HTML" of the issue: instead of, not besides.
+    # Markdown instead of HTML, not besides it.
     resultado = rodar(tmp_path, "config_qssa_ok.yaml", "[md]")
 
     assert set(resultado.caminhos) == {"md"}
@@ -133,7 +133,7 @@ def test_every_failure_has_a_reason_next_to_it(tmp_path: Path) -> None:
 
     linhas = report.razoes(resultado.veredito)
     assert len(linhas) == 1
-    # Value, threshold and relative excess first; where in time the error is after (T15).
+    # Value, threshold and relative excess first; where in time the error is after.
     assert linhas[0].startswith("nrmse em C falhou: 52% (limite 5%, 940% acima do limite)")
     assert "erro concentrado entre t = " in linhas[0]
     assert linhas[0] in html
@@ -149,8 +149,8 @@ def test_an_approved_run_says_so_in_the_reasons_section(tmp_path: Path) -> None:
 def test_two_levels_explain_an_approval_with_a_percentage_below_a_hundred(
     tmp_path: Path,
 ) -> None:
-    # Question 26 of docs/questoes-em-aberto.md asks for this sentence: with niveis: 2 the
-    # report shows APROVADO next to 66,7%, which reads as a contradiction without it.
+    # With niveis: 2 the report shows APROVADO next to 66,7%, which reads as a
+    # contradiction without this sentence.
     from test_pipeline import DESEJAVEL_QUE_FALHA, com_criterio_extra
 
     config = com_criterio_extra(prepare(tmp_path, "config_qssa_ok.yaml"), DESEJAVEL_QUE_FALHA)

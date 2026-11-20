@@ -4,10 +4,8 @@ Rodar a partir da raiz do repositório:
 
     python estudo_de_caso/sensibilidade_convergencia.py
 
-**A pergunta** (da orientadora, 15/11/2026): até onde o teste de convergência aceita, e o
-veredito de longo prazo muda conforme ele? A questão 42 de `docs/questoes-em-aberto.md` já
-mostrava que o erro de equilíbrio em `C1` depende de onde a integração para. Este script mede
-isso de forma sistemática, de dois jeitos:
+Mede quanto o veredito de longo prazo depende do teste de convergência: o erro de equilíbrio
+em `C1` muda conforme o ponto em que a integração para. A medição é feita de dois jeitos:
 
 1. **Varredura da tolerância.** Roda a análise qualitativa da biblioteca
    (:func:`reducheck.qualitative.analisar`) com a tolerância do equilíbrio de 10⁻³ a 10⁻¹²,
@@ -24,8 +22,7 @@ Nada da biblioteca é alterado.
 
 **O que este script não é.** Não é uma capacidade da biblioteca e não vale para outro modelo
 sem leitura humana: a varredura é mecânica, mas dizer se uma mudança de veredito vem do
-modelo ou do teste depende de quem conhece o modelo. A versão genérica ficou registrada como
-trabalho futuro (questão 59 de `docs/questoes-em-aberto.md`).
+modelo ou do teste depende de quem conhece o modelo.
 
 Grava:
 

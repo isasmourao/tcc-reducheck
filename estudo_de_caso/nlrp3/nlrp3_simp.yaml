@@ -1,18 +1,11 @@
-# Modelo da Julia para teste — NLRP3 original x simplificado.
+# Estudo de caso — modelo do inflamassoma NLRP3, original x simplificado.
 #
 # Rodar a partir da raiz do repositório:
 #     reducheck verificar estudo_de_caso/nlrp3/nlrp3_simp.yaml
 #
-# Serve para testar se a biblioteca é genérica: é um modelo que não é o da Verly, rodado sem
-# mudar o código da biblioteca. O simplificado vai de 13 para 8 variáveis (ver o cabeçalho de
-# `modelos/nlrp3_simp.ant`). Resultado em `estudo_de_caso/nlrp3/NOTAS.md`.
-#
-# ATENÇÃO — os critérios abaixo são PROVISÓRIOS (proposta de 04/11/2026, a revisar com a
-# Bárbara: questão 57 de `docs/questoes-em-aberto.md`). Eles substituem os critérios copiados
-# da Verly, que aplicavam erro estacionário e MAPE a todas as variáveis. As duas métricas
-# dividem pelo valor do original e inflavam nas variáveis que voltam a zero (IL18c reprovava
-# com 6% de erro final sobre um valor de 2,6e-7). Diagnóstico em `NOTAS.md`.
-# Por ora, todas as variáveis com contrapartida no simplificado são core.
+# Segundo modelo, usado sem mudar o código da biblioteca. O simplificado vai de 13 para 8
+# variáveis (ver o cabeçalho de `modelos/nlrp3_simp.ant`). Todas as variáveis com
+# contrapartida no simplificado são core.
 
 versao: 1
 
@@ -20,12 +13,17 @@ modelos:
   original: ../../modelos/nlrp3_original.xml
   simplificado: ../../modelos/nlrp3_simp.xml
 
-# Mesmo horizonte dos notebooks (0 a 300 min). As tolerâncias são as do estudo de caso da
-# Verly, não as dos notebooks (1e-4), que dão até 23 % de erro (questão 55, item b).
+# Simulação. Tempo em MINUTOS (a unidade de tempo deste modelo).
+#   t_inicio, t_fim: início e fim da simulação, em minutos (0 a 300 min, o horizonte dos
+#                    notebooks).
+#   pontos:          número de instantes salvos entre t_inicio e t_fim, contando as duas
+#                    pontas; 1001 pontos em 300 min dão um ponto a cada 0,3 min.
+#   tol_relativa, tol_absoluta: tolerâncias do integrador CVODE, iguais nos dois modelos.
+#   nao_negativas:   se true, um valor negativo em qualquer variável interrompe com erro.
 simulacao:
-  t_inicio: 0
-  t_fim: 300
-  pontos: 1001
+  t_inicio: 0          # minuto inicial
+  t_fim: 300           # minuto final: 300 minutos (5 horas)
+  pontos: 1001         # instantes salvos de 0 a 300 min (um a cada 0,3 min)
   solver: cvode
   tol_relativa: 1e-8
   tol_absoluta: 1e-10
@@ -91,7 +89,7 @@ variaveis:
     simplificado: null
     core: false
 
-# Regra usada para escolher os critérios, definida ANTES de rodar (não ajustada ao resultado):
+# Regra usada para escolher os critérios:
 #   * todas as variáveis estão numa escala unitária (os totais de ASC, caspase-1 e IL-18 valem
 #     1), então "5% da escala" = 0,05, o mesmo nível do NRMSE;
 #   * as variáveis foram separadas pelo comportamento no ORIGINAL: as que terminam no pico

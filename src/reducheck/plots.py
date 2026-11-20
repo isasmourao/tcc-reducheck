@@ -1,11 +1,8 @@
 """Draw one panel per mapped variable: the two trajectories and the error over time.
 
-Each panel answers the two questions a reader has in front of a reduction: does the
-simplified model follow the original, and *where* in time it stops following. The error is
-plotted below, sharing the time axis, so both are read in one glance.
-
-The same PNG goes to ``graficos/`` at 300 dpi, for the text of the dissertation, and into
-the HTML report as base64, so the report stays a single file.
+The trajectories are on top and the absolute error below, sharing the time axis. The same
+PNG is saved to ``graficos/`` at 300 dpi and embedded in the HTML report as base64, so the
+report stays a single file.
 """
 
 from __future__ import annotations
@@ -31,7 +28,7 @@ __all__ = ["DPI", "PASTA_DOS_GRAFICOS", "Grafico", "desenhar", "rotulo_da_combin
 #: Resolution of the saved PNG files. 300 dpi is what a printed figure needs.
 DPI = 300
 
-#: Subfolder of the results folder where the PNG files go, as in ``docs/produto.md``.
+#: Subfolder of the results folder where the PNG files go.
 PASTA_DOS_GRAFICOS = "graficos"
 
 #: Width and height of one panel, in inches, before the dpi is applied.

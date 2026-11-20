@@ -49,7 +49,7 @@ def run(*args: str | Path) -> subprocess.CompletedProcess[str]:
     """Run the command line in a separate process, as a user would.
 
     PYTHONIOENCODING fixes the encoding of the pipe: without it the child writes in the
-    locale encoding (cp1252 on this Windows), which the accented Portuguese of the summary
+    locale encoding (cp1252 on Windows), which the accented Portuguese of the summary
     makes impossible to decode here as utf-8. It says nothing about the library: in a real
     terminal Python already writes in whatever the console understands.
     """

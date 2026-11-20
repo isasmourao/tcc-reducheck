@@ -60,7 +60,7 @@ E2_MAX = 0.060
 DAYS = 720
 POINTS = 1000
 
-# Threshold accepted in issue #4 for the maximum relative error.
+# Largest maximum relative error accepted for the translation.
 TOLERANCE = 1e-4
 
 

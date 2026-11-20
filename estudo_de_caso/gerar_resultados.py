@@ -1,4 +1,4 @@
-r"""Gera os resultados do estudo de caso para o texto do TCC (issue #22).
+r"""Gera os resultados do estudo de caso para o texto do TCC.
 
 Rodar a partir da raiz do repositório:
 
@@ -52,8 +52,8 @@ TABELAS = RAIZ / "texto" / "tabelas"
 #: Quantas vezes cada modelo é simulado para a tabela de tempo.
 EXECUCOES = 10
 
-#: Unidade de tempo do estudo de caso. Os SBML não a declaram (questão 28 de
-#: `docs/questoes-em-aberto.md`); "dias" vem do TCC I, seção 4 ("720 dias").
+#: Unidade de tempo do estudo de caso. Os SBML não a declaram; "dias" vem do TCC I,
+#: seção 4 ("720 dias").
 UNIDADE = "dias"
 
 #: Estilo comum a todas as figuras. A largura é a da coluna de texto do template SBC

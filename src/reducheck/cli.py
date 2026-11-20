@@ -1,8 +1,6 @@
-"""Command line entry point for the library.
+"""Command line entry point: ``reducheck verificar config.yaml``.
 
-One command, ``reducheck verificar config.yaml``, so that whoever does not write Python can
-still run a verification. The exit code is part of the interface, because the point of a
-command line here is being usable from a script:
+Exit codes:
 
 =====  ==========================================
   0    APROVADO
@@ -11,18 +9,10 @@ command line here is being usable from a script:
   3    error: configuration, mapping, metric, simulation or qualitative analysis
 =====  ==========================================
 
-An error is never a verdict (``docs/produto.md``: "nenhum desses casos gera veredito"), so
-code 3 is reported with the message on stderr and nothing on stdout. Argparse's own usage
-errors also exit with 3, and not with its default of 2, which would read as REPROVADO.
-
-The summary is a short block: the verdict, the counts, one line per failed item (a few of
-them; the report has all), the report path and the number of warnings. It is coloured only
-when stdout is a real terminal and ``NO_COLOR`` is not set, so a pipe, a file or a script
-always gets plain text. ``--abrir`` opens the HTML report in the default browser after it is
-written; it never changes the exit code.
-
-The texts are in Portuguese, like the report and the error messages; the identifiers are in
-English, as in the rest of the library.
+An error never produces a verdict: code 3 prints the message on stderr and nothing on
+stdout. Argparse usage errors also exit with 3, not with its default of 2, which would read
+as REPROVADO. The summary is coloured only on a real terminal without ``NO_COLOR``.
+``--abrir`` opens the HTML report in the browser and never changes the exit code.
 """
 
 from __future__ import annotations
@@ -279,8 +269,7 @@ def resumo(resultado: reducheck.Resultado, cor: bool = False) -> list[str]:
         f"obrigatórios {obrigatorios.passados}/{obrigatorios.total} · "
         f"desejáveis {desejaveis.passados}/{desejaveis.total}",
     ]
-    # The two questions apart, so that a run is never read as one answer when it is two
-    # (and so that a question nobody declared shows up as such).
+    # One line per question, including the questions with no declared criterion.
     for pergunta, titulo in PERGUNTAS.items():
         parte = resultado.veredito.parte(pergunta)
         rotulo_da_parte = "  " + titulo.ljust(_ROTULO + 2)

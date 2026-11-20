@@ -1,6 +1,6 @@
 """Tests of the configuration schema and of the message every rejection produces.
 
-One test per kind of error, as issue #9 asks. The assertions check the *message*, not only
+One test per kind of error. The assertions check the *message*, not only
 that it failed: the field path and the suggestion are the deliverable here, since the user
 of the library does not read the code.
 """
@@ -142,8 +142,8 @@ relatorio:
 
 
 def test_the_full_schema_of_the_product_document_is_parsed(tmp_path: Path) -> None:
-    # Parsed, but not runnable: the capabilities it asks for are later issues. The schema
-    # is validated apart from the support gate so that the file format is already stable.
+    # Schema validation alone, without the support gate: every field of the file format
+    # is parsed.
     dados = config_mod.ler_yaml(escrever(tmp_path, COMPLETA))
     cfg = config_mod.validar_esquema(dados, Path("config.yaml"))
 
@@ -163,9 +163,8 @@ def test_the_full_schema_of_the_product_document_is_parsed(tmp_path: Path) -> No
 
 
 def test_the_full_schema_now_loads_end_to_end(tmp_path: Path) -> None:
-    # Every capability the schema accepts is implemented since issue #18, so the support
-    # gate has nothing left to refuse here. The gate itself is still tested below, on the
-    # solver; what changed is that the qualitative criterion is no longer on the list.
+    # Every capability the schema accepts is implemented, so the support gate has nothing
+    # to refuse here. The gate itself is tested below, on the solver.
     cfg = config_mod.carregar(escrever(tmp_path, COMPLETA))
 
     assert [c.metrica for c in cfg.criterios] == ["nrmse", "estabilidade_local"]
@@ -305,15 +304,14 @@ def test_a_yaml_that_is_not_a_mapping_is_refused(tmp_path: Path) -> None:
     assert "chaves" in mensagem
 
 
-# --- capabilities of later issues: parsed, then refused ----------------------
+# --- unsupported capabilities: parsed, then refused --------------------------
 
 
 @pytest.mark.parametrize(
     ("de", "para", "campo"),
     [
-        # The qualitative criterion used to be here, and is implemented since issue #18.
-        # The gate stays tested on the solver, which is the next thing the schema accepts
-        # and the library cannot honour.
+        # The solver is a field the schema accepts and the library cannot honour, so it
+        # is what keeps the support gate tested.
         ("  pontos: 401", "  pontos: 401\n  solver: euler", "simulacao.solver"),
     ],
 )
@@ -331,11 +329,11 @@ def test_an_unknown_report_format_stops(tmp_path: Path) -> None:
 
     assert "relatorio.formatos" in mensagem
     assert "não existe" in mensagem
-    # A mensagem lista os formatos que existem (a issue #14 acrescentou html e md).
+    # A mensagem lista os formatos que existem.
     assert "html" in mensagem and "md" in mensagem and "json" in mensagem
 
 
-# --- mapping by sum, weighted sum and core selection (issue #10) -------------
+# --- mapping by sum, weighted sum and core selection --------------------------
 
 
 def test_a_sum_and_a_weighted_sum_are_accepted(tmp_path: Path) -> None:
@@ -452,7 +450,7 @@ def test_the_example_configuration_is_valid() -> None:
     assert cfg.nomes_core() == ["A", "C"]
 
 
-# --- per-metric parameters (issue #11) ---------------------------------------
+# --- per-metric parameters ----------------------------------------------------
 
 
 def test_the_parameters_of_a_metric_are_accepted(tmp_path: Path) -> None:
@@ -559,7 +557,7 @@ def test_a_parameter_written_on_a_species_is_refused(tmp_path: Path) -> None:
     assert "simulacao.sobrescrever.condicoes_iniciais" in mensagem
 
 
-# --- the number of verdict levels (decision D01, issue #1) -------------------
+# --- the number of verdict levels ---------------------------------------------
 
 NIVEIS_2 = BASE + "relatorio:\n  niveis: 2\n"
 
@@ -577,7 +575,7 @@ def test_a_number_of_levels_that_is_not_two_or_three_is_refused(tmp_path: Path) 
 
 
 def test_a_desirable_criterion_now_runs(tmp_path: Path) -> None:
-    # It used to stop at the support gate; issue #13 implements it, so it has to load.
+    # A desirable criterion passes the support gate and loads.
     cfg = config_mod.carregar(
         escrever(
             tmp_path,
@@ -590,7 +588,7 @@ def test_a_desirable_criterion_now_runs(tmp_path: Path) -> None:
     assert cfg.criterios[0].obrigatorio is False
 
 
-# --- shape of a qualitative criterion (issue #18) ----------------------------
+# --- shape of a qualitative criterion -----------------------------------------
 
 QUANTITATIVO = """metrica: nrmse
     limite: 0.05
@@ -635,7 +633,8 @@ EQUILIBRIO_EM_REGRA = BASE.replace(
 def test_equilibrio_on_an_assignment_rule_is_refused_before_simulating(
     tmp_path: Path,
 ) -> None:
-    # It used to load, simulate, and then die with a KeyError inside verdict._combinar.
+    # Refused before simulating; otherwise the run would end in a KeyError inside
+    # verdict._combinar.
     mensagem = recusa(tmp_path, EQUILIBRIO_EM_REGRA)
 
     assert "criterios[1].variaveis" in mensagem

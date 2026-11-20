@@ -22,7 +22,7 @@ ORIGINAL_PATH = ROOT / "modelos" / "verly_original.xml"
 
 STATE_VARIABLES = ["D", "Mo", "M1", "M2", "C1", "C2", "Cb", "Mb", "E2"]
 
-# Removed with Cm and Mc, according to the note of 2026-04-22.
+# Removed with Cm and Mc, according to `referencia/simplificacao_2026-04-22.md`.
 REMOVED_VARIABLES = ["Cm", "Mc"]
 REMOVED_PARAMETERS = [
     "kpm",
@@ -184,8 +184,8 @@ def test_the_source_sets_the_level_because_the_logistic_has_no_positive_point(
 def test_c1_equation_is_the_one_of_the_original() -> None:
     """Removing Cm and Mc does not touch C1, so its equation stays as in the original.
 
-    The note of 2026-04-22 writes it without the E2 that multiplies the degradation;
-    the simplification keeps the E2 of the original code (question 35).
+    The note writes it without the E2 that multiplies the degradation; the
+    simplification keeps the E2 of the original code.
     """
     libsbml = pytest.importorskip("libsbml")
 
@@ -214,11 +214,11 @@ def test_estradiol_matches_the_original_exactly() -> None:
     )
 
 
-# --- qualitative analysis of the case study (issue #18) ----------------------
+# --- qualitative analysis of the case study -----------------------------------
 
 #: Measured by `reducheck verificar estudo_de_caso/simp1.yaml` ("Longo prazo") and recorded in
 #: `estudo_de_caso/NOTAS.md`. The equilibrium is only reached at t = 7.2e8, a million times
-#: the 720-day horizon, which is why these numbers come with question 39 attached.
+#: the 720-day horizon.
 EQUILIBRIO_VERLY = {
     "Cb": (318795.0, 2.46e-06),
     "Mb": (1.0, 0.0),
@@ -231,11 +231,9 @@ EQUILIBRIO_VERLY = {
 def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
     """The library on the real case study: same stability and same equilibrium.
 
-    This is the "works on the Verly model" criterion of issue #18. Both models are classified
-    the same way and every equilibrium agrees within the 5% limit; `C1`, which decays to
-    zero, is the farthest, at 0.36% -- a number that depends on where the integration stopped
-    (question 42). It was 9.3% while the simplified model used the C1 of the note, without
-    E2 (question 35).
+    Both models are classified the same way and every equilibrium agrees within the 5%
+    limit; `C1`, which decays to zero, is the farthest, at 0.36% -- a number that depends on
+    where the integration stopped.
     """
     import reducheck
 
@@ -268,8 +266,7 @@ def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
         )
         assert itens[nome].valor == pytest.approx(erro, abs=5e-5)
 
-    # One file answers both questions since 2026-11-04: trajectory 3 of 15, long run 6 of 6
-    # (5 of 6 while the simplified model used the C1 of the note).
+    # One file answers both questions: trajectory 3 of 15, long run 6 of 6.
     from reducheck.verdict import LONGO_PRAZO, TRAJETORIA
 
     longo = resultado.veredito.parte(LONGO_PRAZO)

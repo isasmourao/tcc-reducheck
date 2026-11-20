@@ -275,8 +275,8 @@ Um teste falha se ela ficar desatualizada.
 | `modelos.simplificado` | caminho | **obrigatório** | Arquivo SBML do modelo simplificado, relativo ao YAML. | `modelos/simplificado.xml` |
 | `simulacao` | bloco | **obrigatório** | Condições de simulação, iguais para os dois modelos. | — |
 | `simulacao.t_inicio` | número | `0` | Instante inicial, na unidade de tempo dos modelos. | `0` |
-| `simulacao.t_fim` | número | **obrigatório** | Instante final; tem que ser maior que `t_inicio`. | `720` |
-| `simulacao.pontos` | inteiro (≥ 2) | **obrigatório** | Pontos de saída, contando as duas pontas. Os dois modelos usam a mesma malha. | `1000` |
+| `simulacao.t_fim` | número | **obrigatório** | Instante final, na unidade de tempo dos modelos (por exemplo, dias); tem que ser maior que `t_inicio`. | `720` |
+| `simulacao.pontos` | inteiro (≥ 2) | **obrigatório** | Número de instantes salvos entre `t_inicio` e `t_fim`, igualmente espaçados e contando as duas pontas. Os dois modelos usam a mesma malha. | `1000` |
 | `simulacao.solver` | texto | `cvode` | Integrador. Só `cvode` está disponível. | `cvode` |
 | `simulacao.tol_relativa` | número (> 0) | `1e-08` | Tolerância relativa do solver. | `1e-8` |
 | `simulacao.tol_absoluta` | número (> 0) | `1e-10` | Tolerância absoluta do solver. | `1e-10` |

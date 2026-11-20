@@ -1,4 +1,4 @@
-"""Checks on the SBML translation of the simplified NLRP3 model (Julia's test model).
+"""Checks on the SBML translation of the simplified NLRP3 model.
 
 The comparison against the simplified notebook lives in
 ``referencia/nlrp3/comparar_sbml.py``; these tests guard the SBML file against
@@ -113,6 +113,6 @@ def test_verification_runs_without_library_changes(tmp_path: Path) -> None:
     falhas = {
         (c.metrica, c.variavel) for c in resultado.criterios if c.obrigatorio and not c.passou
     }
-    # With the criteria chosen by behaviour (question 57), only the real infidelity is left:
+    # With the criteria chosen by behaviour, only the real infidelity is left:
     # IL1be, where j = 0.7 replaces the ~0.952 implied by the original.
     assert falhas == {("nrmse", "IL1be"), ("erro_estacionario", "IL1be")}

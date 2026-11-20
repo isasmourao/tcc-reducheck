@@ -4,20 +4,15 @@
 #     reducheck verificar estudo_de_caso/simp1.yaml
 #
 # A simplificação 1 remove as células-tronco mesenquimais (Cm) e a fibrocartilagem (Mc),
-# levando o sistema de 11 para 9 variáveis. Ver `modelos/verly_simp1.ant` para a lista
-# exata do que foi retirado e `estudo_de_caso/NOTAS.md` para o resultado.
+# levando o sistema de 11 para 9 variáveis. A lista exata do que foi retirado está no
+# cabeçalho de `modelos/verly_simp1.ant`.
 #
-# Um só arquivo para as duas perguntas (desde 04/11/2026; antes a segunda ficava em
-# `simp1_qualitativo.yaml`). O relatório separa as duas em abas, cada uma com a sua contagem:
+# O relatório separa os critérios em duas abas, cada uma com a sua contagem:
 #   * Trajetória (nrmse, mape, erro_estacionario): o simplificado faz o mesmo caminho nos
-#     720 dias?
+#     720 dias simulados?
 #   * Longo prazo (equilibrio, estabilidade_local): os dois modelos param no mesmo lugar, e
-#     do mesmo jeito? O equilíbrio deste modelo só é alcançado em t ≈ 7×10⁸ dias, cerca de
-#     um milhão de vezes os 720 simulados (questão 39 de `docs/questoes-em-aberto.md`).
+#     do mesmo jeito?
 # O veredito do topo junta as duas.
-#
-# ATENÇÃO — os critérios abaixo são PROVISÓRIOS. As variáveis core e os limites ainda
-# precisam ser fechados com a orientadora (questão 7 de `docs/questoes-em-aberto.md`).
 
 versao: 1
 
@@ -25,13 +20,16 @@ modelos:
   original: ../modelos/verly_original.xml
   simplificado: ../modelos/verly_simp1.xml
 
-# Horizonte e malha do TCC I (seção 4: "720 dias, com 1000 pontos de avaliação
-# uniformemente distribuídos"). Ver a questão 6 de "Encontrado durante o
-# desenvolvimento": o script original usa 360 dias com 50 pontos.
+# Simulação. Tempo em DIAS (a unidade de tempo do modelo da Verly).
+#   t_inicio, t_fim: início e fim da simulação, em dias (0 a 720 dias, cerca de 2 anos).
+#   pontos:          número de instantes salvos entre t_inicio e t_fim, contando as duas
+#                    pontas; 1000 pontos em 720 dias dão um ponto a cada ~0,72 dia.
+#   tol_relativa, tol_absoluta: tolerâncias do integrador CVODE, iguais nos dois modelos.
+#   nao_negativas:   se true, um valor negativo em qualquer variável interrompe com erro.
 simulacao:
-  t_inicio: 0
-  t_fim: 720
-  pontos: 1000
+  t_inicio: 0          # dia inicial
+  t_fim: 720           # dia final: 720 dias (cerca de 2 anos)
+  pontos: 1000         # instantes salvos de 0 a 720 dias (um a cada ~0,72 dia)
   solver: cvode
   tol_relativa: 1e-8
   tol_absoluta: 1e-10
@@ -63,10 +61,8 @@ variaveis:
     core: true
 
   # --- Comparadas, mas fora dos critérios obrigatórios ---------------------
-  # D e os macrófagos têm um transiente muito rápido nas primeiras horas (Mo cai de
-  # 4000 para ~0,015; M1 e M2 começam em 0), o que torna as métricas relativas pouco
-  # informativas neles. Ver as questões 8 de `referencia/duvidas.md` e 14/18 de
-  # `docs/questoes-em-aberto.md`.
+  # D e os macrófagos têm um transiente muito rápido no início (M1 e M2 começam em 0),
+  # o que torna as métricas relativas pouco informativas neles.
   - nome: D
     original: D
     simplificado: D
@@ -110,8 +106,8 @@ criterios:
     obrigatorio: true
 
   # --- Longo prazo: o equilíbrio e a estabilidade ----------------------------
-  # Vieram de `simp1_qualitativo.yaml`, com os mesmos limites. D fica fora porque não é
-  # core: é a variável do modo lento, e no equilíbrio os dois modelos ainda descem por ela.
+  # D fica fora porque não é core: é a variável do modo lento, e perto do equilíbrio os
+  # dois modelos ainda descem por ela.
   - metrica: equilibrio
     limite: 0.05
     variaveis: core

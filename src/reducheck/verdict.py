@@ -1,12 +1,9 @@
 """Evaluate the declared criteria and decide the final verdict.
 
-One item per (criterion, variable) pair, and the three-level rule of the "Output" section of
-``docs/produto.md``: a mandatory criterion that fails rejects the model whatever the
-percentage says, which is the reason mandatory criteria exist at all.
-
-The number of levels is still an open decision with the advisor (D01, issue #1), so
-``relatorio.niveis: 2`` collapses "com ressalvas" into ``APROVADO`` without changing any
-measurement: what the option switches off is the level, not the item that failed.
+Each (criterion, variable) pair is one item. A failed mandatory item gives REPROVADO
+whatever the percentage; a failed desirable item gives APROVADO COM RESSALVAS; otherwise
+APROVADO. ``relatorio.niveis: 2`` merges "com ressalvas" into ``APROVADO`` without changing
+any measurement.
 """
 
 from __future__ import annotations
@@ -49,19 +46,19 @@ APROVADO = "APROVADO"
 COM_RESSALVAS = "APROVADO COM RESSALVAS"
 REPROVADO = "REPROVADO"
 
-#: How many levels the verdict may have, pending D01.
+#: How many levels the verdict may have.
 NIVEIS = frozenset({2, 3})
 
 #: Printed in the "Variável" column of an item that is about the whole model, and not about
 #: one variable: ``estabilidade_local`` is one item, whatever the number of variables.
 SEM_VARIAVEL = "—"
 
-#: Share of the accumulated error the window of a failure has to hold (issue #19).
+#: Share of the accumulated error the window of a failure has to hold.
 FRACAO_CONCENTRADA = 0.8
 
 #: Fraction of the time span that counts as the transient, at the start, and as the steady
-#: state, at the end. A convention of the issue, not a detection of either: the last 20% of
-#: a run that never settles are still called "estado estacionário" here.
+#: state, at the end. A fixed convention, not a detection of either: the last 20% of a run
+#: that never settles are still called "estado estacionário" here.
 FRACAO_DA_FASE = 0.2
 
 #: Where the error of a failure concentrates, spelled as the reasons print it.
@@ -72,8 +69,7 @@ AO_LONGO = "ao longo da simulação"
 #: The two questions a verification answers. Every criterion belongs to exactly one: the
 #: qualitative analyses (:data:`~reducheck.config.ANALISES_QUALITATIVAS`) ask about the
 #: long run, and every metric asks about the trajectory inside the simulated window. The
-#: report counts them apart, because a simplification can fail one and pass the other --
-#: Verly's simplification 1 misses the path and reaches the same destination.
+#: report counts them apart, because a simplification can fail one and pass the other.
 TRAJETORIA = "trajetoria"
 LONGO_PRAZO = "longo_prazo"
 
@@ -130,7 +126,7 @@ class ItemAvaliado:
     limite_texto: str = ""
     #: What the metric had to warn about, such as points excluded near zero. A warning
     #: never changes whether the item passed: it is there so the reader can judge the
-    #: number, as ``docs/produto.md`` asks ("avisa, sem parar").
+    #: number.
     avisos: tuple[str, ...] = ()
     #: Extra numbers the metric produced (when the maximum happened, points dropped).
     detalhes: Mapping[str, Any] = field(default_factory=dict)
@@ -167,8 +163,8 @@ class Veredito:
     def aprovado(self) -> bool:
         """Whether the verdict is the plain approval, with no reservation.
 
-        Deliberately strict: "com ressalvas" is a level of its own, which the command line
-        of issue #15 reports with its own exit code. With ``relatorio.niveis: 2`` there is
+        "Com ressalvas" is a level of its own, with its own exit code in the command
+        line, so it is ``False`` here. With ``relatorio.niveis: 2`` there is
         no intermediate level, so a run that would be approved with reservations arrives
         here already as :data:`APROVADO` and this is ``True``.
         """
@@ -224,9 +220,7 @@ def avaliar(
 
     ``comparacao`` is the qualitative analysis of both models, required when and only when
     some criterion is one of :data:`~reducheck.config.ANALISES_QUALITATIVAS`. A qualitative
-    item counts in the percentage like any other, which is the sense in which it is "a
-    criterion like the others"; what it is not is a pluggable metric (question 41 of
-    ``docs/questoes-em-aberto.md``).
+    item counts in the percentage like any other, but it is not a pluggable metric.
     """
     if niveis not in NIVEIS:
         raise ValueError(f"niveis tem que ser 2 ou 3; recebido {niveis}.")
@@ -285,7 +279,7 @@ def pergunta_de(item: ItemAvaliado) -> str:
     return LONGO_PRAZO if item.metrica in ANALISES_QUALITATIVAS else TRAJETORIA
 
 
-# --- where the error is (capability V3) --------------------------------------
+# --- where the error is ------------------------------------------------------
 
 
 def diagnosticar(
@@ -339,7 +333,7 @@ def diagnosticar(
     )
 
 
-# --- qualitative criteria (capability L3) ------------------------------------
+# --- qualitative criteria ----------------------------------------------------
 
 
 def _itens_qualitativos(
@@ -367,7 +361,7 @@ def _item_de_longo_prazo(
     dynamics, and Vejchodský (2014) shows the same behaviour coming with a 30% error in the
     period. So this criterion does not replace the metrics; it sits next to them.
 
-    Limite base da literatura: sem limite (compara dois rótulos).
+    Reference threshold: none (it compares two labels).
     """
     original = comparacao.original.equilibrio.convergiu
     simplificado = comparacao.simplificado.equilibrio.convergiu
@@ -456,9 +450,9 @@ def _item_de_equilibrio(
     The denominator is the equilibrium value of the original, with a floor of
     ``EPSILON_RELATIVO`` times the largest value that variable reaches in the simulated
     trajectory. The floor is what keeps a variable that decays to zero from reporting a
-    meaningless relative error: in the Verly model ``C2`` settles at 4e-11 against a peak of
-    8e-2, so dividing by 4e-11 would turn two numbers that are both zero, as far as the
-    variable's own scale goes, into a percentage. When the floor is used the item says so.
+    meaningless relative error: dividing by a value that is zero on the variable's own
+    scale would turn two numbers that are both effectively zero into a percentage. When the
+    floor is used the item says so.
     """
     serie = _serie(criterio, nome, series)
     original = _combinar(
@@ -537,7 +531,7 @@ def _combinar(
 
 
 def _decidir(itens: Sequence[ItemAvaliado], niveis: int) -> str:
-    """Return the level the items imply, by the rule of ``docs/produto.md``.
+    """Return the level the items imply.
 
     The order matters: a mandatory failure is looked at first, so a high percentage never
     rescues it.

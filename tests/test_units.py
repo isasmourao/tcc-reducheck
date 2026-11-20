@@ -702,7 +702,7 @@ def test_only_a_desirable_item_failing_gives_approved_with_reservations() -> Non
     resultado = verdict.avaliar(criterios, series_com({"A": 0.0, "C": 0.4}))
 
     assert resultado.nivel == verdict.COM_RESSALVAS
-    # "Com ressalvas" is a level of its own, not a pass: the CLI of issue #15 gives it its
+    # "Com ressalvas" is a level of its own, not a pass: the CLI gives it its
     # own exit code (1), apart from approved (0) and rejected (2).
     assert resultado.aprovado is False
     assert resultado.porcentagem == 50.0
@@ -804,7 +804,7 @@ def test_report_writes_the_json(tmp_path: Path) -> None:
             "resultado": "passou",
             "tipo": "obrigatório",
             "descricao": "RMSE normalizado pela amplitude do original (fração: 0,05 = 5%)",
-            # Only a failure has a reason and a window of time (issue #19).
+            # Only a failure has a reason and a window of time.
             "razao": None,
             "diagnostico": None,
             "avisos": [],

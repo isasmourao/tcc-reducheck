@@ -1,22 +1,41 @@
-# ReduCheck
+# reducheck
 
-Biblioteca Python que verifica se um modelo de EDOs simplificado é fiel ao original. Você entrega
-os dois modelos em SBML e um arquivo YAML que diz como casar as variáveis e quais critérios
-aplicar. A biblioteca simula os dois modelos nas mesmas condições e mede cada critério. No fim,
-emite um **veredito** (APROVADO, APROVADO COM RESSALVAS ou REPROVADO) com a porcentagem de
-critérios atendidos e a razão de cada falha.
+O **reducheck** é uma biblioteca em Python que verifica se um modelo de equações diferenciais
+ordinárias (EDOs) simplificado ainda se comporta como o original.
 
-> Nome provisório. TCC II de Ciência da Computação (UFJF), Isabella Mourão. Versão `0.3.0`.
-> O estudo de caso é o modelo de remodelação óssea na menopausa de Verly et al. (2024).
+Simplificar um modelo é abrir mão de parte dele, e cada trabalho costuma avaliar o resultado com
+a sua própria métrica e o seu próprio limite. O reducheck padroniza essa avaliação. Você entrega
+três arquivos:
 
-O que a biblioteca faz, em ordem:
+- o modelo original, em SBML;
+- o modelo simplificado, em SBML;
+- um arquivo de configuração em YAML, que diz quais variáveis comparar, como elas se
+  correspondem nos dois modelos e quais critérios e limites usar.
 
-1. lê e valida o YAML (nomes errados, campos faltando e variáveis inexistentes param a execução
-   com uma mensagem que diz o campo, antes de simular qualquer coisa);
-2. simula os dois modelos com o **mesmo** vetor de tempo, solver e tolerâncias (libRoadRunner);
-3. casa as variáveis (1:1, soma ou soma ponderada);
-4. mede as métricas e, se pedido, o equilíbrio e a estabilidade local;
-5. decide o veredito e escreve o relatório.
+A biblioteca simula os dois modelos nas mesmas condições, aplica cada critério e devolve um
+**veredito**: APROVADO, APROVADO COM RESSALVAS ou REPROVADO. Cada critério vem com a sua razão,
+e o relatório traz os arquivos necessários para refazer a análise.
+
+> Trabalho de Conclusão de Curso em Ciência da Computação (UFJF), de Isabella Mourão Dias.
+> Versão `0.3.0`.
+
+## Como funciona
+
+Uma verificação passa por seis etapas:
+
+1. **Leitura da configuração.** O YAML é conferido antes de qualquer simulação. Um nome errado,
+   um campo faltando ou uma variável que não existe no modelo param a execução com uma mensagem
+   que diz qual é o campo.
+2. **Simulação.** Os dois modelos são simulados com o libRoadRunner, com os **mesmos** instantes
+   de tempo, integrador e tolerâncias. Uma simulação extra do original mede o erro do próprio
+   integrador (o ruído numérico).
+3. **Mapeamento.** As variáveis dos dois modelos são casadas: uma para uma, por soma ou por soma
+   ponderada.
+4. **Métricas e análise qualitativa.** As métricas comparam as trajetórias. Se a configuração
+   pedir, a biblioteca também compara o equilíbrio e a estabilidade local dos dois modelos.
+5. **Veredito.** Cada critério é comparado com o seu limite, e os resultados viram o veredito.
+6. **Relatório.** O resultado é gravado em JSON, HTML ou Markdown, junto com as séries simuladas
+   e a configuração usada.
 
 ## Instalação
 
@@ -342,7 +361,8 @@ todas, **menor é melhor** e 0 é idêntico. Os valores em fração leem-se como
 | `comportamento_longo_prazo` | qualitativa | os dois chegam a um equilíbrio, ou nenhum chega | chega / não chega | — | Waldherr et al. (2007); Vejchodský (2014) | sem limite (compara rótulos) |
 
 "Sem limite na literatura" quer dizer que nenhum artigo consultado dá um número; os limites de
-[estudo_de_caso/simp1.yaml](estudo_de_caso/simp1.yaml) para essas métricas são convenção do TCC.
+[estudo_de_caso/simp1_criterios_propostos.yaml](estudo_de_caso/simp1_criterios_propostos.yaml)
+para essas métricas são convenção do TCC.
 As integrais (`erro_integral`, `erro_simetrico`, `erro_l2_rel`) usam a regra do trapézio na malha
 de tempo, que não precisa ser uniforme. Um exemplo com os limites da literatura está em
 [exemplos/limites_da_literatura.yaml](exemplos/limites_da_literatura.yaml).
@@ -353,8 +373,8 @@ $$\mathrm{NRMSE} = \frac{\sqrt{\frac{1}{n}\sum_i (o_i - s_i)^2}}{\max_i o_i - \m
 
 RMSE normalizado pela **amplitude** do original. É a métrica de trajetória padrão, adequada a
 variáveis que passam por zero porque não divide ponto a ponto. Recusa uma série original constante,
-porque a amplitude seria zero. A normalização pela amplitude (e não pela média) ainda é uma decisão
-em aberto com a orientadora.
+porque a amplitude seria zero. Há outras formas de normalizar o RMSE (pela média ou pelo
+desvio-padrão); o reducheck usa a amplitude.
 
 ### `mape`
 
@@ -436,8 +456,8 @@ literatura. Recusa um original identicamente zero; nesse caso use `erro_max_abs`
 Para cada variável mapeada, o erro relativo entre o **ponto de equilíbrio** dos dois modelos, com
 `limite` e `variaveis` como numa métrica. O equilíbrio é o que o sistema alcança a partir das
 condições iniciais da configuração, e só esse: a biblioteca não procura todos os equilíbrios.
-Encontrá-lo pode exigir integrar muito além de `t_fim` (no modelo da Verly, cerca de um milhão de
-vezes), e o relatório diz em que instante ele foi alcançado. Leia o critério como uma afirmação
+Encontrá-lo pode exigir integrar muito além de `t_fim` (no modelo de Verly (2025), cem vezes o
+tempo simulado), e o relatório diz em que instante ele foi alcançado. Leia o critério como uma afirmação
 sobre o longo prazo, não sobre a janela simulada. Numa variável que vai a zero nos dois modelos, o
 erro relativo depende de onde a integração parou e pouco informa (questão 42 de
 [docs/questoes-em-aberto.md](docs/questoes-em-aberto.md)).
@@ -547,39 +567,68 @@ recusar uma série em que a métrica não se aplica, levante `reducheck.metrics.
 código de fora da biblioteca, então `reducheck verificar` com `erro_medio_abs` no YAML para com
 "a métrica 'erro_medio_abs' não está no registro".
 
+## Estudos de caso
+
+O reducheck foi avaliado em dois modelos reais, descritos no Capítulo 5 do TCC. Os modelos em
+SBML estão em [modelos/](modelos/). Eles foram escritos em Antimony (os arquivos `.ant`) e
+convertidos por `python modelos/build_sbml.py`.
+
+**Modelo de Verly (2025).** Descreve a inflamação na consolidação de fraturas ósseas no contexto
+da menopausa, com 11 variáveis. Os nomes das simplificações no TCC e os arquivos do repositório
+se correspondem assim:
+
+| No TCC | Configuração | O que muda | Veredito |
+| --- | --- | --- | --- |
+| Simplificação 1 | [estudo_de_caso/simp1_criterios_propostos.yaml](estudo_de_caso/simp1_criterios_propostos.yaml) | remove `Cm` e `Mc` (9 variáveis) | REPROVADO, 3 de 20 itens |
+| Simplificação 2 | [estudo_de_caso/diag_sem_mc.yaml](estudo_de_caso/diag_sem_mc.yaml) | remove só `Mc` (10 variáveis) | APROVADO, 20 de 20 itens |
+
+[estudo_de_caso/simp1.yaml](estudo_de_caso/simp1.yaml) é a primeira versão da configuração da
+simplificação 1, revista antes da construção da simplificação 2 (ver o Capítulo 5 do TCC). Ela
+também reprova a simplificação 1, com 7 de 21 itens.
+
+**Modelo do inflamassoma NLRP3.** Um modelo de 13 variáveis e uma versão simplificada com 8, feita
+em um trabalho de iniciação científica. Serve para mostrar que a biblioteca funciona em outro
+modelo sem mudar o código. A mesma simplificação foi verificada com duas configurações:
+
+| Configuração | Métricas | Veredito |
+| --- | --- | --- |
+| [estudo_de_caso/nlrp3/nlrp3_simp.yaml](estudo_de_caso/nlrp3/nlrp3_simp.yaml) | as do TCC (`nrmse`, `erro_estacionario`, `erro_max_abs`, `mape`) | REPROVADO, 19 de 24 itens |
+| [exemplos/limites_da_literatura_nlrp3.yaml](exemplos/limites_da_literatura_nlrp3.yaml) | as da literatura (`erro_integral`, `erro_simetrico`, `erro_max_rel`) | REPROVADO, 9 de 24 itens |
+
+Para refazer qualquer uma, da raiz do repositório:
+
+```bash
+reducheck verificar estudo_de_caso/simp1_criterios_propostos.yaml
+```
+
+Exemplos de relatório em HTML estão em [relatorios_exemplo/](relatorios_exemplo/). O GitHub
+mostra o código do arquivo, e não a página: baixe o arquivo e abra no navegador.
+
 ## Limitações
 
 O que a biblioteca **não** faz, por decisão de escopo:
 
-- **Só SBML.** CellML e outros formatos não são lidos. O caminho é converter para SBML antes
-  (Antimony ajuda: veja [modelos/](modelos/)).
-- **Só CVODE** como solver.
-- **Mapeamentos só por nome, soma ou soma ponderada.** Expressões arbitrárias (`C1/C2`,
-  `log(X)`) são recusadas.
-- **Um equilíbrio só**, o alcançado a partir das condições iniciais. Não há busca de todos os
-  equilíbrios nem análise de bifurcação.
-- **Estabilidade local**, pela linearização no equilíbrio. Nada de estabilidade global.
-- **Sem incerteza de parâmetros.** Cada verificação é um cenário. Para outro cenário, use
-  `simulacao.sobrescrever` e rode de novo.
+- **Só SBML.** CellML e outros formatos não são lidos. Para usar outro formato, converta o
+  modelo para SBML antes. O Antimony ajuda nisso: veja [modelos/](modelos/).
+- **Só o integrador CVODE.**
+- **Só mapeamentos lineares**: por nome, soma ou soma ponderada. Expressões como `C1/C2` ou
+  `log(X)` são recusadas.
+- **Um equilíbrio só**, o alcançado a partir das condições iniciais. A biblioteca não procura
+  todos os equilíbrios nem faz análise de bifurcação.
+- **Só estabilidade local**, pela linearização no equilíbrio.
+- **Um cenário por verificação.** Cada verificação usa um conjunto de parâmetros e de condições
+  iniciais. Para testar outro, use `simulacao.sobrescrever` e rode de novo.
 - **Sem interface gráfica** e sem gerar simplificações: a biblioteca verifica uma simplificação
   que você já fez.
-- **Métricas próprias só pelo Python** (ver acima).
+- **Métricas próprias só pelo Python** (veja a seção anterior).
 
-E o que ainda está em aberto, com efeito nos números (detalhes em
-[docs/questoes-em-aberto.md](docs/questoes-em-aberto.md)):
+Alguns valores são convenções do TCC, e não valores medidos: os limiares dos avisos (1%, 5% e
+50%), a fronteira de 20% entre transiente e estado estacionário e os fatores 100 e 10 do ruído
+numérico. Os detalhes estão em [docs/questoes-em-aberto.md](docs/questoes-em-aberto.md).
 
-- o NRMSE normaliza pela amplitude; a escolha entre amplitude e média não está fechada;
-- os limiares dos avisos (1%, 5%, 50%) e a fronteira de 20% entre transiente e estado
-  estacionário são convenções, não valores medidos;
-- o número de níveis do veredito (três ou dois) depende da decisão D01 (issue #1).
-
-## Estudo de caso
-
-[estudo_de_caso/simp1.yaml](estudo_de_caso/simp1.yaml) verifica a simplificação 1 do modelo de
-Verly et al. (2024), que vai de 11 para 9 variáveis. Os modelos em SBML estão em
-[modelos/](modelos/), e o resultado e as notas, em
-[estudo_de_caso/NOTAS.md](estudo_de_caso/NOTAS.md). Os critérios desse arquivo ainda são
-provisórios.
+Por fim, o reducheck compara o modelo simplificado com o original, e não com dados
+experimentais. Um veredito APROVADO diz que o simplificado é fiel ao original, e nada sobre a
+validade biológica de nenhum dos dois.
 
 ## Desenvolvimento
 
@@ -588,9 +637,15 @@ pytest              # testes, inclusive os que rodam os exemplos deste README
 ruff check .        # lint
 ```
 
-- [docs/produto.md](docs/produto.md): escopo, formato da entrada e da saída, regra do veredito
-- [docs/questoes-em-aberto.md](docs/questoes-em-aberto.md): decisões tomadas e pendentes
-- [CLAUDE.md](CLAUDE.md): estrutura de pastas e convenções do código
+Os testes rodam a cada alteração no GitHub, nas versões 3.11 e 3.12 do Python. As versões exatas
+das dependências usadas nos resultados do TCC estão em
+[requirements-lock.txt](requirements-lock.txt).
+
+Documentos de apoio:
+
+- [docs/produto.md](docs/produto.md): escopo, formato da entrada e da saída, regra do veredito;
+- [docs/questoes-em-aberto.md](docs/questoes-em-aberto.md): decisões tomadas e pendentes;
+- [CLAUDE.md](CLAUDE.md): estrutura de pastas e convenções do código.
 
 ## Como citar
 
@@ -599,14 +654,17 @@ Enquanto o TCC não é publicado, cite o software:
 ```bibtex
 @misc{reducheck,
   author = {Isabella Mourão Dias},
-  title  = {ReduCheck: verificação de modelos de EDOs simplificados},
+  title  = {reducheck: verificação de modelos de EDOs simplificados},
   year   = {2026},
   note   = {Trabalho de Conclusão de Curso, Ciência da Computação, UFJF. Versão 0.3.0},
   url    = {https://github.com/isasmourao/tcc-reducheck}
 }
 ```
 
-Se usar o estudo de caso, cite também o modelo original: Verly et al. (2024)
-[CITAR: referência completa de Verly et al. (2024), conferida no TCC I].
+Se usar o estudo de caso, cite também o modelo original:
+
+> VERLY, Ana Clara. *Modelo in silico da remodelação óssea no contexto da osteoporose durante a
+> menopausa*. Dissertação (Mestrado em Modelagem Computacional), Universidade Federal de Juiz de
+> Fora, 2025.
 
 Licença: MIT.

@@ -161,23 +161,24 @@ def test_without_any_source_the_osteoblasts_stay_at_zero(
     assert result[:, 2].max() == 0.0
 
 
-def test_the_source_sets_the_level_because_the_logistic_has_no_positive_point(
+def test_the_source_sets_the_level_because_the_logistic_is_scaled_by_k_lb(
     runner: roadrunner.RoadRunner,
 ) -> None:
     """Cb stays small, at the level the source E2 alone can hold.
 
-    With the C1 of the original (with E2 in the degradation), C1 ends high enough that
-    the proliferation rate Ab falls below the death rate d_b. The logistic then has no
-    positive fixed point, and with Cb << k_lb the equation is close to linear:
-    `dCb/dt ~ E2 - (d_b - Ab) * Cb`, whose equilibrium is `E2 / (d_b - Ab)`.
+    The logistic term is `Ab * Cb * (1 - Cb) / k_lb`, with k_lb = 1e6, so the net
+    proliferation rate `Ab / k_lb` is about a million times smaller than the death rate
+    d_b. With Cb << 1 the equation is close to linear:
+    `dCb/dt ~ E2 - (d_b - Ab / k_lb) * Cb`, whose equilibrium is `E2 / (d_b - Ab / k_lb)`.
     """
     runner.reset()
     runner.selections = ["time", "Cb", "C1", "E2"]
     result = runner.simulate(0, 720, 1000)
     cb_final, c1_final, e2_final = result[-1, 1], result[-1, 2], result[-1, 3]
     ab_final = PARAMETERS["kpb"] * PARAMETERS["apb"] / (PARAMETERS["apb"] + c1_final)
-    assert ab_final < PARAMETERS["d_b"]
-    esperado = e2_final / (PARAMETERS["d_b"] - ab_final)
+    proliferacao = ab_final / PARAMETERS["k_lb"]
+    assert proliferacao < 1e-5 * PARAMETERS["d_b"]
+    esperado = e2_final / (PARAMETERS["d_b"] - proliferacao)
     assert cb_final == pytest.approx(esperado, rel=1e-2)
 
 
@@ -216,24 +217,24 @@ def test_estradiol_matches_the_original_exactly() -> None:
 
 # --- qualitative analysis of the case study -----------------------------------
 
-#: Measured by `reducheck verificar estudo_de_caso/simp1.yaml` ("Longo prazo") and recorded in
-#: `estudo_de_caso/NOTAS.md`. The equilibrium is only reached at t = 7.2e8, a million times
-#: the 720-day horizon.
+#: Measured by `reducheck verificar estudo_de_caso/simp1.yaml` ("Longo prazo") with the models
+#: where RM carries the factor D and the logistic of Cb is divided by k_lb. The equilibrium is
+#: reached at t = 72000, 100 times the 720-day horizon. In the original, Cb goes to zero.
 EQUILIBRIO_VERLY = {
-    "Cb": (318795.0, 2.46e-06),
-    "Mb": (1.0, 0.0),
-    "C1": (8.2922e-05, 0.00356),
-    "C2": (8.17263e-10, 3.32e-05),
+    "Mb": (1.0, 0.99865),
+    "C1": (0.0221518, 0.00266),
+    "C2": (5.38010e-06, 0.00279),
     "E2": (0.0564, 0.0),
 }
+ERRO_EQUILIBRIO_CB = 0.75273
 
 
 def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
-    """The library on the real case study: same stability and same equilibrium.
+    """The library on the real case study: same stability, different equilibrium.
 
-    Both models are classified the same way and every equilibrium agrees within the 5%
-    limit; `C1`, which decays to zero, is the farthest, at 0.36% -- a number that depends on
-    where the integration stopped.
+    Both models are classified the same way, but the equilibrium of Cb and Mb fails: in
+    the original Cb dies out, while in the simplification the source E2 holds it at about
+    `E2 / d_b`. C1, C2 and E2 agree within the 5% limit.
     """
     import reducheck
 
@@ -244,8 +245,8 @@ def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
     # Neither steadyState nor getFullJacobian is usable: the model has no floating species.
     assert "integração até" in comparacao.original.equilibrio.metodo
     assert comparacao.original.estabilidade.metodo.startswith("diferenças finitas")
-    assert comparacao.original.equilibrio.instante == pytest.approx(7.2e8, rel=1e-9)
-    assert comparacao.original.equilibrio.vezes_o_horizonte(720.0) == pytest.approx(1e6)
+    assert comparacao.original.equilibrio.instante == pytest.approx(7.2e4, rel=1e-9)
+    assert comparacao.original.equilibrio.vezes_o_horizonte(720.0) == pytest.approx(100.0)
 
     # Same classification in both models, so the stability criterion passes.
     assert comparacao.original.estabilidade.classificacao == "marginal"
@@ -265,16 +266,21 @@ def test_the_qualitative_analysis_of_the_case_study(tmp_path: Path) -> None:
             valor_original, rel=1e-4
         )
         assert itens[nome].valor == pytest.approx(erro, abs=5e-5)
+    assert itens["Cb"].detalhes["equilibrio_original"] == pytest.approx(0.0, abs=1e-6)
+    assert itens["Cb"].valor == pytest.approx(ERRO_EQUILIBRIO_CB, abs=5e-5)
+    assert not itens["Cb"].passou
+    assert not itens["Mb"].passou
+    assert itens["C1"].passou and itens["C2"].passou and itens["E2"].passou
 
-    # One file answers both questions: trajectory 3 of 15, long run 6 of 6.
+    # One file answers both questions: trajectory 3 of 15, long run 4 of 6.
     from reducheck.verdict import LONGO_PRAZO, TRAJETORIA
 
     longo = resultado.veredito.parte(LONGO_PRAZO)
     caminho = resultado.veredito.parte(TRAJETORIA)
-    assert longo.nivel == "APROVADO"
-    assert itens["C1"].passou
-    assert longo.porcentagem == pytest.approx(100.0)
+    assert longo.nivel == "REPROVADO"
+    assert sum(item.passou for item in longo.criterios) == 4
+    assert len(longo.criterios) == 6
     assert sum(item.passou for item in caminho.criterios) == 3
     assert len(caminho.criterios) == 15
     assert resultado.nivel == "REPROVADO"
-    assert resultado.porcentagem == pytest.approx(100.0 * 9 / 21)
+    assert resultado.porcentagem == pytest.approx(100.0 * 7 / 21)

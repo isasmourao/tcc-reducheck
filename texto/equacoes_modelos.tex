@@ -1,0 +1,531 @@
+% Equações dos modelos dos estudos de caso, transcritas dos arquivos .ant de modelos/.
+%
+% Fonte e conferência
+%   - Fonte: modelos/verly_original.ant, verly_simp1.ant, verly_diag_sem_mc.ant,
+%     nlrp3_original.ant e nlrp3_simp.ant (estado do commit 42eaa2f).
+%   - Os .xml foram conferidos contra os .ant: para cada modelo, o SBML gerado de novo a
+%     partir do .ant (antimony) tem exatamente as mesmas regras (fórmula a fórmula, via
+%     libsbml.formulaToL3String), os mesmos parâmetros com os mesmos valores, as mesmas
+%     condições iniciais e as mesmas funções. Nenhum dos cinco modelos tem reações,
+%     espécies, eventos ou atribuições iniciais: todas as EDOs são rate rules e todos os
+%     termos auxiliares são assignment rules.
+%
+% Regras de transcrição (para conferir linha a linha com o .ant)
+%   - Ordem dos termos, sinais e parênteses iguais aos do arquivo, inclusive parênteses
+%     redundantes, como em (d_o * Mo) -> (d_0 M_0).
+%   - "*" virou justaposição; "a / b" virou \frac{a}{b}, com o numerador e o denominador
+%     que o parser lê (por exemplo, Ab * Cb * (1 - Cb) / k_lb tem numerador
+%     Ab * Cb * (1 - Cb)). Parênteses que só delimitavam o numerador ou o denominador
+%     foram absorvidos pela fração; os outros foram mantidos.
+%   - "x^n" virou expoente; "time" virou t.
+%   - Nenhum termo foi simplificado, agrupado ou reordenado (apm * apm continua
+%     a_{pm} a_{pm}, e não a_{pm}^2).
+%
+% Compila sozinho (pdflatex). Para colar no template SBC, copie as seções; os pacotes
+% usados são amsmath, booktabs e longtable.
+
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+
+\begin{document}
+
+\section*{Equações dos modelos dos estudos de caso}
+
+%==========================================================================================
+\section{Modelo de remodelação óssea de Verly et al. (2024)}
+%==========================================================================================
+
+Três arquivos: o original (\texttt{verly\_original.ant}, 11 variáveis), a simplificação~1
+(\texttt{verly\_simp1.ant}, 9 variáveis) e o modelo sem $M_c$
+(\texttt{verly\_diag\_sem\_mc.ant}, 10 variáveis), chamado aqui de simplificação~2.
+% ATENÇÃO: no repositório, verly_diag_sem_mc é um modelo de diagnóstico ("isolates the
+% effect of removing Mc"), e no texto do TCC I a "Simplificação 2" é outra: a remoção de
+% M1 e M2 (7 variáveis), que saiu do estudo de caso em 11/10/2026 (questão 36 de
+% docs/questoes-em-aberto.md). Decidir o nome antes de usar no texto final.
+
+\subsection{Correspondência de nomes das variáveis de estado}
+
+\begin{longtable}{lllccc}
+\toprule
+Arquivo & \LaTeX & Condição inicial & Original & Simp.~1 & Simp.~2 \\
+\midrule
+\endhead
+\texttt{D}  & $D$   & $10^{6}$              & sim & sim & sim \\
+\texttt{Mo} & $M_0$ & $4000$                & sim & sim & sim \\
+\texttt{M1} & $M_1$ & $0$                   & sim & sim & sim \\
+\texttt{M2} & $M_2$ & $0$                   & sim & sim & sim \\
+\texttt{C1} & $C_1$ & $0$                   & sim & sim & sim \\
+\texttt{C2} & $C_2$ & $0$                   & sim & sim & sim \\
+\texttt{Cm} & $C_m$ & $2500$                & sim & ---  & sim \\
+\texttt{Cb} & $C_b$ & $0$                   & sim & sim & sim \\
+\texttt{Mc} & $M_c$ & $0$                   & sim & ---  & --- \\
+\texttt{Mb} & $M_b$ & $0$                   & sim & sim & sim \\
+\texttt{E2} & $E_2$ & $0{,}060$             & sim & sim & sim \\
+\bottomrule
+\end{longtable}
+
+As condições iniciais são as mesmas nos três arquivos para as variáveis que existem em cada um.
+No arquivo, $M_0$ se escreve \texttt{Mo}, com a letra o.
+
+\subsection{Correspondência de nomes dos termos auxiliares}
+
+\begin{longtable}{lll}
+\toprule
+Arquivo & \LaTeX & Comentário no arquivo \\
+\midrule
+\endhead
+\texttt{M}  & $M$   & total macrophages \\
+\texttt{RD} & $R_d$ & phagocytosis rate \\
+\texttt{RM} & $R_m$ & migration of Mo \\
+\texttt{G1} & $G_1$ & Mo $\to$ M1 \\
+\texttt{G2} & $G_2$ & Mo $\to$ M2 \\
+\texttt{H1} & $H_1$ & inhibition by C2 \\
+\texttt{H2} & $H_2$ & inhibition by C2 \\
+\texttt{Am} & $A_m$ & (sem comentário) \\
+\texttt{F1} & $F_1$ & Cm $\to$ Cb \\
+\texttt{Ab} & $A_b$ & proliferation of Cb \\
+\bottomrule
+\end{longtable}
+
+\subsection{Parâmetros}
+
+Valores lidos dos arquivos; ``---'' indica que o parâmetro não existe naquele arquivo. Onde
+existe, o valor é o mesmo nos três.
+
+\begin{longtable}{llccc}
+\toprule
+Arquivo & \LaTeX & Original & Simp.~1 & Simp.~2 \\
+\midrule
+\endhead
+\texttt{ke\_1}  & $k_{e1}$     & $3{,}0$ & $3{,}0$ & $3{,}0$ \\
+\texttt{ke\_2}  & $k_{e2}$     & $3{,}0$ & $3{,}0$ & $3{,}0$ \\
+\texttt{a\_ed}  & (não aparece nas equações) & $4{,}71\times10^{6}$ & $4{,}71\times10^{6}$ & $4{,}71\times10^{6}$ \\
+\texttt{d\_o}   & $d_0$        & $0{,}156$ & $0{,}156$ & $0{,}156$ \\
+\texttt{k\_12}  & $k_{12}$     & $0{,}075$ & $0{,}075$ & $0{,}075$ \\
+\texttt{k\_21}  & $k_{21}$     & $0{,}005$ & $0{,}005$ & $0{,}005$ \\
+\texttt{d\_1}   & $d_1$        & $0{,}121$ & $0{,}121$ & $0{,}121$ \\
+\texttt{d\_2}   & $d_2$        & $0{,}163$ & $0{,}163$ & $0{,}163$ \\
+\texttt{k\_o}   & $k_0$        & $5\times10^{-7}$ & $5\times10^{-7}$ & $5\times10^{-7}$ \\
+\texttt{k\_1}   & $k_1$        & $8{,}3\times10^{-6}$ & $8{,}3\times10^{-6}$ & $8{,}3\times10^{-6}$ \\
+\texttt{d\_c1}  & $d_{c1}$     & $0{,}2$ & $0{,}2$ & $0{,}2$ \\
+\texttt{k\_2}   & $k_2$        & $3{,}72\times10^{-6}$ & $3{,}72\times10^{-6}$ & $3{,}72\times10^{-6}$ \\
+\texttt{k\_3}   & $k_3$        & $7\times10^{-7}$ & --- & $7\times10^{-7}$ \\
+\texttt{d\_c2}  & $d_{c2}$     & $0{,}25$ & $0{,}25$ & $0{,}25$ \\
+\texttt{K\_lm}  & $K_{lm}$     & $10^{6}$ & --- & $10^{6}$ \\
+\texttt{k\_lb}  & $k_{lb}$     & $10^{6}$ & $10^{6}$ & $10^{6}$ \\
+\texttt{d\_b}   & $d_b$        & $0{,}15$ & $0{,}15$ & $0{,}15$ \\
+\texttt{p\_cs}  & $p_{cs}$     & $3\times10^{-6}$ & --- & --- \\
+\texttt{q\_cd1} & $q_{cd1}$    & $3\times10^{-6}$ & --- & --- \\
+\texttt{q\_cd2} & $q_{cd2}$    & $2\times10^{-6}$ & --- & --- \\
+\texttt{p\_bs}  & $p_{bs}$     & $5\times10^{-8}$ & $5\times10^{-8}$ & $5\times10^{-8}$ \\
+\texttt{q\_bd}  & $q_{bd}$     & $5\times10^{-8}$ & $5\times10^{-8}$ & $5\times10^{-8}$ \\
+\texttt{aed}    & $a_{ed}$     & $4{,}71\times10^{6}$ & $4{,}71\times10^{6}$ & $4{,}71\times10^{6}$ \\
+\texttt{kmax}   & $k_{max}$    & $0{,}015$ & $0{,}015$ & $0{,}015$ \\
+\texttt{Mmax}   & $M_{max}$    & $6\times10^{5}$ & $6\times10^{5}$ & $6\times10^{5}$ \\
+\texttt{k\_01}  & $k_{01}$     & $0{,}55$ & $0{,}55$ & $0{,}55$ \\
+\texttt{a\_01}  & $a_{01}$     & $0{,}01$ & $0{,}01$ & $0{,}01$ \\
+\texttt{k\_02}  & $k_{02}$     & $0{,}3$ & $0{,}3$ & $0{,}3$ \\
+\texttt{a\_02}  & $a_{02}$     & $0{,}005$ & $0{,}005$ & $0{,}005$ \\
+\texttt{a\_12}  & $a_{12}$     & $0{,}025$ & $0{,}025$ & $0{,}025$ \\
+\texttt{a\_22}  & $a_{22}$     & $0{,}1$ & $0{,}1$ & $0{,}1$ \\
+\texttt{kpm}    & $k_{pm}$     & $0{,}5$ & --- & $0{,}5$ \\
+\texttt{apm}    & $a_{pm}$     & $3{,}162$ & --- & $3{,}162$ \\
+\texttt{apm1}   & $a_{pm1}$    & $13{,}0$ & --- & $13{,}0$ \\
+\texttt{dm}     & $d_m$        & $1{,}0$ & --- & $1{,}0$ \\
+\texttt{amb1}   & $a_{mb1}$    & $0{,}1$ & --- & $0{,}1$ \\
+\texttt{kpb}    & $k_{pb}$     & $0{,}2202$ & $0{,}2202$ & $0{,}2202$ \\
+\texttt{apb}    & $a_{pb}$     & $10{,}0$ & $10{,}0$ & $10{,}0$ \\
+\texttt{ae2}    & $a_{e2}$     & $0{,}5$ & $0{,}5$ & $0{,}5$ \\
+\texttt{de2}    & $d_{e2}$     & $0{,}03$ & $0{,}03$ & $0{,}03$ \\
+\texttt{E2max}  & $E_{2max}$   & $0{,}060$ & $0{,}060$ & $0{,}060$ \\
+\midrule
+\multicolumn{2}{l}{Total} & 41 & 31 & 38 \\
+\bottomrule
+\end{longtable}
+
+\texttt{a\_ed} é declarado nos três arquivos com o mesmo valor de \texttt{aed}, mas não
+aparece em nenhuma equação ($R_d$ usa \texttt{aed}); por isso não tem símbolo próprio aqui.
+
+%------------------------------------------------------------------------------------------
+\subsection{Modelo original (\texttt{verly\_original.ant})}
+
+\paragraph{Termos auxiliares (regras de atribuição).}
+\begin{align}
+M   &= M_0 + M_1 + M_2 \\
+R_d &= \frac{D}{a_{ed} + D} \\
+R_m &= k_{max} \left(1 - \frac{M}{M_{max}}\right) D \\
+G_1 &= k_{01} \left(\frac{C_1}{a_{01} + C_1}\right) \\
+G_2 &= k_{02} \left(\frac{C_2}{a_{02} + C_2}\right) \\
+H_1 &= \frac{a_{12}}{a_{12} + C_2} \\
+H_2 &= \frac{a_{22}}{a_{22} + C_2} \\
+A_m &= \frac{k_{pm} \left((a_{pm} a_{pm}) + (a_{pm1} C_1)\right)}{(a_{pm} a_{pm}) + (C_1 C_1)} \\
+F_1 &= d_m \left(\frac{a_{mb1}}{a_{mb1} + C_1}\right) \\
+A_b &= k_{pb} \left(\frac{a_{pb}}{a_{pb} + C_1}\right)
+\end{align}
+
+\paragraph{EDOs.}
+\begin{align}
+\frac{dD}{dt}   &= -R_d (k_{e1} M_1 + k_{e2} M_2) \\
+\frac{dM_0}{dt} &= R_m - G_1 M_0 - G_2 M_0 - (d_0 M_0) \\
+\frac{dM_1}{dt} &= G_1 M_0 + (k_{21} M_2) - (k_{12} M_1) - (d_1 M_1) \\
+\frac{dM_2}{dt} &= G_2 M_0 + (k_{12} M_1) - (k_{21} M_2) - (d_2 M_2) \\
+\frac{dC_1}{dt} &= H_1 (k_0 D + k_1 M_1) - (d_{c1} C_1) E_2 \\
+\frac{dC_2}{dt} &= H_2 (k_2 M_2 + k_3 C_m) E_2 - (d_{c2} C_2) \\
+\frac{dC_m}{dt} &= A_m C_m \left(1 - \left(\frac{C_m}{K_{lm}}\right)\right) - (F_1 C_m) \\
+\frac{dC_b}{dt} &= \frac{A_b C_b (1 - C_b)}{k_{lb}} + (F_1 C_m) - (d_b C_b) \\
+\frac{dM_c}{dt} &= (p_{cs} - q_{cd1} M_c) C_m - (q_{cd2} M_c C_b) \\
+\frac{dM_b}{dt} &= (p_{bs} - (q_{bd} M_b)) C_b \\
+\frac{dE_2}{dt} &= \left(\frac{E_{2max} - E_2}{E_{2max}}\right) a_{e2} E_2 - d_{e2} E_2
+\end{align}
+
+Duas equações seguem a dissertação, e não o código \texttt{bone\_estradiol.py} (cabeçalho do
+\texttt{.ant}): $R_m$ tem o fator $D$, e o termo logístico de $C_b$ é
+$A_b C_b (1 - C_b)/k_{lb}$, e não $A_b C_b (1 - C_b/k_{lb})$.
+
+%------------------------------------------------------------------------------------------
+\subsection{Simplificação 1 (\texttt{verly\_simp1.ant})}
+
+\paragraph{Termos auxiliares (regras de atribuição).}
+\begin{align}
+M   &= M_0 + M_1 + M_2 \\
+R_d &= \frac{D}{a_{ed} + D} \\
+R_m &= k_{max} \left(1 - \frac{M}{M_{max}}\right) D \\
+G_1 &= k_{01} \left(\frac{C_1}{a_{01} + C_1}\right) \\
+G_2 &= k_{02} \left(\frac{C_2}{a_{02} + C_2}\right) \\
+H_1 &= \frac{a_{12}}{a_{12} + C_2} \\
+H_2 &= \frac{a_{22}}{a_{22} + C_2} \\
+A_b &= k_{pb} \left(\frac{a_{pb}}{a_{pb} + C_1}\right)
+\end{align}
+
+\paragraph{EDOs.}
+\begin{align}
+\frac{dD}{dt}   &= -R_d (k_{e1} M_1 + k_{e2} M_2) \\
+\frac{dM_0}{dt} &= R_m - G_1 M_0 - G_2 M_0 - (d_0 M_0) \\
+\frac{dM_1}{dt} &= G_1 M_0 + (k_{21} M_2) - (k_{12} M_1) - (d_1 M_1) \\
+\frac{dM_2}{dt} &= G_2 M_0 + (k_{12} M_1) - (k_{21} M_2) - (d_2 M_2) \\
+\frac{dC_1}{dt} &= H_1 (k_0 D + k_1 M_1) - (d_{c1} C_1) E_2 \\
+\frac{dC_2}{dt} &= H_2 (k_2 M_2) E_2 - (d_{c2} C_2) \\
+\frac{dC_b}{dt} &= E_2 + \frac{A_b C_b (1 - C_b)}{k_{lb}} - (d_b C_b) \\
+\frac{dM_b}{dt} &= (p_{bs} - (q_{bd} M_b)) C_b \\
+\frac{dE_2}{dt} &= \left(\frac{E_{2max} - E_2}{E_{2max}}\right) a_{e2} E_2 - d_{e2} E_2
+\end{align}
+
+\paragraph{Comparação com o original, equação por equação.}
+
+\begin{longtable}{p{2.2cm}p{12.3cm}}
+\toprule
+Equação & Diferença \\
+\midrule
+\endhead
+$dD/dt$   & idêntica \\
+$dM_0/dt$ & idêntica \\
+$dM_1/dt$ & idêntica \\
+$dM_2/dt$ & idêntica \\
+$dC_1/dt$ & idêntica (com o fator $E_2$ na degradação, como no original) \\
+$dC_2/dt$ & sai $+\,k_3 C_m$ de dentro do parêntese: $H_2 (k_2 M_2 + k_3 C_m) E_2$ vira
+            $H_2 (k_2 M_2) E_2$. O termo $-(d_{c2} C_2)$ não muda. \\
+$dC_m/dt$ & equação removida \\
+$dC_b/dt$ & sai $+\,(F_1 C_m)$; entra $E_2$ como primeiro termo (fonte, ausente no
+            original). O termo logístico $A_b C_b (1 - C_b)/k_{lb}$ e $-(d_b C_b)$ não mudam. \\
+$dM_c/dt$ & equação removida \\
+$dM_b/dt$ & idêntica \\
+$dE_2/dt$ & idêntica \\
+\midrule
+$M$, $R_d$, $R_m$, $G_1$, $G_2$, $H_1$, $H_2$, $A_b$ & idênticos \\
+$A_m$, $F_1$ & removidos ($A_m$ só aparecia em $dC_m/dt$; $F_1$ em $dC_m/dt$ e $dC_b/dt$) \\
+Parâmetros & saem 10: $k_3$, $K_{lm}$, $p_{cs}$, $q_{cd1}$, $q_{cd2}$, $k_{pm}$, $a_{pm}$,
+             $a_{pm1}$, $d_m$, $a_{mb1}$. Nenhum entra; nenhum valor muda. \\
+Cond. iniciais & saem $C_m(0)$ e $M_c(0)$; as outras não mudam. \\
+\bottomrule
+\end{longtable}
+
+%------------------------------------------------------------------------------------------
+\subsection{Simplificação 2: original sem $M_c$ (\texttt{verly\_diag\_sem\_mc.ant})}
+
+\paragraph{Termos auxiliares (regras de atribuição).} Os dez do original, sem nenhuma mudança:
+\begin{align}
+M   &= M_0 + M_1 + M_2 \\
+R_d &= \frac{D}{a_{ed} + D} \\
+R_m &= k_{max} \left(1 - \frac{M}{M_{max}}\right) D \\
+G_1 &= k_{01} \left(\frac{C_1}{a_{01} + C_1}\right) \\
+G_2 &= k_{02} \left(\frac{C_2}{a_{02} + C_2}\right) \\
+H_1 &= \frac{a_{12}}{a_{12} + C_2} \\
+H_2 &= \frac{a_{22}}{a_{22} + C_2} \\
+A_m &= \frac{k_{pm} \left((a_{pm} a_{pm}) + (a_{pm1} C_1)\right)}{(a_{pm} a_{pm}) + (C_1 C_1)} \\
+F_1 &= d_m \left(\frac{a_{mb1}}{a_{mb1} + C_1}\right) \\
+A_b &= k_{pb} \left(\frac{a_{pb}}{a_{pb} + C_1}\right)
+\end{align}
+
+\paragraph{EDOs.}
+\begin{align}
+\frac{dD}{dt}   &= -R_d (k_{e1} M_1 + k_{e2} M_2) \\
+\frac{dM_0}{dt} &= R_m - G_1 M_0 - G_2 M_0 - (d_0 M_0) \\
+\frac{dM_1}{dt} &= G_1 M_0 + (k_{21} M_2) - (k_{12} M_1) - (d_1 M_1) \\
+\frac{dM_2}{dt} &= G_2 M_0 + (k_{12} M_1) - (k_{21} M_2) - (d_2 M_2) \\
+\frac{dC_1}{dt} &= H_1 (k_0 D + k_1 M_1) - (d_{c1} C_1) E_2 \\
+\frac{dC_2}{dt} &= H_2 (k_2 M_2 + k_3 C_m) E_2 - (d_{c2} C_2) \\
+\frac{dC_m}{dt} &= A_m C_m \left(1 - \left(\frac{C_m}{K_{lm}}\right)\right) - (F_1 C_m) \\
+\frac{dC_b}{dt} &= \frac{A_b C_b (1 - C_b)}{k_{lb}} + (F_1 C_m) - (d_b C_b) \\
+\frac{dM_b}{dt} &= (p_{bs} - (q_{bd} M_b)) C_b \\
+\frac{dE_2}{dt} &= \left(\frac{E_{2max} - E_2}{E_{2max}}\right) a_{e2} E_2 - d_{e2} E_2
+\end{align}
+
+\paragraph{Comparação com o original, equação por equação.}
+
+\begin{longtable}{p{2.2cm}p{12.3cm}}
+\toprule
+Equação & Diferença \\
+\midrule
+\endhead
+$dD/dt$, $dM_0/dt$, $dM_1/dt$, $dM_2/dt$, $dC_1/dt$, $dC_2/dt$, $dC_m/dt$, $dC_b/dt$,
+$dM_b/dt$, $dE_2/dt$ & todas idênticas \\
+$dM_c/dt$ & equação removida. Nenhum termo sai de outra equação, porque $M_c$ só aparece
+            na própria equação. \\
+Termos auxiliares & todos idênticos \\
+Parâmetros & saem 3: $p_{cs}$, $q_{cd1}$, $q_{cd2}$ (só apareciam em $dM_c/dt$). Nenhum
+             entra; nenhum valor muda. \\
+Cond. iniciais & sai $M_c(0)$; as outras não mudam. \\
+\bottomrule
+\end{longtable}
+
+%==========================================================================================
+\section{Modelo do inflamassoma NLRP3}
+%==========================================================================================
+
+Dois arquivos: o original (\texttt{nlrp3\_original.ant}, 13 variáveis) e o simplificado
+(\texttt{nlrp3\_simp.ant}, 8 variáveis). Tempo em minutos. Como o texto do TCC I não trata
+deste modelo, a notação \LaTeX{} abaixo é uma proposta.
+
+\subsection{Correspondência de nomes das variáveis de estado}
+
+\begin{longtable}{llclc}
+\toprule
+\LaTeX & Original & CI orig. & Simplificado & CI simp. \\
+\midrule
+\endhead
+$\mathrm{NLRP3}_i$       & \texttt{NLRP3i}  & $0$ & ---               & --- \\
+$\mathrm{NLRP3}_a$       & \texttt{NLRP3a}  & $0$ & \texttt{NLRP3a}   & $0$ \\
+$\mathrm{NLRP3}_o$       & \texttt{NLRP3o}  & $0$ & \texttt{NLRP3o}   & $0$ \\
+$\mathrm{ASC}_f$         & \texttt{ASCf}    & $1$ & ---               & --- \\
+$\mathrm{ASC}_b$         & \texttt{ASCb}    & $0$ & \texttt{ASCb}     & $0$ \\
+$\mathrm{proC1}$         & \texttt{proC1}   & $1$ & ---               & --- \\
+$\mathrm{C1}$            & \texttt{C1}      & $0$ & \texttt{C1}       & $0$ \\
+$\mathrm{proIL1\beta}$   & \texttt{proIL1b} & $0$ & \texttt{proIL1B}  & $0$ \\
+$\mathrm{IL1\beta}_c$    & \texttt{IL1bc}   & $0$ & ---               & --- \\
+$\mathrm{IL1\beta}_e$    & \texttt{IL1be}   & $0$ & \texttt{IL1Be}    & $0$ \\
+$\mathrm{proIL18}$       & \texttt{proIL18} & $1$ & ---               & --- \\
+$\mathrm{IL18}_c$        & \texttt{IL18c}   & $0$ & \texttt{IL18c}    & $0$ \\
+$\mathrm{IL18}_e$        & \texttt{IL18e}   & $0$ & \texttt{IL18e}    & $0$ \\
+\bottomrule
+\end{longtable}
+
+No simplificado, \texttt{proIL1b} se chama \texttt{proIL1B} e \texttt{IL1be} se chama
+\texttt{IL1Be}; são as mesmas grandezas e recebem o mesmo símbolo.
+
+\subsection{Correspondência de nomes das funções e dos termos auxiliares}
+
+\begin{longtable}{lll}
+\toprule
+Arquivo & \LaTeX & O que é \\
+\midrule
+\endhead
+\texttt{hill(x, K, n)}            & $\mathrm{hill}(x, K, n)$ & função de Hill \\
+\texttt{sinal(NLRP3o, a, b, c)}   & $\mathrm{sinal}(\mathrm{NLRP3}_o, a, b, c)$ & chave de recrutamento da ASC \\
+\texttt{nfkbn}                    & $\mathit{nfkb}_n(t)$ & NF-$\kappa$B nuclear, entrada função do tempo \\
+\texttt{hNF}                      & $h_{\mathrm{NF}}$  & ativação pelo NF-$\kappa$B \\
+\texttt{hC1}                      & $h_{\mathrm{C1}}$  & clivagem pela caspase-1 \\
+\texttt{sASC}                     & $s_{\mathrm{ASC}}$ & recrutamento da ASC \\
+\bottomrule
+\end{longtable}
+
+\subsection{Parâmetros}
+
+\begin{longtable}{lllcc}
+\toprule
+Arquivo & \LaTeX & Grupo & Original & Simplificado \\
+\midrule
+\endhead
+\texttt{nfkb0}      & $\mathit{nfkb}_0$          & NF-$\kappa$B & $0{,}25$ & $0{,}25$ \\
+\texttt{gammaNF}    & $\gamma_{\mathrm{NF}}$     & NF-$\kappa$B & $2$      & $2$ \\
+\texttt{NF\_50}     & $\mathrm{NF}_{50}$         & NF-$\kappa$B & $0{,}3$  & $0{,}3$ \\
+\texttt{h}          & $h$                        & NF-$\kappa$B & $0{,}55$ & $0{,}55$ \\
+\texttt{s}          & $s$                        & NF-$\kappa$B & $0{,}8$  & $0{,}8$ \\
+\texttt{tau}        & $\tau$                     & NF-$\kappa$B & $10$     & $10$ \\
+\texttt{S1}         & $S_1$                      & NF-$\kappa$B & $1$      & $1$ \\
+\texttt{alpha1}     & $\alpha_1$                 & NLRP3 & $0{,}07$  & $0{,}07$ \\
+\texttt{S2}         & $S_2$                      & NLRP3 & $1$       & $1$ (não usado) \\
+\texttt{k1}         & $k_1$                      & NLRP3 & $0{,}7$   & $0{,}7$ (não usado) \\
+\texttt{delta1}     & $\delta_1$                 & NLRP3 & $0{,}002$ & --- \\
+\texttt{novodelta1} & $\delta_1^{\mathrm{novo}}$ & NLRP3 & ---       & $0{,}0025$ \\
+\texttt{k2}         & $k_2$                      & NLRP3 & $1$       & $1$ \\
+\texttt{k3}         & $k_3$                      & ASC   & $0{,}04$  & $0{,}04$ \\
+\texttt{a}          & $a$                        & ASC   & $1$       & $1$ \\
+\texttt{b}          & $b$                        & ASC   & $2$       & $2$ \\
+\texttt{c}          & $c$                        & ASC   & $1000$    & $1000$ \\
+\texttt{k4}         & $k_4$                      & caspase-1 & $0{,}03$ & $0{,}03$ \\
+\texttt{C1\_50}     & $\mathrm{C1}_{50}$         & caspase-1 & $0{,}3$  & $0{,}3$ \\
+\texttt{gammaC1}    & $\gamma_{\mathrm{C1}}$     & caspase-1 & $2$      & $2$ \\
+\texttt{G}          & $G$                        & gasdermina & $0{,}08$ & --- \\
+\texttt{Gnovo}      & $G^{\mathrm{novo}}$        & gasdermina & ---      & $0{,}08$ \\
+\texttt{alpha3}     & $\alpha_3$                 & citocinas & $0{,}06$  & $0{,}06$ \\
+\texttt{alpha4}     & $\alpha_4$                 & citocinas & $1$       & $1$ \\
+\texttt{alpha5}     & $\alpha_5$                 & citocinas & $1$       & $1$ \\
+\texttt{k5}         & $k_5$                      & citocinas & $1$       & $1$ (não usado) \\
+\texttt{delta2}     & $\delta_2$                 & citocinas & $0{,}004$ & $0{,}004$ \\
+\texttt{k6}         & $k_6$                      & citocinas & ---       & $1$ (não usado) \\
+\texttt{j}          & $j$                        & novo      & ---       & $0{,}7$ \\
+\midrule
+\multicolumn{3}{l}{Total declarados} & 25 & 27 \\
+\bottomrule
+\end{longtable}
+
+``Não usado'': declarado no arquivo (como no notebook), mas não aparece em nenhuma equação.
+
+%------------------------------------------------------------------------------------------
+\subsection{Modelo original (\texttt{nlrp3\_original.ant})}
+
+\paragraph{Funções.}
+\begin{align}
+\mathrm{hill}(x, K, n) &= \frac{x^n}{K^n + x^n} \\
+\mathrm{sinal}(\mathrm{NLRP3}_o, a, b, c) &= \frac{1}{1 + \left(\frac{\mathrm{NLRP3}_o + a}{b}\right)^{(-c)}}
+\end{align}
+
+\paragraph{Termos auxiliares (regras de atribuição).}
+\begin{align}
+\mathit{nfkb}_n(t) &= S_1 h \exp\left(\frac{-(\ln(\frac{t}{\tau}))^2}{s}\right) + \mathit{nfkb}_0 \\
+h_{\mathrm{NF}}  &= \mathrm{hill}(\mathit{nfkb}_n - \mathit{nfkb}_0, \mathrm{NF}_{50}, \gamma_{\mathrm{NF}}) \\
+h_{\mathrm{C1}}  &= \mathrm{hill}(\mathrm{C1}, \mathrm{C1}_{50}, \gamma_{\mathrm{C1}}) \\
+s_{\mathrm{ASC}} &= \mathrm{sinal}(\mathrm{NLRP3}_o, a, b, c)
+\end{align}
+
+\paragraph{EDOs.}
+\begin{align}
+\frac{d\mathrm{NLRP3}_i}{dt} &= \alpha_1 h_{\mathrm{NF}} - S_2 k_1 \mathrm{NLRP3}_i - \delta_1 \mathrm{NLRP3}_i \\
+\frac{d\mathrm{NLRP3}_a}{dt} &= S_2 k_1 \mathrm{NLRP3}_i - k_2 (\mathrm{NLRP3}_a^2) - \delta_1 \mathrm{NLRP3}_a \\
+\frac{d\mathrm{NLRP3}_o}{dt} &= k_2 (\mathrm{NLRP3}_a^2) \\
+\frac{d\mathrm{ASC}_f}{dt}   &= -k_3 s_{\mathrm{ASC}} \mathrm{ASC}_f \\
+\frac{d\mathrm{ASC}_b}{dt}   &= k_3 s_{\mathrm{ASC}} \mathrm{ASC}_f \\
+\frac{d\mathrm{proC1}}{dt}   &= -k_4 \mathrm{ASC}_b \mathrm{proC1} \\
+\frac{d\mathrm{C1}}{dt}      &= k_4 \mathrm{ASC}_b \mathrm{proC1} \\
+\frac{d\mathrm{proIL1\beta}}{dt} &= (h_{\mathrm{NF}} \alpha_3) - (h_{\mathrm{C1}} \alpha_4 \mathrm{proIL1\beta}) - (\delta_2 \mathrm{proIL1\beta}) \\
+\frac{d\mathrm{IL1\beta}_c}{dt}  &= (h_{\mathrm{C1}} \alpha_4 \mathrm{proIL1\beta}) - (k_5 G \mathrm{IL1\beta}_c) - (\delta_2 \mathrm{IL1\beta}_c) \\
+\frac{d\mathrm{IL1\beta}_e}{dt}  &= (k_5 G \mathrm{IL1\beta}_c) \\
+\frac{d\mathrm{proIL18}}{dt} &= -(\alpha_5 h_{\mathrm{C1}}) \mathrm{proIL18} \\
+\frac{d\mathrm{IL18}_c}{dt}  &= (\alpha_5 h_{\mathrm{C1}} \mathrm{proIL18}) - (G \mathrm{IL18}_c) \\
+\frac{d\mathrm{IL18}_e}{dt}  &= G \mathrm{IL18}_c
+\end{align}
+
+No arquivo, $\mathit{nfkb}_n$ é escrito sem \texttt{piecewise}; em $t = 0$,
+$\ln(0) = -\infty$ e a fórmula dá $\mathit{nfkb}_n(0) = \mathit{nfkb}_0 = 0{,}25$, o mesmo valor
+do ramo $t = 0$ do notebook.
+
+%------------------------------------------------------------------------------------------
+\subsection{Modelo simplificado (\texttt{nlrp3\_simp.ant})}
+
+\paragraph{Funções.} As mesmas do original:
+\begin{align}
+\mathrm{hill}(x, K, n) &= \frac{x^n}{K^n + x^n} \\
+\mathrm{sinal}(\mathrm{NLRP3}_o, a, b, c) &= \frac{1}{1 + \left(\frac{\mathrm{NLRP3}_o + a}{b}\right)^{(-c)}}
+\end{align}
+
+\paragraph{Termos auxiliares (regras de atribuição).} Os mesmos do original:
+\begin{align}
+\mathit{nfkb}_n(t) &= S_1 h \exp\left(\frac{-(\ln(\frac{t}{\tau}))^2}{s}\right) + \mathit{nfkb}_0 \\
+h_{\mathrm{NF}}  &= \mathrm{hill}(\mathit{nfkb}_n - \mathit{nfkb}_0, \mathrm{NF}_{50}, \gamma_{\mathrm{NF}}) \\
+h_{\mathrm{C1}}  &= \mathrm{hill}(\mathrm{C1}, \mathrm{C1}_{50}, \gamma_{\mathrm{C1}}) \\
+s_{\mathrm{ASC}} &= \mathrm{sinal}(\mathrm{NLRP3}_o, a, b, c)
+\end{align}
+
+\paragraph{Leis de conservação.} Não são regras no arquivo: aparecem já substituídas dentro
+das EDOs (por exemplo, $(1 - \mathrm{ASC}_b)$ no lugar de $\mathrm{ASC}_f$). Escritas à parte:
+\begin{align}
+\mathrm{ASC}_f &= 1 - \mathrm{ASC}_b \\
+\mathrm{proC1} &= 1 - \mathrm{C1} \\
+\mathrm{proIL18} &= 1 - (\mathrm{IL18}_c + \mathrm{IL18}_e)
+\end{align}
+
+\paragraph{EDOs} (na ordem do arquivo, que é a do vetor de \texttt{edos} no notebook).
+\begin{align}
+\frac{d\mathrm{NLRP3}_a}{dt} &= \alpha_1 h_{\mathrm{NF}} - (k_2 (\mathrm{NLRP3}_a)^2) - (\delta_1^{\mathrm{novo}} \mathrm{NLRP3}_a) \\
+\frac{d\mathrm{NLRP3}_o}{dt} &= (k_2 (\mathrm{NLRP3}_a)^2) \\
+\frac{d\mathrm{ASC}_b}{dt}   &= k_3 s_{\mathrm{ASC}} (1 - \mathrm{ASC}_b) \\
+\frac{d\mathrm{C1}}{dt}      &= k_4 \mathrm{ASC}_b (1 - \mathrm{C1}) \\
+\frac{d\mathrm{IL18}_c}{dt}  &= \alpha_5 h_{\mathrm{C1}} (1 - (\mathrm{IL18}_c + \mathrm{IL18}_e)) - G^{\mathrm{novo}} \mathrm{IL18}_c \\
+\frac{d\mathrm{IL18}_e}{dt}  &= G^{\mathrm{novo}} \mathrm{IL18}_c \\
+\frac{d\mathrm{proIL1\beta}}{dt} &= (h_{\mathrm{NF}} \alpha_3) - (h_{\mathrm{C1}} \alpha_4 \mathrm{proIL1\beta}) - (\delta_2 \mathrm{proIL1\beta}) \\
+\frac{d\mathrm{IL1\beta}_e}{dt}  &= j (h_{\mathrm{C1}} \alpha_4 \mathrm{proIL1\beta})
+\end{align}
+
+\paragraph{Variáveis que viraram leis de conservação.} São três. No original, a soma das
+derivadas de cada grupo é zero, termo a termo:
+\begin{itemize}
+\item $\mathrm{ASC}_f$: $\frac{d\mathrm{ASC}_f}{dt} + \frac{d\mathrm{ASC}_b}{dt}
+  = -k_3 s_{\mathrm{ASC}} \mathrm{ASC}_f + k_3 s_{\mathrm{ASC}} \mathrm{ASC}_f = 0$, e
+  $\mathrm{ASC}_f(0) + \mathrm{ASC}_b(0) = 1 + 0$; logo $\mathrm{ASC}_f = 1 - \mathrm{ASC}_b$.
+\item $\mathrm{proC1}$: $\frac{d\mathrm{proC1}}{dt} + \frac{d\mathrm{C1}}{dt}
+  = -k_4 \mathrm{ASC}_b \mathrm{proC1} + k_4 \mathrm{ASC}_b \mathrm{proC1} = 0$, e
+  $\mathrm{proC1}(0) + \mathrm{C1}(0) = 1 + 0$; logo $\mathrm{proC1} = 1 - \mathrm{C1}$.
+\item $\mathrm{proIL18}$: $\frac{d\mathrm{proIL18}}{dt} + \frac{d\mathrm{IL18}_c}{dt} +
+  \frac{d\mathrm{IL18}_e}{dt} = -(\alpha_5 h_{\mathrm{C1}}) \mathrm{proIL18} +
+  (\alpha_5 h_{\mathrm{C1}} \mathrm{proIL18}) - (G \mathrm{IL18}_c) + G \mathrm{IL18}_c = 0$, e
+  $\mathrm{proIL18}(0) + \mathrm{IL18}_c(0) + \mathrm{IL18}_e(0) = 1 + 0 + 0$; logo
+  $\mathrm{proIL18} = 1 - (\mathrm{IL18}_c + \mathrm{IL18}_e)$.
+\end{itemize}
+
+As outras duas variáveis removidas, $\mathrm{NLRP3}_i$ e $\mathrm{IL1\beta}_c$, \emph{não}
+saem por conservação: são eliminadas, e o caminho que passava por elas é encurtado (ver a
+tabela abaixo).
+
+\paragraph{Parâmetros ajustados ou novos.}
+\begin{itemize}
+\item Ajustado: a degradação de $\mathrm{NLRP3}_a$ passa de $\delta_1 = 0{,}002$ para
+  $\delta_1^{\mathrm{novo}} = 0{,}0025$ (\texttt{novodelta1}).
+\item Novo: $j = 0{,}7$, fração do pró-IL-1$\beta$ clivado que vai para
+  $\mathrm{IL1\beta}_e$.
+\item Só renomeado: $G^{\mathrm{novo}}$ (\texttt{Gnovo}) tem o mesmo valor de $G$, $0{,}08$.
+\item Declarados e não usados no simplificado: $S_2$, $k_1$, $k_5$ e $k_6$ ($k_6$ não existe no
+  original).
+\end{itemize}
+
+\paragraph{Comparação com o original, equação por equação.}
+
+\begin{longtable}{p{2.6cm}p{11.9cm}}
+\toprule
+Equação & Diferença \\
+\midrule
+\endhead
+$d\mathrm{NLRP3}_i/dt$ & equação removida \\
+$d\mathrm{NLRP3}_a/dt$ & sai $S_2 k_1 \mathrm{NLRP3}_i$; entra $\alpha_1 h_{\mathrm{NF}}$ (a fonte
+  que antes alimentava $\mathrm{NLRP3}_i$); $\delta_1$ vira $\delta_1^{\mathrm{novo}}$. O termo
+  $k_2 (\mathrm{NLRP3}_a)^2$ não muda (só os parênteses: $k_2(\mathrm{NLRP3}_a^2)$ no original,
+  $(k_2 (\mathrm{NLRP3}_a)^2)$ no simplificado). \\
+$d\mathrm{NLRP3}_o/dt$ & idêntica (mesma diferença de parênteses) \\
+$d\mathrm{ASC}_f/dt$ & equação removida (conservação) \\
+$d\mathrm{ASC}_b/dt$ & $\mathrm{ASC}_f$ é substituído por $(1 - \mathrm{ASC}_b)$ \\
+$d\mathrm{proC1}/dt$ & equação removida (conservação) \\
+$d\mathrm{C1}/dt$ & $\mathrm{proC1}$ é substituído por $(1 - \mathrm{C1})$ \\
+$d\mathrm{proIL1\beta}/dt$ & idêntica (só o nome no arquivo muda) \\
+$d\mathrm{IL1\beta}_c/dt$ & equação removida \\
+$d\mathrm{IL1\beta}_e/dt$ & sai $(k_5 G \mathrm{IL1\beta}_c)$; entra
+  $j (h_{\mathrm{C1}} \alpha_4 \mathrm{proIL1\beta})$, isto é, o termo de entrada de
+  $\mathrm{IL1\beta}_c$ no original multiplicado por $j$ \\
+$d\mathrm{proIL18}/dt$ & equação removida (conservação) \\
+$d\mathrm{IL18}_c/dt$ & $\mathrm{proIL18}$ é substituído por $(1 - (\mathrm{IL18}_c +
+  \mathrm{IL18}_e))$ e $G$ por $G^{\mathrm{novo}}$; os parênteses externos dos dois termos
+  saem \\
+$d\mathrm{IL18}_e/dt$ & $G$ vira $G^{\mathrm{novo}}$ (mesmo valor) \\
+\midrule
+Funções e termos auxiliares & idênticos \\
+Cond. iniciais & todas zero no simplificado; no original, $\mathrm{ASC}_f$, $\mathrm{proC1}$ e
+  $\mathrm{proIL18}$ começam em 1 e as outras em zero, de modo que as variáveis que ficaram têm
+  as mesmas condições iniciais nos dois modelos. \\
+\bottomrule
+\end{longtable}
+
+\end{document}

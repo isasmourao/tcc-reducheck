@@ -1,19 +1,16 @@
-# Estudo de caso — Simplificação 1 do modelo de Verly et al. (2024), CRITÉRIOS PROPOSTOS.
+# Estudo de caso — Simplificação 1 do modelo de Verly et al. (2024), critérios alternativos.
 #
 # Rodar a partir da raiz do repositório:
 #     reducheck verificar estudo_de_caso/simp1_criterios_propostos.yaml
 #
-# Proposta para levar à orientadora ao lado de `simp1.yaml`, que NÃO foi alterado (os limites
-# dele estão com ela). Mesmos modelos, simulação e mapeamento; mudam os critérios:
+# Mesmos modelos, simulação e mapeamento de `simp1.yaml`; mudam os critérios:
 #   * core = Cb, Mb, C1, C2 (E2 saiu: ver abaixo);
 #   * forma da trajetória nas core: nrmse (obrigatório) e erro_l2_rel (desejável);
 #   * destino em t = 720: erro_estacionario nas core (obrigatório) e nos macrófagos (desejável);
 #   * longo prazo (equilibrio, estabilidade_local) rebaixado a desejável.
 #
-# Nenhum limite aqui tem fonte na literatura: todos são convenção do TCC, os mesmos números de
-# `simp1.yaml` (0,05 e 0,01). Nenhum número novo foi criado.
-#
-# Atenção: os critérios desejáveis também entram na porcentagem. Rebaixar um critério muda o
+# Os limites são os mesmos de `simp1.yaml` (0,05 e 0,01), convenção do trabalho.
+# Os critérios desejáveis também entram na porcentagem: rebaixar um critério muda o
 # percentual mesmo quando o veredito não muda.
 
 versao: 1
@@ -22,11 +19,16 @@ modelos:
   original: ../modelos/verly_original.xml
   simplificado: ../modelos/verly_simp1.xml
 
-# Igual a `simp1.yaml`: 720 dias, 1000 pontos (TCC I, seção 4).
+# Simulação. Tempo em DIAS (a unidade de tempo do modelo da Verly).
+#   t_inicio, t_fim: início e fim da simulação, em dias (0 a 720 dias, cerca de 2 anos).
+#   pontos:          número de instantes salvos entre t_inicio e t_fim, contando as duas
+#                    pontas; 1000 pontos em 720 dias dão um ponto a cada ~0,72 dia.
+#   tol_relativa, tol_absoluta: tolerâncias do integrador CVODE, iguais nos dois modelos.
+#   nao_negativas:   se true, um valor negativo em qualquer variável interrompe com erro.
 simulacao:
-  t_inicio: 0
-  t_fim: 720
-  pontos: 1000
+  t_inicio: 0          # dia inicial
+  t_fim: 720           # dia final: 720 dias (cerca de 2 anos)
+  pontos: 1000         # instantes salvos de 0 a 720 dias (um a cada ~0,72 dia)
   solver: cvode
   tol_relativa: 1e-8
   tol_absoluta: 1e-10
@@ -52,9 +54,8 @@ variaveis:
     core: true
 
   # --- E2: fora da contagem do veredito --------------------------------------
-  # A simplificação não toca em E2, então ela sempre passaria e inflaria a porcentagem (a
-  # crítica de Sargent às notas agregadas). Fica comparada, sem critério, só como checagem de
-  # que a transcrição está certa: o gráfico e o series.csv continuam mostrando as duas curvas.
+  # A simplificação não toca em E2, então ela sempre passaria e inflaria a porcentagem.
+  # Fica comparada, sem critério: o gráfico e o series.csv mostram as duas curvas.
   - nome: E2
     original: E2
     simplificado: E2
@@ -90,39 +91,31 @@ variaveis:
 
 criterios:
   # --- Trajetória: forma -------------------------------------------------------
-  # Pega a perda do pico de Cb (357 mil no dia 32 no original; sem pico na simplificação).
   - metrica: nrmse
     limite: 0.05
     variaveis: core
     obrigatorio: true
-  # Segunda medida de forma, robusta ao zero inicial. Convenção do TCC (sem limite na
-  # literatura). Desejável para a mesma falha de forma não reprovar duas vezes; numa série que
-  # começa em zero ela é >= nrmse, então com o mesmo 0,05 é um pouco mais rígida.
+  # Segunda medida de forma, robusta ao zero inicial. Desejável para a mesma falha de forma
+  # não reprovar duas vezes; numa série que começa em zero ela é >= nrmse.
   - metrica: erro_l2_rel
     limite: 0.05
     variaveis: core
     obrigatorio: false
 
-  # --- Trajetória: destino em t = 720 -------------------------------------------
-  # fracao_final padrão (0) = só o último ponto, t = 720: o destino relevante para o acoplamento.
+  # --- Trajetória: valor final, em t = 720 dias ------------------------------
+  # fracao_final padrão (0): compara só o último ponto, t = 720 dias.
   - metrica: erro_estacionario
     limite: 0.01
     variaveis: core
     obrigatorio: true
-  # Macrófagos: erro_estacionario e não nrmse. Desejável porque não são core (obrigatório
-  # deixaria uma variável fora do core reprovar a simplificação); 0,01 para não criar número novo.
+  # Macrófagos: desejável, porque não são core.
   - metrica: erro_estacionario
     limite: 0.01
     variaveis: [Mo, M1, M2]
     obrigatorio: false
 
-  # erro_max_abs em Cb NÃO foi declarado: qualquer limite seria inventado, e mesmo desejável
-  # mudaria o nível do veredito. O erro absoluto no pico aparece no gráfico de Cb (painel de
-  # baixo); o número exato, se precisar, sai de um script à parte.
-
   # --- Longo prazo: desejáveis ----------------------------------------------------
-  # Continuam na aba "Longo prazo" (com o aviso de que o equilíbrio está em ~7×10⁸ dias), mas
-  # só geram ressalva. Em simp1.yaml eles são obrigatórios.
+  # Aparecem na aba "Longo prazo", mas só geram ressalva. Em simp1.yaml são obrigatórios.
   - metrica: equilibrio
     limite: 0.05
     variaveis: core

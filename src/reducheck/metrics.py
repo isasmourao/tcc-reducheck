@@ -2,21 +2,17 @@
 
 Every metric has the same shape -- ``(tempo, original, simplificado, **parametros)`` ->
 :class:`ResultadoDeMetrica`, both series on the same time grid, smaller is better -- and
-registers itself under a name with :func:`registrar`. Adding a metric therefore means
-adding a decorated function: the configuration validates the names it reads against
-:func:`disponiveis`, and the per-metric options written under ``criterios[].parametros``
-against the keyword arguments of the function itself (:func:`parametros_de`), so nothing
-in the pipeline has to change. ``tests/test_units.py`` registers one from outside the
-package to keep that promise honest.
+registers itself under a name with :func:`registrar`. Adding a metric means adding a
+decorated function: the configuration validates metric names against :func:`disponiveis`,
+and the options under ``criterios[].parametros`` against the keyword arguments of the
+function (:func:`parametros_de`), so nothing else in the pipeline has to change.
 
-A metric returns three things, not just a number: the value, a short description in
-Portuguese of what the number means (the report prints it next to the value) and a list of
-warnings. The warnings are how a metric says that it had to leave data out -- MAPE near
-zero -- without failing the run, which is what ``docs/produto.md`` asks for ("avisa, sem
-parar").
+A metric returns the value, a short description in Portuguese of what the number means
+(printed next to the value in the report) and a list of warnings, which is how it reports
+that it had to leave data out (e.g. MAPE near zero) without failing the run.
 
-Formulas, with :math:`o` the original series, :math:`s` the simplified one and :math:`n`
-the number of points, are in each docstring; they go into the text of the TCC.
+Each docstring gives the formula, with :math:`o` the original series, :math:`s` the
+simplified one and :math:`n` the number of points.
 """
 
 from __future__ import annotations
@@ -60,14 +56,14 @@ EPSILON_RELATIVO = 1e-6
 #: fraction of its own peak. Much larger than :data:`EPSILON_RELATIVO` on purpose: the points
 #: under the epsilon are already left out, and what misleads the MAPE are the ones just above
 #: it, divided by a number small enough to blow the relative error up. Relative for the same
-#: reason as the epsilon. Arbitrary, and registered as such in ``docs/questoes-em-aberto.md``.
+#: reason as the epsilon. The value is a convention, not taken from the literature.
 PERTO_DE_ZERO = 0.01
 
-#: MAPE warns when more than this fraction of the points is close to zero (issue #19).
+#: MAPE warns when more than this fraction of the points is close to zero.
 FRACAO_PERTO_DE_ZERO = 0.05
 
 #: NRMSE warns when a single point holds more than this share of the squared error: the
-#: number then describes one spike, not the trajectory (issue #19).
+#: number then describes one spike, not the trajectory.
 FRACAO_DO_PICO = 0.5
 
 #: How the pointwise error of a metric adds up to its value: the mean, the square root of
@@ -250,12 +246,9 @@ def nrmse(
     .. math:: \mathrm{NRMSE} = \frac{\sqrt{\frac1n \sum_i (o_i - s_i)^2}}
               {\max_i o_i - \min_i o_i}
 
-    Normalizing by the range, and not by the mean, is what ``docs/produto.md`` and the toy
-    fixtures use; the choice is still open with the supervisor (see
-    ``docs/questoes-em-aberto.md``), which is why the report records it next to the number.
+    The report states the normalization (range, not mean) next to the number.
 
-    Limite base da literatura: sem limite na literatura; o valor usado no estudo de caso é
-    convenção do TCC.
+    Reference threshold: none in the literature.
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     amplitude = float(original.max() - original.min())
@@ -300,21 +293,20 @@ def mape(
               \frac{|o_i - s_i|}{|o_i|}, \quad
               I = \{\, i : |o_i| \ge \varepsilon \,\}
 
-    The value is a *fraction*, not a percentage: 0,081 is an error of 8,1%, which is how
-    the thresholds are written in ``docs/produto.md``.
+    The value is a *fraction*, not a percentage: 0.081 is an error of 8.1%.
 
-    The quotient blows up wherever the original approaches zero -- exactly what happens in
-    the model of Verly et al. (2024), whose variables start at or near zero -- so the
-    points with :math:`|o_i| < \varepsilon` are excluded and their number is reported as a
-    warning. By default :math:`\varepsilon` is ``EPSILON_RELATIVO`` times the largest
-    absolute value of the original series, so the protection does not depend on the unit of
-    the variable; ``criterios[].parametros.epsilon`` sets an absolute value instead.
+    The quotient blows up wherever the original approaches zero -- common in biological
+    models whose variables start at or near zero -- so the points with
+    :math:`|o_i| < \varepsilon` are excluded and their number is reported as a warning.
+    By default :math:`\varepsilon` is ``EPSILON_RELATIVO`` times the largest absolute
+    value of the original series, so the protection does not depend on the unit of the
+    variable; ``criterios[].parametros.epsilon`` sets an absolute value instead.
 
-    Fonte: Hyndman & Koehler (2006), "Another look at measures of forecast accuracy",
-    International Journal of Forecasting 22(4), apontam que o erro percentual é indefinido
-    ou explode quando o valor observado é zero ou perto de zero; é o motivo da exclusão.
+    Source: Hyndman & Koehler (2006), "Another look at measures of forecast accuracy",
+    International Journal of Forecasting 22(4): the percentage error is undefined or
+    explodes when the observed value is zero or near zero, hence the exclusion.
 
-    Limite base da literatura: sem limite na literatura.
+    Reference threshold: none in the literature.
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     relativo, validos, limiar = _erros_relativos(original, simplificado, epsilon, "mape")
@@ -382,13 +374,12 @@ def erro_max_rel(
     what changes is that this one answers "how wrong does it ever get", not "how wrong is
     it on average", so a short bad transient shows up here and is diluted in the MAPE.
 
-    Fonte: Snowden, van der Graaf & Tindall (2017a), BMC Systems Biology 11:17, usam o erro
-    relativo máximo nas saídas com tolerância de 5%, escolhida pelos autores como critério
-    de parada do algoritmo, não como padrão. Avaliar cada variável ≤ 5% equivale a exigir o
-    máximo sobre as saídas ≤ 5%. [VERIFICAR: se Snowden normaliza ponto a ponto ou pela
-    norma da saída]
+    Source: Snowden, van der Graaf & Tindall (2017a), BMC Systems Biology 11:17, use the
+    maximum relative error over the outputs with a 5% tolerance, chosen by the authors as
+    the stopping criterion of their algorithm, not as a standard. Requiring each variable
+    to be <= 5% is equivalent to requiring the maximum over the outputs to be <= 5%.
 
-    Limite base da literatura: 0,05 (Snowden et al., 2017a).
+    Reference threshold: 0.05 (Snowden et al., 2017a).
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     relativo, validos, limiar = _erros_relativos(
@@ -424,17 +415,15 @@ def erro_estacionario(
 
     where :math:`\bar o` and :math:`\bar s` are the averages over the last
     ``fracao_final`` of the *time* span. With the default ``fracao_final = 0`` the averages
-    are the final values alone, which is the comparison ``docs/produto.md`` describes ("fim
-    da simulação"); averaging a final window instead is what makes the number readable when
-    the trajectory is still oscillating or the solver output is noisy.
+    are the final values alone; averaging a final window instead makes the number readable
+    when the trajectory is still oscillating or the solver output is noisy.
 
     The window is taken on the time axis, not on the number of points, so the value does
     not change when the same horizon is simulated with more points. A simplification can be
     faithful in the transient and wrong at the end, or the reverse, which is why this is a
     criterion of its own and not a summary of the others.
 
-    Limite base da literatura: sem limite na literatura; o valor usado no estudo de caso é
-    convenção do TCC.
+    Reference threshold: none in the literature.
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     tempo = np.asarray(tempo, dtype=float)
@@ -488,7 +477,7 @@ def rmse(
     Model Development 7, conclude that no single metric is enough on its own; this one is
     here as the unnormalized companion of the others, not as a criterion in itself.
 
-    Limite base da literatura: sem limite na literatura (depende da escala da variável).
+    Reference threshold: none in the literature (it depends on the scale of the variable).
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     quadrado = (original - simplificado) ** 2
@@ -520,13 +509,13 @@ def erro_integral(
     each point counts by the time it covers, so the value does not depend on how the grid
     is spaced.
 
-    Fonte: Rao et al. (2014), BMC Systems Biology 8:52, eq. 14. Em Rao a mesma integral
-    também é tirada a média sobre as espécies importantes; aqui cada variável vira um item
-    do veredito, o que é mais rígido: cada uma tem de passar sozinha. Rao parou a redução
-    em I = 0,1 e observou diferenças visuais claras com 0,2. Rao exige uma rede
-    assintoticamente estável, e o resultado depende da janela [0, T] simulada.
+    Source: Rao et al. (2014), BMC Systems Biology 8:52, eq. 14. Rao also averages the
+    integral over the important species; here each variable is its own verdict item, which
+    is stricter: each one has to pass alone. Rao stopped the reduction at I = 0.1 and saw
+    clear visual differences at 0.2. The method assumes an asymptotically stable network,
+    and the result depends on the simulated window [0, T].
 
-    Limite base da literatura: 0,10 (Rao et al., 2014).
+    Reference threshold: 0.10 (Rao et al., 2014).
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     pesos = _pesos_trapezio(tempo)
@@ -577,14 +566,14 @@ def erro_simetrico(
     of its own series, or the absolute ``epsilon`` for both when one is given. The value
     is therefore unchanged when the two series swap places.
 
-    Fonte: Frøysa, Fallahi & Blaser (2018), BMC Systems Biology 12:79, eqs. 3-4. O artigo
-    usa esta medida para agrupar e ranquear reduções sob incerteza de parâmetros (teste KS
-    com limiar 0,2), e não como critério de aceitação; não dá limite absoluto. Avisos do
-    próprio artigo: um T curto não cobre a dinâmica, e um T longo demais reduz a integral à
-    diferença entre os estados estacionários.
+    Source: Frøysa, Fallahi & Blaser (2018), BMC Systems Biology 12:79, eqs. 3-4. The paper
+    uses this measure to group and rank reductions under parameter uncertainty (KS test
+    with threshold 0.2), not as an acceptance criterion, and gives no absolute threshold.
+    As the paper notes, a short T does not cover the dynamics, and a very long T reduces
+    the integral to the difference between the steady states.
 
-    Limite base da literatura: o artigo não tem. 0,10 é um limite DERIVADO de Rao et al.
-    (2014), porque E é a média de duas integrais de Rao; não é de Frøysa et al. (2018).
+    Reference threshold: none in the paper. 0.10 is derived from Rao et al. (2014), since
+    E is the mean of two Rao integrals; it is not from Frøysa et al. (2018).
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     pesos = _pesos_trapezio(tempo)
@@ -649,16 +638,16 @@ def erro_l2_rel(
               \approx \sqrt{\frac{\sum_i w_i (o_i - s_i)^2}{\sum_i w_i o_i^2}}
 
     with the trapezoid weights :math:`w_i`. No point is left out: the norm is of the whole
-    series, so a point near zero does not blow the value up, which is what makes it usable
-    on variables that start at zero (``M1`` in the Verly model).
+    series, so a point near zero does not blow the value up, which makes it usable on
+    variables that start at zero.
 
-    Fonte: Vejchodský (2014), Mathematica Bohemica 139(4), Tabela 1. Vejchodský alinha o
-    período e a fase antes de calcular, porque o modelo dele oscila; aqui NÃO há
-    alinhamento (modelos oscilantes estão fora do escopo), então um atraso entra como erro.
-    Números do artigo, como referência e não como limite: QSSA padrão 92,7%, QSSA com
-    atraso 19%.
+    Source: Vejchodský (2014), Mathematica Bohemica 139(4), Table 1. Vejchodský aligns
+    period and phase before computing, because that model oscillates; here there is no
+    alignment (oscillating models are out of scope), so a delay counts as error. Values
+    from the paper, for reference and not as a threshold: standard QSSA 92.7%, delayed
+    QSSA 19%.
 
-    Limite base da literatura: sem limite na literatura.
+    Reference threshold: none in the literature.
     """
     original, simplificado = _conferir_formato(tempo, original, simplificado)
     pesos = _pesos_trapezio(tempo)

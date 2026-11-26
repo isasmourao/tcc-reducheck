@@ -1,14 +1,12 @@
 """Render the results as JSON, as a readable report and as plots.
 
-Two audiences, one set of numbers. ``resultado.json`` is for code and for tests;
-``relatorio.html`` (or ``relatorio.md``) is for a person, and follows the order of
-``docs/produto.md``: verdict, numeric summary, table of criteria with the failures first,
-reasons, warnings, plots, and the data of the run.
+``resultado.json`` is for code; ``relatorio.html`` (or ``relatorio.md``) is for a person:
+verdict, numeric summary, table of criteria with the failures first, reasons, warnings,
+plots, and the data of the run.
 
-The HTML is a single file: every plot goes into it as base64, so the report can be sent by
-e-mail or attached to the dissertation without a folder beside it. The same plots are saved
-as PNG at 300 dpi in ``graficos/`` for the text; the Markdown report links to those files,
-since Markdown readers do not handle embedded images well.
+The HTML is a single file, with every plot embedded as base64. The same plots are saved as
+PNG at 300 dpi in ``graficos/``; the Markdown report links to those files, since Markdown
+readers do not handle embedded images well.
 """
 
 from __future__ import annotations
@@ -72,10 +70,10 @@ __all__ = [
     "versoes",
 ]
 
-#: File name used for the machine-readable result, as in ``docs/produto.md``.
+#: File name used for the machine-readable result.
 NOME_DO_JSON = "resultado.json"
 
-#: File written for each requested format, as in ``docs/produto.md``.
+#: File written for each requested format.
 ARQUIVOS = {"json": NOME_DO_JSON, "html": "relatorio.html", "md": "relatorio.md"}
 
 #: Files written on every run, whatever the formats, so the run can be redone or audited.
@@ -243,8 +241,8 @@ def salvar_json(
 
 #: What each metric measures, in plain words, for the "O que cada métrica mede" section of
 #: the readable report. No formula: the formulas are in the docstrings of
-#: :mod:`reducheck.metrics` and in the text of the TCC. A metric registered from outside the
-#: library has no entry here, and the report falls back to its own ``descricao``.
+#: :mod:`reducheck.metrics`. A metric registered from outside the library has no entry
+#: here, and the report falls back to its own ``descricao``.
 EXPLICACOES_DAS_METRICAS = {
     "nrmse": (
         "O erro médio ao longo de toda a simulação, comparado com a faixa que a variável "
@@ -375,9 +373,7 @@ def leitura_conjunta(
 
     First the overall reading (one of :data:`COMO_LER_JUNTAS`), then the variables where the
     two answers disagree, then -- when the equilibrium lies beyond the simulated window --
-    the warning that a passing equilibrium speaks of that distant future. The last one is
-    what makes a variable that is wrong in every plot and right in the equilibrium table
-    read as what it is, instead of as a contradiction.
+    the warning that a passing equilibrium speaks of that distant future.
     """
     trajetoria = veredito.parte(TRAJETORIA)
     longo = veredito.parte(LONGO_PRAZO)
@@ -489,7 +485,7 @@ def razoes(veredito: Veredito) -> list[str]:
 def razao(item: ItemAvaliado) -> str | None:
     """Return why ``item`` failed -- by how much and where in time -- or ``None`` if it passed.
 
-    The sentence follows the model of issue #19: the value against the threshold and the
+    The sentence gives the value against the threshold and the
     relative excess, the shortest window holding 80% of the error and the phase it falls
     in, and the same metric at the other end of the run, so a failure confined to the
     transient is told apart from one that never goes away. A metric that does not give its
@@ -726,8 +722,8 @@ def _nota_dos_niveis(veredito: Veredito, niveis: int) -> str:
     """Say, in words, why an APROVADO can sit next to a percentage below 100.
 
     With ``relatorio.niveis: 2`` a failed desirable item does not lower the verdict but
-    still counts against the percentage (question 26 of ``docs/questoes-em-aberto.md``,
-    which asks for exactly this sentence). Without it the report reads as a contradiction.
+    still counts against the percentage. Without this note the report reads as a
+    contradiction.
     """
     fora = sum(1 for item in veredito.criterios if not item.passou and not item.obrigatorio)
     if niveis != 2 or fora == 0 or not veredito.aprovado:
@@ -1035,7 +1031,7 @@ def salvar_config_usada(
 
 
 def _numero(valor: float | None) -> str:
-    """Format a number the way the report of ``docs/produto.md`` shows it (decimal comma)."""
+    """Format a number the way the report shows it: five significant digits, decimal comma."""
     if valor is None:
         return "—"
     return f"{valor:.5g}".replace(".", ",")

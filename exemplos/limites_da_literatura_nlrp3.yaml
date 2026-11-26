@@ -1,4 +1,4 @@
-# Modelo da Julia (NLRP3), original x simplificado, com os limites da LITERATURA.
+# Modelo do inflamassoma NLRP3, original x simplificado, com os limites da LITERATURA.
 #
 # Rodar a partir da raiz do repositório:
 #     reducheck verificar exemplos/limites_da_literatura_nlrp3.yaml --saida resultados/literatura_nlrp3/
@@ -7,14 +7,11 @@
 # separados, cada um com o seu relatório.
 #
 # Mesmos modelos, simulação e variáveis de `estudo_de_caso/nlrp3/nlrp3_simp.yaml`; o que muda
-# são os critérios, cada um com a fonte do limite no comentário. Os critérios de
-# `nlrp3_simp.yaml` (provisórios, a revisar com a Bárbara) não foram tocados.
+# são os critérios, cada um com a fonte do limite no comentário.
 #
 # As métricas relativas usam o `epsilon` padrão, como no artigo de cada uma, e não o 0,05 do
 # MAPE em `nlrp3_simp.yaml`. NLRP3a, IL18c e proIL1b sobem e voltam a ~0, então espere avisos
-# de "perto de zero" nelas (NOTAS.md do NLRP3 explica por quê).
-#
-# Nenhum limite foi ajustado depois de ver o resultado.
+# de "perto de zero" nelas.
 
 versao: 1
 
@@ -22,11 +19,12 @@ modelos:
   original: ../modelos/nlrp3_original.xml
   simplificado: ../modelos/nlrp3_simp.xml
 
-# Igual a `estudo_de_caso/nlrp3/nlrp3_simp.yaml`.
+# Igual a `estudo_de_caso/nlrp3/nlrp3_simp.yaml`. Tempo em MINUTOS: de 0 a 300 min, com
+# 1001 instantes salvos (contando as duas pontas).
 simulacao:
-  t_inicio: 0
-  t_fim: 300
-  pontos: 1001
+  t_inicio: 0          # minuto inicial
+  t_fim: 300           # minuto final: 300 minutos (5 horas)
+  pontos: 1001         # instantes salvos de 0 a 300 min (um a cada 0,3 min)
   solver: cvode
   tol_relativa: 1e-8
   tol_absoluta: 1e-10
@@ -121,10 +119,8 @@ criterios:
 
   # --- Longo prazo: FORA deste arquivo ----------------------------------------
   # Nenhum dos dois modelos acha um equilíbrio (o steadyState falha com Jacobiana singular e a
-  # integração não para de mudar), e hoje isso interrompe a análise qualitativa com erro. Por
-  # isso equilibrio, estabilidade_local e comportamento_longo_prazo não foram declarados.
-  # comportamento_longo_prazo deveria passar aqui ("nenhum chega"), mas a biblioteca ainda não
-  # deixa a análise seguir sem equilíbrio (pendência do PR #55).
+  # integração não para de mudar), o que interrompe a análise qualitativa com erro. Por isso
+  # equilibrio, estabilidade_local e comportamento_longo_prazo não foram declarados.
 
 relatorio:
   formatos: [html, md, json]

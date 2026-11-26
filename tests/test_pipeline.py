@@ -100,7 +100,7 @@ def test_renamed_variable_is_mapped(tmp_path: Path) -> None:
     assert por_variavel["produto"] == pytest.approx(0.00072, abs=1e-4)
 
 
-# --- sum mapping, weighted sum and core selection (issue #10) ----------------
+# --- sum mapping, weighted sum and core selection -----------------------------
 
 
 def test_the_aggregation_pair_needs_the_sum_mapping(tmp_path: Path) -> None:
@@ -181,7 +181,7 @@ def test_the_eliminated_variable_is_read_from_the_assignment_rule(tmp_path: Path
     assert por_variavel["A"].passou and por_variavel["C"].passou
 
 
-# --- pluggable metrics (issue #11) -------------------------------------------
+# --- pluggable metrics --------------------------------------------------------
 
 
 @metrics.registrar("erro_no_ultimo_ponto")
@@ -274,7 +274,7 @@ def test_the_mvp_metrics_reproduce_the_recorded_values(tmp_path: Path) -> None:
     assert itens["erro_max_rel"].detalhes["instante"] == pytest.approx(0.1)
 
 
-# --- simulation conditions (issue #12) ---------------------------------------
+# --- simulation conditions ----------------------------------------------------
 
 #: Reference numerical noise of each pair, per report variable (see fixtures/README.md).
 RUIDO_DOS_PARES = {
@@ -380,11 +380,11 @@ def test_a_simulation_that_goes_negative_stops_the_run_instead_of_giving_a_verdi
     assert "t = 1.1" in str(erro.value)
 
 
-# --- three-level verdict (issue #13) -----------------------------------------
+# --- three-level verdict ------------------------------------------------------
 
 #: A desirable criterion that the qssa_ok pair fails: erro_max_rel in C is 0,24695, against
-#: the same 0,05 limit that NRMSE passes (tests/fixtures/README.md, and question 18 of
-#: docs/questoes-em-aberto.md). It is the real case the three levels exist for.
+#: the same 0,05 limit that NRMSE passes (tests/fixtures/README.md). It is the real case
+#: the three levels exist for.
 DESEJAVEL_QUE_FALHA = """
   - metrica: erro_max_rel
     limite: 0.05
@@ -449,7 +449,7 @@ def test_two_levels_report_the_same_run_as_approved(tmp_path: Path) -> None:
     assert resultado.porcentagem == pytest.approx(200 / 3)
 
 
-# --- qualitative criteria end to end (issue #18) -----------------------------
+# --- qualitative criteria end to end ------------------------------------------
 
 #: From tests/fixtures/README.md: the aggregation pair misses the equilibrium by 0.36%.
 ERRO_NO_EQUILIBRIO = 0.00362
@@ -528,8 +528,7 @@ def test_the_readable_report_shows_the_equilibrium_and_the_eigenvalues(
     resultado = reducheck.verificar(prepare(tmp_path, "config_qualitativo.yaml"))
     markdown = (tmp_path / "resultados" / "relatorio.md").read_text(encoding="utf-8")
 
-    # The qualitative tables live in the "Longo prazo" section since the report was split
-    # by question.
+    # The qualitative tables live in the "Longo prazo" section of the report.
     assert "## Longo prazo" in markdown
     assert "### Equilíbrio e estabilidade" in markdown
     assert "Autovalores dominantes" in markdown

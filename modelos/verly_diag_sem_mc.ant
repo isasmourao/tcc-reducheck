@@ -1,26 +1,17 @@
-// Verly et al. (2024) - DIAGNOSTIC model A: original without Mc.
+// Verly et al. (2024) - diagnostic model: the original without Mc.
 //
-// NOT a simplification (simplifying is out of the scope of the TCC): a test to
-// separate the causes of the rejection of simplification 1, which makes two
-// changes to the original: (1) removes Cm, with F1*Cm in Cb and k_3*Cm in C2,
-// and adds the source E2 in Cb; (2) removes Mc. (Until 2026-11-13 it also used
-// the C1 of the April note; question 35 of docs/questoes-em-aberto.md.)
-// Mc only appears in its own equation, so removing it changes no other variable.
-//
-// Built from modelos/verly_original.ant, not from verly_simp1.ant. Differences
-// from the original, and nothing else:
-//
-//   * the equation and the initial condition of Mc, and its parameters p_cs,
-//     q_cd1 and q_cd2 (used nowhere else);
-//
-// Results in estudo_de_caso/NOTAS.md, section "Diagnóstico: remover só Mc".
+// Not a simplification under test: it isolates the effect of removing Mc,
+// one of the two changes made by simplification 1. Built from
+// modelos/verly_original.ant; the only differences are the removal of the
+// equation and initial condition of Mc and of its parameters p_cs, q_cd1 and
+// q_cd2, which appear nowhere else.
 
 model verly_diag_sem_mc
 
-  // --- Parameters (same names and values as in `bonerepair`) --------------
+  // --- Parameters
   ke_1  = 3.0;
   ke_2  = 3.0;
-  a_ed  = 4.71e6;    // declared in the original code but never used (see aed)
+  a_ed  = 4.71e6;    // unused; RD uses aed
   d_o   = 0.156;
   k_12  = 0.075;
   k_21  = 0.005;
@@ -37,7 +28,7 @@ model verly_diag_sem_mc
   d_b   = 0.15;
   p_bs  = 0.00000005;
   q_bd  = 0.00000005;
-  aed   = 4.71e6;    // the one actually passed to RD in the original code
+  aed   = 4.71e6;
   kmax  = 0.015;
   Mmax  = 6.0e5;
   k_01  = 0.55;
@@ -56,15 +47,13 @@ model verly_diag_sem_mc
   ae2   = 0.5;
   de2   = 0.03;
 
-  // In the original code E2max is the argument `E2_max` of `bonerepair`, and
-  // the script always calls it with the initial value of E2 (0.060 in the
-  // first run, 0.019 in the second). This model reproduces the first run.
+  // E2max is the initial value of E2 (premenopause scenario).
   E2max = 0.060;
 
-  // --- Auxiliary functions (same names as in the original code) -----------
+  // --- Auxiliary functions
   M  := Mo + M1 + M2;                                  // total macrophages
   RD := D / (aed + D);                                 // phagocytosis rate
-  RM := kmax * (1 - M / Mmax);                         // migration of Mo
+  RM := kmax * (1 - M / Mmax) * D;                     // migration of Mo
   G1 := k_01 * (C1 / (a_01 + C1));                     // Mo -> M1
   G2 := k_02 * (C2 / (a_02 + C2));                     // Mo -> M2
   H1 := a_12 / (a_12 + C2);                            // inhibition by C2
@@ -73,7 +62,7 @@ model verly_diag_sem_mc
   F1 := dm * (amb1 / (amb1 + C1));                     // Cm -> Cb
   Ab := kpb * (apb / (apb + C1));                      // proliferation of Cb
 
-  // --- Equations (one per state variable) ---------------------------------
+  // --- Equations (one per state variable)
   D'  = -RD * (ke_1 * M1 + ke_2 * M2);
   Mo' = RM - G1 * Mo - G2 * Mo - (d_o * Mo);
   M1' = G1 * Mo + (k_21 * M2) - (k_12 * M1) - (d_1 * M1);
@@ -81,11 +70,11 @@ model verly_diag_sem_mc
   C1' = H1 * (k_o * D + k_1 * M1) - (d_c1 * C1) * E2;
   C2' = H2 * (k_2 * M2 + k_3 * Cm) * E2 - (d_c2 * C2);
   Cm' = Am * Cm * (1 - (Cm / K_lm)) - (F1 * Cm);
-  Cb' = Ab * Cb * (1 - (Cb / k_lb)) + (F1 * Cm) - (d_b * Cb);
+  Cb' = Ab * Cb * (1 - Cb) / k_lb + (F1 * Cm) - (d_b * Cb);
   Mb' = (p_bs - (q_bd * Mb)) * Cb;
   E2' = ((E2max - E2) / E2max) * ae2 * E2 - de2 * E2;
 
-  // --- Initial conditions (same values as in the original script) ---------
+  // --- Initial conditions
   D  = 1000000.0;
   Mo = 4000.0;
   M1 = 0.0;

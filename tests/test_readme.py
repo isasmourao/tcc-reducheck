@@ -1,6 +1,6 @@
 """The README is executable documentation: these tests run what it tells people to run.
 
-Issue #21: whoever reads only the README has to be able to verify a simplification, so the
+Whoever reads only the README has to be able to verify a simplification, so the
 five-minute example, the configuration reference and the "add a metric" recipe are checked
 here against the code, and a change in either side breaks the build instead of the README.
 """

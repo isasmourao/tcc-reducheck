@@ -1,13 +1,8 @@
 // NLRP3 inflammasome activation driven by nuclear NF-kB.
 //
-// Faithful transcription of `dinamica_nlrp3` from
-// referencia/nlrp3/nlrp3_original.ipynb (Google Colab notebook
-// 1rWdxS2aI9BPARkIULzG4vDL5ztHCElSi, downloaded on 2026-11-04).
-//
-// The names of the parameters, of the state variables and of the auxiliary
-// functions are exactly the ones used in the notebook. Nothing was
-// simplified or "fixed" here: the open questions raised while reading the
-// code are listed in referencia/nlrp3/duvidas.md.
+// Transcription of `dinamica_nlrp3` from
+// referencia/nlrp3/nlrp3_original.ipynb. Names and values of parameters,
+// state variables and auxiliary functions are the ones used in the notebook.
 //
 // Time is in minutes (the notebook plots label the axis "Minutos").
 //
@@ -61,13 +56,9 @@ model nlrp3_original
 
   // --- Input: nuclear NF-kB as an explicit function of time ---------------
   // `nfkbn(t)` in the notebook: 0.25 at t = 0, the log-normal pulse otherwise.
-  // The notebook's t = 0 branch only avoids numpy's warning on log(0). It is
-  // not written as a piecewise here because libRoadRunner's CVODE refuses to
-  // start with that piecewise and c = 1000 ("Initial ewt has component(s)
-  // equal to zero"). Without it, at t = 0 IEEE arithmetic gives
-  // ln(0) = -inf, exp(-inf) = 0 and nfkbn = nfkb0 = 0.25, the same value as
-  // the notebook's branch (and its limit as t -> 0), so nothing changes.
-  // See referencia/nlrp3/duvidas.md, item 1.
+  // Written without a piecewise: CVODE fails to start with it ("Initial ewt
+  // has component(s) equal to zero"). At t = 0, ln(0) = -inf gives
+  // nfkbn = nfkb0 = 0.25, the same value as the notebook's t = 0 branch.
   nfkbn := S1 * h * exp(-(ln(time / tau))^2 / s) + nfkb0;
 
   // --- Auxiliary terms (written inline in the notebook) -------------------

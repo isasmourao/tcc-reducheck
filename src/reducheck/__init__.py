@@ -1,8 +1,8 @@
 """ReduCheck: verify whether a simplified ODE model is faithful to the original one.
 
-The whole library is used through :func:`verificar`, which runs the pipeline described in
-``docs/produto.md``: read the configuration, simulate both models under identical conditions,
-map the variables, measure the metrics, decide the verdict and write the report.
+The library is used through :func:`verificar`, which runs the whole pipeline: read the
+configuration, simulate both models under identical conditions, map the variables, measure
+the metrics, decide the verdict and write the report.
 """
 
 from __future__ import annotations
@@ -161,8 +161,7 @@ def _analisar_qualitativo(
     """Analyse both models qualitatively, and only when some criterion asks for it.
 
     Finding the equilibrium can mean integrating far past the declared horizon, so a
-    configuration that does not declare a qualitative criterion does not pay for it. This
-    is also the answer to "can I switch it off": declaring the criterion is switching it on.
+    configuration that does not declare a qualitative criterion does not pay for it.
     """
     pedidos = [
         criterio

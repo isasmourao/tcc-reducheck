@@ -4,10 +4,8 @@
 #     reducheck verificar exemplos/config_exemplo.yaml
 #
 # Todos os caminhos são relativos a ESTE arquivo.
-# Os campos marcados com "(ainda não suportado)" já são aceitos pelo esquema, para o
-# formato do arquivo não mudar mais, mas a biblioteca para com uma mensagem explícita se
-# você usá-los nesta versão: preferimos recusar a rodar a dar um veredito que não
-# corresponde ao que foi pedido.
+# Os campos marcados com "(ainda não suportado)" são aceitos pelo esquema, mas a biblioteca
+# para com uma mensagem explícita se forem usados nesta versão.
 
 # Versão do formato deste arquivo. Hoje só existe a 1.
 versao: 1
@@ -20,9 +18,11 @@ modelos:
 # Condições de simulação. Valem para os DOIS modelos, sempre iguais: é isso que torna as
 # trajetórias comparáveis ponto a ponto.
 simulacao:
-  t_inicio: 0            # opcional (padrão: 0)
-  t_fim: 40              # na unidade de tempo do modelo
-  pontos: 401            # pontos de saída, contando as duas pontas (mínimo 2)
+  # Os tempos estão na unidade de tempo dos modelos (a do SBML): dias, minutos, etc.
+  t_inicio: 0            # opcional (padrão: 0) — instante inicial
+  t_fim: 40              # instante final, na unidade de tempo do modelo
+  pontos: 401            # instantes salvos entre t_inicio e t_fim, contando as duas pontas
+                         # (mínimo 2); aqui, um ponto a cada 0,1 unidade de tempo
   solver: cvode          # opcional (padrão: cvode; é o único disponível)
   tol_relativa: 1e-8     # opcional (padrão: 1e-8)
   tol_absoluta: 1e-10    # opcional (padrão: 1e-10)
@@ -102,14 +102,13 @@ criterios:
   # - metrica: nrmse
   #   limite: 0.05
   #   variaveis: core
-  # As duas análises qualitativas (issue #18). Declarar o critério é o que as liga; sem
+  # As duas análises qualitativas. Declarar o critério é o que as liga; sem
   # eles, nada de equilíbrio é calculado. 'equilibrio' compara cada variável mapeada no
   # equilíbrio e precisa de limite e de variáveis, como uma métrica; 'estabilidade_local' é
   # um item único sobre o modelo inteiro, sem limite e sem variáveis, e passa quando os dois
   # modelos recebem a mesma classificação (estável, instável ou marginal).
-  # Atenção: achar o equilíbrio pode exigir integrar muito além de 't_fim' — no modelo da
-  # Verly, um milhão de vezes mais —, e nesse caso o relatório diz em que instante ele foi
-  # alcançado. Um critério qualitativo fala do longo prazo, não da janela simulada.
+  # Achar o equilíbrio pode exigir integrar muito além de 't_fim'; nesse caso o relatório
+  # diz em que instante ele foi alcançado. Um critério qualitativo fala do longo prazo, não da janela simulada.
   # - metrica: equilibrio
   #   limite: 0.05        # erro relativo entre os dois equilíbrios, por variável
   #   variaveis: core

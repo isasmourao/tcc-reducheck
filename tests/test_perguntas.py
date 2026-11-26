@@ -1,9 +1,9 @@
-"""The two questions of a verification: trajectory and long run (2026-11-04).
+"""The two questions of a verification: trajectory and long run.
 
 A run answers "does the simplified model take the same path inside the simulated window?"
 and, when qualitative criteria are declared, "do the two models stop at the same place, in
 the same way?". The report counts the two apart, in tabs, and reads them together, because
-a single percentage hid that Verly's simplification 1 misses the path and reaches the same
+a single percentage would hide that Verly's simplification 1 misses the path and reaches the same
 equilibrium (`C2` failed every trajectory metric and passed the equilibrium).
 """
 

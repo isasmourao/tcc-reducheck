@@ -1,21 +1,15 @@
 """Simulate both models under identical time grid, solver and tolerances.
 
-Every simulation goes through :func:`simular`, which takes the same
-:class:`~reducheck.config.Simulacao` for both models. That is what makes the two
-trajectories comparable point by point: the caller cannot accidentally give one model a
-different horizon, solver or tolerance.
-
-Two things this module does besides simulating, both of them about not reporting a number
-that means less than it looks like:
+Both models are simulated through :func:`simular` with the same
+:class:`~reducheck.config.Simulacao`, so the two trajectories are comparable point by point.
 
 * :func:`ruido_numerico` runs the original a second time with tolerances
   :data:`FATOR_DE_RUIDO` times looser and measures the NRMSE between the two runs. That is
   the *floor* of the comparison -- error the solver alone produces -- and a limit close to
-  it is not measuring the reduction (capability S3).
+  it is not measuring the reduction.
 * a simulation that fails, that produces NaN/infinity, or that drives a variable negative
   when the variables are declared non-negative stops with :class:`ErroDeSimulacao`, naming
-  the variable and the instant. A broken integration must not reach the metrics, because
-  there it would turn into a verdict.
+  the variable and the instant, so a broken integration never reaches the metrics.
 """
 
 from __future__ import annotations
@@ -111,7 +105,7 @@ class RuidoNumerico:
         return max(self.por_variavel.values(), default=0.0)
 
     def resumo(self) -> str:
-        """One line for the report, in the form ``docs/produto.md`` shows."""
+        """Return the one-line summary of the noise for the report."""
         if not self.por_variavel:
             return (
                 f"Ruído numérico de referência: não foi possível medir em nenhuma variável "
@@ -132,11 +126,10 @@ def preparar(
 ) -> roadrunner.RoadRunner:
     """Load the model, apply the overrides and set the solver and its tolerances.
 
-    Everything that makes two runs comparable happens here, in one place: both models of a
-    comparison go through this function with the same :class:`~reducheck.config.Simulacao`.
-    Public because the qualitative analysis (:mod:`reducheck.qualitative`) needs the loaded
-    model itself, and not a table of trajectories -- it asks it for rates of change and for
-    the Jacobian -- and it has to ask under exactly the same conditions the metrics saw.
+    Both models of a comparison go through this function with the same
+    :class:`~reducheck.config.Simulacao`. Public because the qualitative analysis
+    (:mod:`reducheck.qualitative`) needs the loaded model itself, under the same conditions
+    the metrics saw.
 
     ``variaveis``, when given, are required to exist in the model before anything else
     happens, so a typo is a configuration error and not an empty column.
@@ -238,11 +231,9 @@ def ruido_numerico(
 def avisos_de_ruido(ruido: RuidoNumerico, configuracao: Configuracao) -> tuple[str, ...]:
     """Warn about every threshold that is not at least :data:`MARGEM_SOBRE_O_RUIDO` × the noise.
 
-    A warning, never a failure: the threshold is the user's decision, and ``docs/produto.md``
-    asks the library to flag a risky choice without stopping. The noise is an NRMSE, so for a
-    criterion measured in another scale (``erro_max_abs``, in the unit of the variable) the
-    comparison is only indicative -- the message says which metric it is about so the reader
-    can tell (see ``docs/questoes-em-aberto.md``).
+    A warning, never a failure: the threshold is the user's decision. The noise is an NRMSE,
+    so for a criterion measured in another scale (``erro_max_abs``, in the unit of the
+    variable) the comparison is only indicative; the message names the metric.
     """
     avisos: list[str] = []
     for indice, criterio in enumerate(configuracao.criterios):
@@ -289,8 +280,8 @@ def unidade_de_tempo(caminho_sbml: Path | str) -> str | None:
     """Return the time unit the SBML model declares, or ``None`` when it declares none.
 
     Only used to label the time axis of the plots. libRoadRunner does not expose the
-    attribute, so it is read from the file; a model that leaves ``timeUnits`` out (the
-    usual case, including the toy models here) gets a generic label instead of a guess.
+    attribute, so it is read from the file; a model that leaves ``timeUnits`` out gets a
+    generic label instead of a guess.
     """
     try:
         raiz = ElementTree.parse(str(caminho_sbml)).getroot()
@@ -385,12 +376,10 @@ def _conferir_nao_negativas(
 
     "Negative" means below the accuracy the solver itself claims for that variable:
     ``tol_absoluta + tol_relativa · max|x|``, which is the weight CVODE controls its local
-    error with, taken over the whole series. A stricter threshold -- ``tol_absoluta`` alone --
-    was tried first and flags healthy runs: a variable that decays towards zero undershoots
-    it by accumulation (in the toy pair ``qssa_ok``, A reaches -1.0e-10 with
-    ``tol_absoluta = 1e-10``), because local error control is not a global bound. Below the
-    threshold the value is indistinguishable from zero for the integration that produced it;
-    above it, the sign change is real.
+    error with, taken over the whole series. ``tol_absoluta`` alone would flag healthy runs:
+    a variable that decays towards zero can undershoot it by accumulation, because local
+    error control is not a global bound. Below the threshold the value is indistinguishable
+    from zero for the integration that produced it; above it, the sign change is real.
     """
     escala = np.max(np.abs(trajetorias.estados), axis=0)
     limiar = -(condicoes.tol_absoluta + condicoes.tol_relativa * escala)

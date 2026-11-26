@@ -5,9 +5,6 @@
 #
 # Mesmos modelos, simulação e variáveis de `estudo_de_caso/simp1.yaml`; o que muda são os
 # critérios. Aqui cada limite vem de um artigo, e o comentário de cada critério diz de qual.
-# Os limites de `simp1.yaml` (convenção do TCC, ainda com a orientadora) não foram tocados.
-#
-# Nenhum limite foi ajustado depois de ver o resultado.
 
 versao: 1
 
@@ -15,11 +12,12 @@ modelos:
   original: ../modelos/verly_original.xml
   simplificado: ../modelos/verly_simp1.xml
 
-# Igual a `estudo_de_caso/simp1.yaml`: 720 dias, 1000 pontos (TCC I, seção 4).
+# Igual a `estudo_de_caso/simp1.yaml`. Tempo em DIAS: de 0 a 720 dias, com 1000 instantes
+# salvos (contando as duas pontas).
 simulacao:
-  t_inicio: 0
-  t_fim: 720
-  pontos: 1000
+  t_inicio: 0          # dia inicial
+  t_fim: 720           # dia final: 720 dias (cerca de 2 anos)
+  pontos: 1000         # instantes salvos de 0 a 720 dias (um a cada ~0,72 dia)
   solver: cvode
   tol_relativa: 1e-8
   tol_absoluta: 1e-10
@@ -86,7 +84,6 @@ criterios:
 
   # Limites em dois níveis, como Tillil et al. (PAGE 2024): 10% na saída e 50% em todos
   # os estados. Aqui o nível de 50% vai para as variáveis que não são core.
-  # [VERIFICAR: a fórmula exata do erro no pôster]
   - metrica: erro_integral
     limite: 0.50
     variaveis: [D, Mo, M1, M2]
@@ -106,16 +103,13 @@ criterios:
     variaveis: core
     obrigatorio: false
 
-  # erro_l2_rel (Vejchodský, 2014) fica SEM critério: a literatura não dá limite, e
-  # inventar um número aqui seria pior do que não ter. Os valores dele aparecem só para
-  # comparação, num script à parte. Se um dia houver fonte, seria assim:
+  # erro_l2_rel (Vejchodský, 2014) fica sem critério: a literatura não dá limite.
   # - metrica: erro_l2_rel
   #   limite: ???
   #   variaveis: core
 
   # --- Longo prazo: como em simp1.yaml ----------------------------------------
-  # O limite de 0,05 do equilíbrio é convenção do TCC (sem limite na literatura), copiado
-  # de simp1.yaml para que as duas configurações respondam a mesma pergunta de longo prazo.
+  # O limite de 0,05 do equilíbrio é o mesmo de simp1.yaml (a literatura não dá limite).
   - metrica: equilibrio
     limite: 0.05
     variaveis: core

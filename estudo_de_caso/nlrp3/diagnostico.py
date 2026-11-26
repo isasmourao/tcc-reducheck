@@ -1,6 +1,6 @@
 """Diagnose why the simplified NLRP3 model fails each criterion.
 
-Separates the possible causes of a failed criterion in Julia's test model:
+Separates the possible causes of a failed criterion in the NLRP3 test model:
 values close to zero inflating a relative metric, delays in the cascade, and
 the effect of the recalibrated parameter ``novodelta1``. The numbers are
 recorded in ``estudo_de_caso/nlrp3/NOTAS.md`` (section "Diagnóstico").

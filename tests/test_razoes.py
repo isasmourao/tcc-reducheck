@@ -1,4 +1,4 @@
-"""Reasons of the failures and warnings about misleading metrics (issue #19, T15).
+"""Reasons of the failures and warnings about misleading metrics.
 
 Every series here is built by hand, so where the error is -- only at the start, only at the
 end, spread out, in a single point -- is known before anything is computed.

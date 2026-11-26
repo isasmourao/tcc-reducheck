@@ -72,7 +72,7 @@ PAIR_MODELS = sorted(
     nome for pair in PAIRS for nome in (pair.original, pair.simplified)
 )
 
-#: Models with no simplified counterpart, used only to exercise a broken run (issue #12):
+#: Models with no simplified counterpart, used only to exercise a broken run:
 #: ``negativa`` drives a species below zero, ``divergente`` blows up and the solver fails.
 SINGLE_MODELS = ("divergente", "negativa")
 

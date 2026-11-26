@@ -1,23 +1,23 @@
-// Verly et al. (2024) - bone remodeling during menopause.
+// Verly et al. (2024) - bone remodeling during menopause, original model.
 //
-// Faithful transcription of `bonerepair` from
-// referencia/bone_estradiol.py (repository isasmourao/TCC-bone_estradiol,
-// commit 777a213b74a935b9269aa951a2ccb3244602cf20).
+// 11 state variables: D, Mo, M1, M2, C1, C2, Cm, Cb, Mc, Mb, E2. Parameter,
+// variable and function names follow `bonerepair` in the original code
+// (referencia/bone_estradiol.py). Two equations follow the dissertation
+// instead of that code:
 //
-// The names of the parameters, of the state variables and of the auxiliary
-// functions are exactly the ones used in the original code. Nothing was
-// simplified or "fixed" here: the open questions raised while reading the
-// code are listed in referencia/duvidas.md.
+//   * RM = kmax * (1 - M / Mmax) * D (the code omits the factor D);
+//   * the logistic term of Cb is Ab * Cb * (1 - Cb) / k_lb (the code uses
+//     Ab * Cb * (1 - Cb / k_lb)).
 //
 // The state variables are plain ODE variables (rate rules), not species in a
 // compartment, so that no compartment volume scales the equations.
 
 model verly_original
 
-  // --- Parameters (same names and values as in `bonerepair`) --------------
+  // --- Parameters
   ke_1  = 3.0;
   ke_2  = 3.0;
-  a_ed  = 4.71e6;    // declared in the original code but never used (see aed)
+  a_ed  = 4.71e6;    // unused; RD uses aed
   d_o   = 0.156;
   k_12  = 0.075;
   k_21  = 0.005;
@@ -37,7 +37,7 @@ model verly_original
   q_cd2 = 0.000002;
   p_bs  = 0.00000005;
   q_bd  = 0.00000005;
-  aed   = 4.71e6;    // the one actually passed to RD in the original code
+  aed   = 4.71e6;
   kmax  = 0.015;
   Mmax  = 6.0e5;
   k_01  = 0.55;
@@ -56,15 +56,13 @@ model verly_original
   ae2   = 0.5;
   de2   = 0.03;
 
-  // In the original code E2max is the argument `E2_max` of `bonerepair`, and
-  // the script always calls it with the initial value of E2 (0.060 in the
-  // first run, 0.019 in the second). This model reproduces the first run.
+  // E2max is the initial value of E2 (premenopause scenario).
   E2max = 0.060;
 
-  // --- Auxiliary functions (same names as in the original code) -----------
+  // --- Auxiliary functions
   M  := Mo + M1 + M2;                                  // total macrophages
   RD := D / (aed + D);                                 // phagocytosis rate
-  RM := kmax * (1 - M / Mmax);                         // migration of Mo
+  RM := kmax * (1 - M / Mmax) * D;                     // migration of Mo
   G1 := k_01 * (C1 / (a_01 + C1));                     // Mo -> M1
   G2 := k_02 * (C2 / (a_02 + C2));                     // Mo -> M2
   H1 := a_12 / (a_12 + C2);                            // inhibition by C2
@@ -73,7 +71,7 @@ model verly_original
   F1 := dm * (amb1 / (amb1 + C1));                     // Cm -> Cb
   Ab := kpb * (apb / (apb + C1));                      // proliferation of Cb
 
-  // --- Equations (one per state variable) ---------------------------------
+  // --- Equations (one per state variable)
   D'  = -RD * (ke_1 * M1 + ke_2 * M2);
   Mo' = RM - G1 * Mo - G2 * Mo - (d_o * Mo);
   M1' = G1 * Mo + (k_21 * M2) - (k_12 * M1) - (d_1 * M1);
@@ -81,12 +79,12 @@ model verly_original
   C1' = H1 * (k_o * D + k_1 * M1) - (d_c1 * C1) * E2;
   C2' = H2 * (k_2 * M2 + k_3 * Cm) * E2 - (d_c2 * C2);
   Cm' = Am * Cm * (1 - (Cm / K_lm)) - (F1 * Cm);
-  Cb' = Ab * Cb * (1 - (Cb / k_lb)) + (F1 * Cm) - (d_b * Cb);
+  Cb' = Ab * Cb * (1 - Cb) / k_lb + (F1 * Cm) - (d_b * Cb);
   Mc' = (p_cs - q_cd1 * Mc) * Cm - (q_cd2 * Mc * Cb);
   Mb' = (p_bs - (q_bd * Mb)) * Cb;
   E2' = ((E2max - E2) / E2max) * ae2 * E2 - de2 * E2;
 
-  // --- Initial conditions (same values as in the original script) ---------
+  // --- Initial conditions
   D  = 1000000.0;
   Mo = 4000.0;
   M1 = 0.0;

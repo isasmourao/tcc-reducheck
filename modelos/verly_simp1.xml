@@ -209,6 +209,7 @@
                 <ci> Mmax </ci>
               </apply>
             </apply>
+            <ci> D </ci>
           </apply>
         </math>
       </assignmentRule>
@@ -375,18 +376,18 @@
               <plus/>
               <ci> E2 </ci>
               <apply>
-                <times/>
-                <ci> Ab </ci>
-                <ci> Cb </ci>
+                <divide/>
                 <apply>
-                  <minus/>
-                  <cn type="integer"> 1 </cn>
+                  <times/>
+                  <ci> Ab </ci>
+                  <ci> Cb </ci>
                   <apply>
-                    <divide/>
+                    <minus/>
+                    <cn type="integer"> 1 </cn>
                     <ci> Cb </ci>
-                    <ci> k_lb </ci>
                   </apply>
                 </apply>
+                <ci> k_lb </ci>
               </apply>
             </apply>
             <apply>

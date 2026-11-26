@@ -1,0 +1,391 @@
+% Equações dos modelos dos estudos de caso, transcritas de modelos/*.ant.
+%
+% Rascunho para o texto do TCC. Pacote necessário: amsmath.
+%
+% Regra seguida: cada termo e cada par de parênteses está na mesma ordem e
+% na mesma forma do arquivo .ant, para que dê para conferir linha a linha.
+% Nada foi simplificado, fatorado ou reordenado. O produto "*" do arquivo
+% vira "\cdot", "/" vira "\frac", "^" vira expoente. Exemplo: "apm * apm"
+% continua "a_{pm} \cdot a_{pm}" (não "a_{pm}^2").
+%
+% Conferência contra o SBML: para cada modelo, os parâmetros, as condições
+% iniciais, as regras de atribuição, as rate rules e as funções do .xml foram
+% comparados com os do .ant (avaliação numérica das expressões em 20 pontos
+% aleatórios). Os cinco modelos batem sem nenhuma diferença.
+%
+% Arquivos: modelos/verly_original.ant, modelos/verly_simp1.ant,
+% modelos/verly_diag_sem_mc.ant, modelos/nlrp3_original.ant,
+% modelos/nlrp3_simp.ant.
+
+% =====================================================================
+\section*{Modelo de Verly et al.: correspondência de nomes}
+% =====================================================================
+
+Variáveis de estado (nomes do texto do TCC I, seção 4.1). A condição inicial
+é a mesma nos três modelos em que a variável existe.
+
+\begin{center}
+\begin{tabular}{llrccc}
+\hline
+Arquivo & \LaTeX & Cond. inicial & Original & Simp.~1 & Diag.~sem $M_c$ \\
+\hline
+\texttt{D}  & $D$   & $1000000.0$ & x & x & x \\
+\texttt{Mo} & $M_0$ & $4000.0$    & x & x & x \\
+\texttt{M1} & $M_1$ & $0.0$       & x & x & x \\
+\texttt{M2} & $M_2$ & $0.0$       & x & x & x \\
+\texttt{C1} & $C_1$ & $0.0$       & x & x & x \\
+\texttt{C2} & $C_2$ & $0.0$       & x & x & x \\
+\texttt{Cm} & $C_m$ & $2500.0$    & x & --- & x \\
+\texttt{Cb} & $C_b$ & $0.0$       & x & x & x \\
+\texttt{Mc} & $M_c$ & $0.0$       & x & --- & --- \\
+\texttt{Mb} & $M_b$ & $0.0$       & x & x & x \\
+\texttt{E2} & $E_2$ & $0.060$     & x & x & x \\
+\hline
+\end{tabular}
+\end{center}
+
+Termos auxiliares (regras de atribuição \texttt{:=} no arquivo):
+
+\begin{center}
+\begin{tabular}{llccc}
+\hline
+Arquivo & \LaTeX & Original & Simp.~1 & Diag.~sem $M_c$ \\
+\hline
+\texttt{M}  & $M$   & x & x & x \\
+\texttt{RD} & $R_D$ & x & x & x \\
+\texttt{RM} & $R_M$ & x & x & x \\
+\texttt{G1} & $G_1$ & x & x & x \\
+\texttt{G2} & $G_2$ & x & x & x \\
+\texttt{H1} & $H_1$ & x & x & x \\
+\texttt{H2} & $H_2$ & x & x & x \\
+\texttt{Am} & $A_m$ & x & --- & x \\
+\texttt{F1} & $F_1$ & x & --- & x \\
+\texttt{Ab} & $A_b$ & x & x & x \\
+\hline
+\end{tabular}
+\end{center}
+
+% =====================================================================
+\section*{Modelo original de Verly et al. (\texttt{verly\_original.ant})}
+% =====================================================================
+
+Termos auxiliares:
+\begin{align*}
+M   &= M_0 + M_1 + M_2 \\
+R_D &= \frac{D}{a_{ed} + D} \\
+R_M &= k_{max} \cdot \left(1 - \frac{M}{M_{max}}\right) \\
+G_1 &= k_{01} \cdot \left(\frac{C_1}{a_{01} + C_1}\right) \\
+G_2 &= k_{02} \cdot \left(\frac{C_2}{a_{02} + C_2}\right) \\
+H_1 &= \frac{a_{12}}{a_{12} + C_2} \\
+H_2 &= \frac{a_{22}}{a_{22} + C_2} \\
+A_m &= k_{pm} \cdot \frac{(a_{pm} \cdot a_{pm}) + (a_{pm1} \cdot C_1)}{(a_{pm} \cdot a_{pm}) + (C_1 \cdot C_1)} \\
+F_1 &= d_m \cdot \left(\frac{a_{mb1}}{a_{mb1} + C_1}\right) \\
+A_b &= k_{pb} \cdot \left(\frac{a_{pb}}{a_{pb} + C_1}\right)
+\end{align*}
+
+Equações:
+\begin{align*}
+\frac{dD}{dt}   &= -R_D \cdot (k_{e1} \cdot M_1 + k_{e2} \cdot M_2) \\
+\frac{dM_0}{dt} &= R_M - G_1 \cdot M_0 - G_2 \cdot M_0 - (d_0 \cdot M_0) \\
+\frac{dM_1}{dt} &= G_1 \cdot M_0 + (k_{21} \cdot M_2) - (k_{12} \cdot M_1) - (d_1 \cdot M_1) \\
+\frac{dM_2}{dt} &= G_2 \cdot M_0 + (k_{12} \cdot M_1) - (k_{21} \cdot M_2) - (d_2 \cdot M_2) \\
+\frac{dC_1}{dt} &= H_1 \cdot (k_0 \cdot D + k_1 \cdot M_1) - (d_{c1} \cdot C_1) \cdot E_2 \\
+\frac{dC_2}{dt} &= H_2 \cdot (k_2 \cdot M_2 + k_3 \cdot C_m) \cdot E_2 - (d_{c2} \cdot C_2) \\
+\frac{dC_m}{dt} &= A_m \cdot C_m \cdot \left(1 - \left(\frac{C_m}{K_{lm}}\right)\right) - (F_1 \cdot C_m) \\
+\frac{dC_b}{dt} &= A_b \cdot C_b \cdot \left(1 - \left(\frac{C_b}{k_{lb}}\right)\right) + (F_1 \cdot C_m) - (d_b \cdot C_b) \\
+\frac{dM_c}{dt} &= (p_{cs} - q_{cd1} \cdot M_c) \cdot C_m - (q_{cd2} \cdot M_c \cdot C_b) \\
+\frac{dM_b}{dt} &= (p_{bs} - (q_{bd} \cdot M_b)) \cdot C_b \\
+\frac{dE_2}{dt} &= \left(\frac{E_{2,max} - E_2}{E_{2,max}}\right) \cdot a_{e2} \cdot E_2 - d_{e2} \cdot E_2
+\end{align*}
+
+% =====================================================================
+\section*{Simplificação 1 (\texttt{verly\_simp1.ant})}
+% =====================================================================
+
+Termos auxiliares ($A_m$ e $F_1$ não existem):
+\begin{align*}
+M   &= M_0 + M_1 + M_2 \\
+R_D &= \frac{D}{a_{ed} + D} \\
+R_M &= k_{max} \cdot \left(1 - \frac{M}{M_{max}}\right) \\
+G_1 &= k_{01} \cdot \left(\frac{C_1}{a_{01} + C_1}\right) \\
+G_2 &= k_{02} \cdot \left(\frac{C_2}{a_{02} + C_2}\right) \\
+H_1 &= \frac{a_{12}}{a_{12} + C_2} \\
+H_2 &= \frac{a_{22}}{a_{22} + C_2} \\
+A_b &= k_{pb} \cdot \left(\frac{a_{pb}}{a_{pb} + C_1}\right)
+\end{align*}
+
+Equações:
+\begin{align*}
+\frac{dD}{dt}   &= -R_D \cdot (k_{e1} \cdot M_1 + k_{e2} \cdot M_2) \\
+\frac{dM_0}{dt} &= R_M - G_1 \cdot M_0 - G_2 \cdot M_0 - (d_0 \cdot M_0) \\
+\frac{dM_1}{dt} &= G_1 \cdot M_0 + (k_{21} \cdot M_2) - (k_{12} \cdot M_1) - (d_1 \cdot M_1) \\
+\frac{dM_2}{dt} &= G_2 \cdot M_0 + (k_{12} \cdot M_1) - (k_{21} \cdot M_2) - (d_2 \cdot M_2) \\
+\frac{dC_1}{dt} &= H_1 \cdot (k_0 \cdot D + k_1 \cdot M_1) - (d_{c1} \cdot C_1) \cdot E_2 \\
+\frac{dC_2}{dt} &= H_2 \cdot (k_2 \cdot M_2) \cdot E_2 - (d_{c2} \cdot C_2) \\
+\frac{dC_b}{dt} &= E_2 + A_b \cdot C_b \cdot \left(1 - \left(\frac{C_b}{k_{lb}}\right)\right) - (d_b \cdot C_b) \\
+\frac{dM_b}{dt} &= (p_{bs} - (q_{bd} \cdot M_b)) \cdot C_b \\
+\frac{dE_2}{dt} &= \left(\frac{E_{2,max} - E_2}{E_{2,max}}\right) \cdot a_{e2} \cdot E_2 - d_{e2} \cdot E_2
+\end{align*}
+
+Comparação com o original, equação por equação:
+\begin{itemize}
+  \item Idênticas: $D$, $M_0$, $M_1$, $M_2$, $C_1$, $M_b$, $E_2$, e os termos
+        auxiliares $M$, $R_D$, $R_M$, $G_1$, $G_2$, $H_1$, $H_2$, $A_b$.
+  \item $C_2$: sai o termo $k_3 \cdot C_m$ de dentro do parênteses
+        ($k_2 \cdot M_2 + k_3 \cdot C_m$ vira $k_2 \cdot M_2$). Nada entra.
+  \item $C_b$: sai o termo $+ (F_1 \cdot C_m)$; entra o termo $E_2$ no início
+        da equação. Os termos $A_b \cdot C_b \cdot (1 - (C_b/k_{lb}))$ e
+        $-(d_b \cdot C_b)$ ficam iguais.
+  \item Equações removidas: $C_m$ e $M_c$ (e as condições iniciais das duas).
+  \item Termos auxiliares removidos: $A_m$ e $F_1$.
+  \item Parâmetros removidos: $k_3$, $K_{lm}$, $p_{cs}$, $q_{cd1}$, $q_{cd2}$,
+        $k_{pm}$, $a_{pm}$, $a_{pm1}$, $d_m$, $a_{mb1}$. Nenhum parâmetro novo;
+        os que ficaram têm os mesmos valores.
+\end{itemize}
+
+% =====================================================================
+\section*{Diagnóstico A: original sem $M_c$ (\texttt{verly\_diag\_sem\_mc.ant})}
+% =====================================================================
+
+Termos auxiliares: os mesmos dez do original, sem nenhuma mudança
+($M$, $R_D$, $R_M$, $G_1$, $G_2$, $H_1$, $H_2$, $A_m$, $F_1$, $A_b$).
+
+Equações:
+\begin{align*}
+\frac{dD}{dt}   &= -R_D \cdot (k_{e1} \cdot M_1 + k_{e2} \cdot M_2) \\
+\frac{dM_0}{dt} &= R_M - G_1 \cdot M_0 - G_2 \cdot M_0 - (d_0 \cdot M_0) \\
+\frac{dM_1}{dt} &= G_1 \cdot M_0 + (k_{21} \cdot M_2) - (k_{12} \cdot M_1) - (d_1 \cdot M_1) \\
+\frac{dM_2}{dt} &= G_2 \cdot M_0 + (k_{12} \cdot M_1) - (k_{21} \cdot M_2) - (d_2 \cdot M_2) \\
+\frac{dC_1}{dt} &= H_1 \cdot (k_0 \cdot D + k_1 \cdot M_1) - (d_{c1} \cdot C_1) \cdot E_2 \\
+\frac{dC_2}{dt} &= H_2 \cdot (k_2 \cdot M_2 + k_3 \cdot C_m) \cdot E_2 - (d_{c2} \cdot C_2) \\
+\frac{dC_m}{dt} &= A_m \cdot C_m \cdot \left(1 - \left(\frac{C_m}{K_{lm}}\right)\right) - (F_1 \cdot C_m) \\
+\frac{dC_b}{dt} &= A_b \cdot C_b \cdot \left(1 - \left(\frac{C_b}{k_{lb}}\right)\right) + (F_1 \cdot C_m) - (d_b \cdot C_b) \\
+\frac{dM_b}{dt} &= (p_{bs} - (q_{bd} \cdot M_b)) \cdot C_b \\
+\frac{dE_2}{dt} &= \left(\frac{E_{2,max} - E_2}{E_{2,max}}\right) \cdot a_{e2} \cdot E_2 - d_{e2} \cdot E_2
+\end{align*}
+
+Comparação com o original, equação por equação:
+\begin{itemize}
+  \item Idênticas: as dez equações restantes ($D$, $M_0$, $M_1$, $M_2$, $C_1$,
+        $C_2$, $C_m$, $C_b$, $M_b$, $E_2$) e os dez termos auxiliares.
+  \item Equação removida: $M_c$ (e a condição inicial). $M_c$ não aparece em
+        nenhuma outra equação, então nenhum termo sai de outra equação.
+  \item Parâmetros removidos: $p_{cs}$, $q_{cd1}$, $q_{cd2}$. Nenhum termo
+        e nenhum parâmetro novo.
+\end{itemize}
+
+% =====================================================================
+\section*{Parâmetros do modelo de Verly et al.}
+% =====================================================================
+
+Os valores são os mesmos em todos os modelos em que o parâmetro aparece.
+
+\begin{center}
+\begin{tabular}{llrccc}
+\hline
+Arquivo & \LaTeX & Valor & Original & Simp.~1 & Diag.~sem $M_c$ \\
+\hline
+\texttt{ke\_1}  & $k_{e1}$     & $3.0$         & x & x & x \\
+\texttt{ke\_2}  & $k_{e2}$     & $3.0$         & x & x & x \\
+\texttt{a\_ed}  & (não usado)  & $4.71\times10^{6}$ & x & x & x \\
+\texttt{aed}    & $a_{ed}$     & $4.71\times10^{6}$ & x & x & x \\
+\texttt{d\_o}   & $d_0$        & $0.156$       & x & x & x \\
+\texttt{k\_12}  & $k_{12}$     & $0.075$       & x & x & x \\
+\texttt{k\_21}  & $k_{21}$     & $0.005$       & x & x & x \\
+\texttt{d\_1}   & $d_1$        & $0.121$       & x & x & x \\
+\texttt{d\_2}   & $d_2$        & $0.163$       & x & x & x \\
+\texttt{k\_o}   & $k_0$        & $0.0000005$   & x & x & x \\
+\texttt{k\_1}   & $k_1$        & $0.0000083$   & x & x & x \\
+\texttt{d\_c1}  & $d_{c1}$     & $0.2$         & x & x & x \\
+\texttt{k\_2}   & $k_2$        & $0.00000372$  & x & x & x \\
+\texttt{k\_3}   & $k_3$        & $0.0000007$   & x & --- & x \\
+\texttt{d\_c2}  & $d_{c2}$     & $0.25$        & x & x & x \\
+\texttt{K\_lm}  & $K_{lm}$     & $1000000.0$   & x & --- & x \\
+\texttt{k\_lb}  & $k_{lb}$     & $1000000.0$   & x & x & x \\
+\texttt{d\_b}   & $d_b$        & $0.15$        & x & x & x \\
+\texttt{p\_cs}  & $p_{cs}$     & $0.000003$    & x & --- & --- \\
+\texttt{q\_cd1} & $q_{cd1}$    & $0.000003$    & x & --- & --- \\
+\texttt{q\_cd2} & $q_{cd2}$    & $0.000002$    & x & --- & --- \\
+\texttt{p\_bs}  & $p_{bs}$     & $0.00000005$  & x & x & x \\
+\texttt{q\_bd}  & $q_{bd}$     & $0.00000005$  & x & x & x \\
+\texttt{kmax}   & $k_{max}$    & $0.015$       & x & x & x \\
+\texttt{Mmax}   & $M_{max}$    & $6.0\times10^{5}$ & x & x & x \\
+\texttt{k\_01}  & $k_{01}$     & $0.55$        & x & x & x \\
+\texttt{a\_01}  & $a_{01}$     & $0.01$        & x & x & x \\
+\texttt{k\_02}  & $k_{02}$     & $0.3$         & x & x & x \\
+\texttt{a\_02}  & $a_{02}$     & $0.005$       & x & x & x \\
+\texttt{a\_12}  & $a_{12}$     & $0.025$       & x & x & x \\
+\texttt{a\_22}  & $a_{22}$     & $0.1$         & x & x & x \\
+\texttt{kpm}    & $k_{pm}$     & $0.5$         & x & --- & x \\
+\texttt{apm}    & $a_{pm}$     & $3.162$       & x & --- & x \\
+\texttt{apm1}   & $a_{pm1}$    & $13.0$        & x & --- & x \\
+\texttt{dm}     & $d_m$        & $1.0$         & x & --- & x \\
+\texttt{amb1}   & $a_{mb1}$    & $0.1$         & x & --- & x \\
+\texttt{kpb}    & $k_{pb}$     & $0.2202$      & x & x & x \\
+\texttt{apb}    & $a_{pb}$     & $10.0$        & x & x & x \\
+\texttt{ae2}    & $a_{e2}$     & $0.5$         & x & x & x \\
+\texttt{de2}    & $d_{e2}$     & $0.03$        & x & x & x \\
+\texttt{E2max}  & $E_{2,max}$  & $0.060$       & x & x & x \\
+\hline
+\end{tabular}
+\end{center}
+
+% =====================================================================
+\section*{Modelo NLRP3: correspondência de nomes}
+% =====================================================================
+
+O TCC I não tem nomes para este modelo; os nomes em \LaTeX{} abaixo são uma
+proposta. A caspase-1 é escrita $\mathrm{C1}$ (romano), para não confundir com
+a citocina $C_1$ do modelo de Verly.
+
+\begin{center}
+\begin{tabular}{lllrc}
+\hline
+Arquivo (original) & Arquivo (simplificado) & \LaTeX & Cond. inicial (orig. / simp.) & No simplificado \\
+\hline
+\texttt{NLRP3i}  & ---              & $\mathrm{NLRP3}_i$          & $0.0$ / ---   & removida \\
+\texttt{NLRP3a}  & \texttt{NLRP3a}  & $\mathrm{NLRP3}_a$          & $0.0$ / $0.0$ & x \\
+\texttt{NLRP3o}  & \texttt{NLRP3o}  & $\mathrm{NLRP3}_o$          & $0.0$ / $0.0$ & x \\
+\texttt{ASCf}    & ---              & $\mathrm{ASC}_f$            & $1.0$ / ---   & lei de conservação \\
+\texttt{ASCb}    & \texttt{ASCb}    & $\mathrm{ASC}_b$            & $0.0$ / $0.0$ & x \\
+\texttt{proC1}   & ---              & $\mathrm{proC1}$            & $1.0$ / ---   & lei de conservação \\
+\texttt{C1}      & \texttt{C1}      & $\mathrm{C1}$               & $0.0$ / $0.0$ & x \\
+\texttt{proIL1b} & \texttt{proIL1B} & $\mathrm{proIL1\beta}$      & $0.0$ / $0.0$ & x (renomeada) \\
+\texttt{IL1bc}   & ---              & $\mathrm{IL1\beta}_c$       & $0.0$ / ---   & removida \\
+\texttt{IL1be}   & \texttt{IL1Be}   & $\mathrm{IL1\beta}_e$       & $0.0$ / $0.0$ & x (renomeada) \\
+\texttt{proIL18} & ---              & $\mathrm{proIL18}$          & $1.0$ / ---   & lei de conservação \\
+\texttt{IL18c}   & \texttt{IL18c}   & $\mathrm{IL18}_c$           & $0.0$ / $0.0$ & x \\
+\texttt{IL18e}   & \texttt{IL18e}   & $\mathrm{IL18}_e$           & $0.0$ / $0.0$ & x \\
+\hline
+\end{tabular}
+\end{center}
+
+Termos auxiliares e funções (iguais nos dois modelos):
+
+\begin{center}
+\begin{tabular}{ll}
+\hline
+Arquivo & \LaTeX \\
+\hline
+\texttt{time}  & $t$ (minutos) \\
+\texttt{nfkbn} & $\mathrm{NF}_n(t)$ \\
+\texttt{hNF}   & $h_{NF}$ \\
+\texttt{hC1}   & $h_{C1}$ \\
+\texttt{sASC}  & $s_{ASC}$ \\
+\texttt{hill}  & $\mathrm{hill}$ \\
+\texttt{sinal} & $\mathrm{sinal}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+% =====================================================================
+\section*{NLRP3 original (\texttt{nlrp3\_original.ant})}
+% =====================================================================
+
+Funções:
+\begin{align*}
+\mathrm{hill}(x, K, n) &= \frac{x^{n}}{K^{n} + x^{n}} \\
+\mathrm{sinal}(\mathrm{NLRP3}_o, a, b, c) &= \frac{1}{1 + \left(\frac{\mathrm{NLRP3}_o + a}{b}\right)^{-c}}
+\end{align*}
+
+Entrada e termos auxiliares:
+\begin{align*}
+\mathrm{NF}_n(t) &= S_1 \cdot h \cdot \exp\left(\frac{-\left(\ln\left(\frac{t}{\tau}\right)\right)^{2}}{s}\right) + \mathrm{NF}_0 \\
+h_{NF}  &= \mathrm{hill}(\mathrm{NF}_n(t) - \mathrm{NF}_0,\ \mathrm{NF}_{50},\ \gamma_{NF}) \\
+h_{C1}  &= \mathrm{hill}(\mathrm{C1},\ \mathrm{C1}_{50},\ \gamma_{C1}) \\
+s_{ASC} &= \mathrm{sinal}(\mathrm{NLRP3}_o,\ a,\ b,\ c)
+\end{align*}
+
+Equações:
+\begin{align*}
+\frac{d\,\mathrm{NLRP3}_i}{dt} &= \alpha_1 \cdot h_{NF} - S_2 \cdot k_1 \cdot \mathrm{NLRP3}_i - \delta_1 \cdot \mathrm{NLRP3}_i \\
+\frac{d\,\mathrm{NLRP3}_a}{dt} &= S_2 \cdot k_1 \cdot \mathrm{NLRP3}_i - k_2 \cdot (\mathrm{NLRP3}_a^{2}) - \delta_1 \cdot \mathrm{NLRP3}_a \\
+\frac{d\,\mathrm{NLRP3}_o}{dt} &= k_2 \cdot (\mathrm{NLRP3}_a^{2}) \\
+\frac{d\,\mathrm{ASC}_f}{dt} &= -k_3 \cdot s_{ASC} \cdot \mathrm{ASC}_f \\
+\frac{d\,\mathrm{ASC}_b}{dt} &= k_3 \cdot s_{ASC} \cdot \mathrm{ASC}_f \\
+\frac{d\,\mathrm{proC1}}{dt} &= -k_4 \cdot \mathrm{ASC}_b \cdot \mathrm{proC1} \\
+\frac{d\,\mathrm{C1}}{dt} &= k_4 \cdot \mathrm{ASC}_b \cdot \mathrm{proC1} \\
+\frac{d\,\mathrm{proIL1\beta}}{dt} &= (h_{NF} \cdot \alpha_3) - (h_{C1} \cdot \alpha_4 \cdot \mathrm{proIL1\beta}) - (\delta_2 \cdot \mathrm{proIL1\beta}) \\
+\frac{d\,\mathrm{IL1\beta}_c}{dt} &= (h_{C1} \cdot \alpha_4 \cdot \mathrm{proIL1\beta}) - (k_5 \cdot G \cdot \mathrm{IL1\beta}_c) - (\delta_2 \cdot \mathrm{IL1\beta}_c) \\
+\frac{d\,\mathrm{IL1\beta}_e}{dt} &= (k_5 \cdot G \cdot \mathrm{IL1\beta}_c) \\
+\frac{d\,\mathrm{proIL18}}{dt} &= -(\alpha_5 \cdot h_{C1}) \cdot \mathrm{proIL18} \\
+\frac{d\,\mathrm{IL18}_c}{dt} &= (\alpha_5 \cdot h_{C1} \cdot \mathrm{proIL18}) - (G \cdot \mathrm{IL18}_c) \\
+\frac{d\,\mathrm{IL18}_e}{dt} &= G \cdot \mathrm{IL18}_c
+\end{align*}
+
+% =====================================================================
+\section*{NLRP3 simplificado (\texttt{nlrp3\_simp.ant})}
+% =====================================================================
+
+Funções, entrada e termos auxiliares: iguais aos do original ($\mathrm{hill}$,
+$\mathrm{sinal}$, $\mathrm{NF}_n(t)$, $h_{NF}$, $h_{C1}$, $s_{ASC}$).
+
+Equações:
+\begin{align*}
+\frac{d\,\mathrm{NLRP3}_a}{dt} &= \alpha_1 \cdot h_{NF} - (k_2 \cdot (\mathrm{NLRP3}_a)^{2}) - (\delta_1^{novo} \cdot \mathrm{NLRP3}_a) \\
+\frac{d\,\mathrm{NLRP3}_o}{dt} &= (k_2 \cdot (\mathrm{NLRP3}_a)^{2}) \\
+\frac{d\,\mathrm{ASC}_b}{dt} &= k_3 \cdot s_{ASC} \cdot (1 - \mathrm{ASC}_b) \\
+\frac{d\,\mathrm{C1}}{dt} &= k_4 \cdot \mathrm{ASC}_b \cdot (1 - \mathrm{C1}) \\
+\frac{d\,\mathrm{IL18}_c}{dt} &= \alpha_5 \cdot h_{C1} \cdot (1 - (\mathrm{IL18}_c + \mathrm{IL18}_e)) - G^{novo} \cdot \mathrm{IL18}_c \\
+\frac{d\,\mathrm{IL18}_e}{dt} &= G^{novo} \cdot \mathrm{IL18}_c \\
+\frac{d\,\mathrm{proIL1\beta}}{dt} &= (h_{NF} \cdot \alpha_3) - (h_{C1} \cdot \alpha_4 \cdot \mathrm{proIL1\beta}) - (\delta_2 \cdot \mathrm{proIL1\beta}) \\
+\frac{d\,\mathrm{IL1\beta}_e}{dt} &= j \cdot (h_{C1} \cdot \alpha_4 \cdot \mathrm{proIL1\beta})
+\end{align*}
+
+Leis de conservação. No arquivo elas \emph{não} são regras de atribuição:
+$\mathrm{ASC}_f$, $\mathrm{proC1}$ e $\mathrm{proIL18}$ não existem no
+simplificado, e a fórmula de cada uma aparece substituída dentro da equação
+que a usava. As fórmulas estão no comentário do arquivo (linha 15):
+\begin{align*}
+\mathrm{ASC}_f  &= 1 - \mathrm{ASC}_b \\
+\mathrm{proC1}  &= 1 - \mathrm{C1} \\
+\mathrm{proIL18} &= 1 - \mathrm{IL18}_c - \mathrm{IL18}_e
+\end{align*}
+No original as três somas são constantes
+($\frac{d}{dt}(\mathrm{ASC}_f + \mathrm{ASC}_b) = 0$,
+$\frac{d}{dt}(\mathrm{proC1} + \mathrm{C1}) = 0$,
+$\frac{d}{dt}(\mathrm{proIL18} + \mathrm{IL18}_c + \mathrm{IL18}_e) = 0$),
+e o valor $1$ vem das condições iniciais do original
+($\mathrm{ASC}_f(0) = \mathrm{proC1}(0) = \mathrm{proIL18}(0) = 1$, as demais $0$).
+
+% =====================================================================
+\section*{Parâmetros do modelo NLRP3}
+% =====================================================================
+
+\begin{center}
+\begin{tabular}{lllrr}
+\hline
+Arquivo (orig.) & Arquivo (simp.) & \LaTeX & Original & Simplificado \\
+\hline
+\texttt{nfkb0}   & \texttt{nfkb0}      & $\mathrm{NF}_0$      & $0.25$   & $0.25$ \\
+\texttt{gammaNF} & \texttt{gammaNF}    & $\gamma_{NF}$        & $2$      & $2$ \\
+\texttt{NF\_50}  & \texttt{NF\_50}     & $\mathrm{NF}_{50}$   & $0.3$    & $0.3$ \\
+\texttt{h}       & \texttt{h}          & $h$                  & $0.55$   & $0.55$ \\
+\texttt{s}       & \texttt{s}          & $s$                  & $0.8$    & $0.8$ \\
+\texttt{tau}     & \texttt{tau}        & $\tau$               & $10$     & $10$ \\
+\texttt{S1}      & \texttt{S1}         & $S_1$                & $1$      & $1$ \\
+\texttt{alpha1}  & \texttt{alpha1}     & $\alpha_1$           & $0.07$   & $0.07$ \\
+\texttt{S2}      & \texttt{S2}         & $S_2$                & $1$      & $1$ (não usado) \\
+\texttt{k1}      & \texttt{k1}         & $k_1$                & $0.7$    & $0.7$ (não usado) \\
+\texttt{delta1}  & ---                 & $\delta_1$           & $0.002$  & --- \\
+---              & \texttt{novodelta1} & $\delta_1^{novo}$    & ---      & $0.0025$ \\
+\texttt{k2}      & \texttt{k2}         & $k_2$                & $1$      & $1$ \\
+\texttt{k3}      & \texttt{k3}         & $k_3$                & $0.04$   & $0.04$ \\
+\texttt{a}       & \texttt{a}          & $a$                  & $1$      & $1$ \\
+\texttt{b}       & \texttt{b}          & $b$                  & $2$      & $2$ \\
+\texttt{c}       & \texttt{c}          & $c$                  & $1000$   & $1000$ \\
+\texttt{k4}      & \texttt{k4}         & $k_4$                & $0.03$   & $0.03$ \\
+\texttt{C1\_50}  & \texttt{C1\_50}     & $\mathrm{C1}_{50}$   & $0.3$    & $0.3$ \\
+\texttt{gammaC1} & \texttt{gammaC1}    & $\gamma_{C1}$        & $2$      & $2$ \\
+\texttt{G}       & ---                 & $G$                  & $0.08$   & --- \\
+---              & \texttt{Gnovo}      & $G^{novo}$           & ---      & $0.08$ \\
+\texttt{alpha3}  & \texttt{alpha3}     & $\alpha_3$           & $0.06$   & $0.06$ \\
+\texttt{alpha4}  & \texttt{alpha4}     & $\alpha_4$           & $1$      & $1$ \\
+\texttt{alpha5}  & \texttt{alpha5}     & $\alpha_5$           & $1$      & $1$ \\
+\texttt{k5}      & \texttt{k5}         & $k_5$                & $1$      & $1$ (não usado) \\
+\texttt{delta2}  & \texttt{delta2}     & $\delta_2$           & $0.004$  & $0.004$ \\
+---              & \texttt{k6}         & $k_6$                & ---      & $1$ (não usado) \\
+---              & \texttt{j}          & $j$                  & ---      & $0.7$ \\
+\hline
+\end{tabular}
+\end{center}
